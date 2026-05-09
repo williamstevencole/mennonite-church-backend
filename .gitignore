@@ -1,0 +1,56 @@
+# compiled output
+/mennonite-backend/dist
+/mennonite-backend/node_modules
+/mennonite-backend/build
+
+# Logs
+/mennonite-backend/logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+/mennonite-backend/.DS_Store
+
+# Tests
+/mennonite-backend/coverage
+/mennonite-backend/.nyc_output
+
+# IDEs and editors
+/mennonite-backend/.idea
+/mennonite-backend/.project
+/mennonite-backend/.classpath
+/mennonite-backend/.c9/
+*.launch
+/mennonite-backend/.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+/mennonite-backend/.vscode/*
+!/mennonite-backend/.vscode/settings.json
+!/mennonite-backend/.vscode/tasks.json
+!/mennonite-backend/.vscode/launch.json
+!/mennonite-backend/.vscode/extensions.json
+
+# dotenv environment variable files
+/mennonite-backend/.env
+/mennonite-backend/.env.development.local
+/mennonite-backend/.env.test.local
+/mennonite-backend/.env.production.local
+/mennonite-backend/.env.local
+
+# temp directory
+/mennonite-backend/.temp
+/mennonite-backend/.tmp
+
+# Runtime data
+/mennonite-backend/pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
