@@ -1,0 +1,565 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AuditLog {
+  id         BigInt    @id @default(autoincrement())
+  tableName  String    @map("table_name") @db.VarChar(80)
+  recordId   Int       @map("record_id")
+  operation  String    @db.VarChar(10) // CHECK ('INSERT','UPDATE','DELETE')
+  changedBy  Int?      @map("changed_by") // NULL if background process
+  changedAt  DateTime  @default(now()) @map("changed_at") @db.Timestamptz()
+  oldData    String?   @map("old_data")
+
+  changedByUser User?  @relation(fields: [changedBy], references: [id])
+
+  @@index([tableName, recordId])
+  @@index([changedAt])
+  @@index([changedBy])
+  @@map("audit_log")
+}
+
+model Department {
+  id     Int    @id @default(autoincrement())
+  name   String @db.VarChar(100)
+
+  cities City[]
+
+  @@map("department")
+}
+
+model City {
+  id           Int        @id @default(autoincrement())
+  idDepartment Int        @map("id_department")
+  name         String     @db.VarChar(100)
+
+  department   Department @relation(fields: [idDepartment], references: [id])
+  churches     Church[]
+
+  @@map("city")
+}
+
+model Church {
+  id             Int       @id @default(autoincrement())
+  idCity         Int?      @map("id_city")
+  name           String    @db.VarChar(100)
+  rtn            String?   @db.VarChar(14)
+  contactPhone   String?   @map("contact_phone") @db.VarChar(14)
+  founderName    String?   @map("founder_name") @db.VarChar(60)
+  mission        String?
+  vision         String?
+  values         String?
+  foundationDate DateTime? @map("foundation_date") @db.Date
+  active         Boolean   @default(true) // Soft-delete
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy      Int?      @map("created_by")
+
+  city                 City?                 @relation(fields: [idCity], references: [id])
+  createdByUser        User?                 @relation("ChurchCreatedBy", fields: [createdBy], references: [id])
+  users                User[]                @relation("UserChurch")
+  members              Member[]
+  ministries           Ministry[]
+  boards               Board[]
+  articles             Article[]
+  inventoryMovements   InventoryMovement[]
+  events               Event[]
+  financialTransactions FinancialTransaction[]
+  financialReports     FinancialReport[]
+  periodClosures       PeriodClosure[]
+  budgets              Budget[]
+
+  @@map("church")
+}
+
+model EventType {
+  id            Int     @id @default(autoincrement())
+  name          String  @unique @db.VarChar(80) // Culto, Escuela Dominical, Retiro, Viaje, etc.
+  eventCategory String? @map("event_category") @db.VarChar(50) // CHECK ('calendar_event','trip','fundraising')
+
+  events Event[]
+
+  @@map("event_type")
+}
+
+model TransactionCategory {
+  id     Int     @id @default(autoincrement())
+  name   String  @db.VarChar(80)
+  type   String  @db.VarChar(10) // CHECK ('income','expense')
+  active Boolean @default(true) // Soft-delete
+
+  financialTransactions FinancialTransaction[]
+  budgetCategories      BudgetCategory[]
+
+  @@unique([name, type])
+  @@map("transaction_category")
+}
+
+model MemberRoleType {
+  id        Int     @id @default(autoincrement())
+  name      String  @db.VarChar(80)
+  belongsTo String? @map("belongs_to") @db.VarChar(30) // CHECK ('Council','Ministry')
+  active    Boolean @default(true) // Soft-delete
+
+  boardMembers    BoardMember[]
+  ministryMembers MinistryMember[]
+
+  @@map("member_role_type")
+}
+
+model UserRole {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(80)
+  description String?
+  active      Boolean   @default(true) // Soft-delete
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy   Int?      @map("created_by")
+
+  createdByUser   User?            @relation("UserRoleCreatedBy", fields: [createdBy], references: [id])
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("user_role")
+}
+
+model Permission {
+  id          Int     @id @default(autoincrement())
+  code        String  @unique @db.VarChar(50)
+  description String  @db.VarChar(150)
+  active      Boolean @default(true) // Soft-delete
+
+  rolePermissions RolePermission[]
+
+  @@map("permission")
+}
+
+model RolePermission {
+  idUserRole   Int      @map("id_user_role")
+  idPermission Int      @map("id_permission")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+
+  userRole   UserRole   @relation(fields: [idUserRole], references: [id])
+  permission Permission @relation(fields: [idPermission], references: [id])
+
+  @@id([idUserRole, idPermission])
+  @@map("role_permission")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  idChurch     Int?      @map("id_church")
+  idMember     Int?      @unique @map("id_member")
+  email        String    @unique @db.VarChar(100)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  active       Boolean   @default(true) // Soft-delete
+  idUserRole   Int?      @map("id_user_role")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy    Int?      @map("created_by")
+
+  church        Church?  @relation("UserChurch", fields: [idChurch], references: [id])
+  member        Member?  @relation("UserMember", fields: [idMember], references: [id])
+  userRole      UserRole? @relation(fields: [idUserRole], references: [id])
+  createdByUser User?    @relation("UserCreatedBy", fields: [createdBy], references: [id])
+
+  // Self-referencing back-relations
+  createdUsers         User[]                @relation("UserCreatedBy")
+  auditLogs            AuditLog[]
+  churchesCreated      Church[]              @relation("ChurchCreatedBy")
+  userRolesCreated     UserRole[]            @relation("UserRoleCreatedBy")
+  membersCreated       Member[]              @relation("MemberCreatedBy")
+  ministriesCreated    Ministry[]            @relation("MinistryCreatedBy")
+  boardsCreated        Board[]               @relation("BoardCreatedBy")
+  boardMembersCreated  BoardMember[]         @relation("BoardMemberCreatedBy")
+  ministryMembersCreated MinistryMember[]    @relation("MinistryMemberCreatedBy")
+  articlesCreated      Article[]             @relation("ArticleCreatedBy")
+  inventoryMovements   InventoryMovement[]
+  eventsCancelled      Event[]               @relation("EventCancelledBy")
+  eventsCreated        Event[]               @relation("EventCreatedBy")
+  financialTransactions FinancialTransaction[] @relation("FinancialTransactionCreatedBy")
+  financialReportsPresented FinancialReport[] @relation("FinancialReportPresentedBy")
+  financialReportsApproved  FinancialReport[] @relation("FinancialReportApprovedBy")
+  financialReportsCreated   FinancialReport[] @relation("FinancialReportCreatedBy")
+  periodClosuresCreated PeriodClosure[]      @relation("PeriodClosureCreatedBy")
+  budgetsCreated       Budget[]              @relation("BudgetCreatedBy")
+  budgetDistributionsCreated BudgetDistribution[] @relation("BudgetDistributionCreatedBy")
+
+  @@map("user")
+}
+
+model Member {
+  id             Int       @id @default(autoincrement())
+  idChurch       Int       @map("id_church")
+  name           String    @db.VarChar(60)
+  documentType   String    @map("document_type") @db.VarChar(30) // CHECK ('National ID','Passport','Birth Certificate')
+  documentNumber String    @map("document_number") @db.VarChar(30)
+  profession     String?   @db.VarChar(100)
+  birthDate      DateTime  @map("birth_date") @db.Date
+  phone          String?   @db.VarChar(20)
+  personalEmail  String?   @map("personal_email") @db.VarChar(100)
+  address        String?
+  baptismDate    DateTime? @map("baptism_date") @db.Date
+  joinDate       DateTime  @map("join_date") @db.Date
+  active         Boolean   @default(true) // Soft-delete
+  inactivatedAt  DateTime? @map("inactivated_at") @db.Date // When member was marked inactive
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy      Int?      @map("created_by")
+
+  church          Church          @relation(fields: [idChurch], references: [id])
+  createdByUser   User?           @relation("MemberCreatedBy", fields: [createdBy], references: [id])
+  user            User?           @relation("UserMember")
+  boardMembers    BoardMember[]
+  ministryMembers MinistryMember[]
+  eventResponsibilities EventResponsibleMember[]
+  memberEvents    MemberEvent[]
+
+  @@unique([documentType, documentNumber])
+  @@map("member")
+}
+
+model Ministry {
+  id        Int       @id @default(autoincrement())
+  idChurch  Int       @map("id_church")
+  code      String    @db.VarChar(20)
+  name      String    @db.VarChar(100)
+  active    Boolean   @default(true) // Soft-delete
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy Int?      @map("created_by")
+
+  church          Church           @relation(fields: [idChurch], references: [id])
+  createdByUser   User?            @relation("MinistryCreatedBy", fields: [createdBy], references: [id])
+  ministryMembers MinistryMember[]
+  events          Event[]
+  financialTransactions FinancialTransaction[]
+  financialReports FinancialReport[]
+  budgetDistributions BudgetDistribution[]
+
+  @@unique([idChurch, code])
+  @@map("ministry")
+}
+
+model Board {
+  id          Int       @id @default(autoincrement())
+  idChurch    Int       @map("id_church")
+  name        String    @db.VarChar(100)
+  description String?
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime  @map("end_date") @db.Date
+  active      Boolean   @default(true) // Soft-delete. Only one active board per church.
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy   Int?      @map("created_by")
+
+  church        Church        @relation(fields: [idChurch], references: [id])
+  createdByUser User?         @relation("BoardCreatedBy", fields: [createdBy], references: [id])
+  boardMembers  BoardMember[]
+
+  @@map("board")
+}
+
+model BoardMember {
+  id               Int       @id @default(autoincrement())
+  idMember         Int       @map("id_member")
+  assignmentType   String    @map("assignment_type") @db.VarChar(20) // CHECK ('ministry','board')
+  idBoard          Int?      @map("id_board")
+  idMemberRoleType Int       @map("id_member_role_type")
+  startDate        DateTime  @map("start_date") @db.Date
+  endDate          DateTime? @map("end_date") @db.Date
+  active           Boolean   @default(true) // Soft-delete
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy        Int?      @map("created_by")
+
+  member         Member         @relation(fields: [idMember], references: [id])
+  board          Board?         @relation(fields: [idBoard], references: [id])
+  memberRoleType MemberRoleType @relation(fields: [idMemberRoleType], references: [id])
+  createdByUser  User?          @relation("BoardMemberCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([idMember])
+  @@index([assignmentType])
+  @@index([idMember, idBoard, active])
+  @@map("board_member")
+}
+
+model MinistryMember {
+  id               Int       @id @default(autoincrement())
+  idMember         Int       @map("id_member")
+  assignmentType   String    @map("assignment_type") @db.VarChar(20) // CHECK ('ministry','board')
+  idMinistry       Int?      @map("id_ministry")
+  idMemberRoleType Int       @map("id_member_role_type")
+  startDate        DateTime  @map("start_date") @db.Date
+  endDate          DateTime? @map("end_date") @db.Date
+  active           Boolean   @default(true) // Soft-delete
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy        Int?      @map("created_by")
+
+  member         Member         @relation(fields: [idMember], references: [id])
+  ministry       Ministry?      @relation(fields: [idMinistry], references: [id])
+  memberRoleType MemberRoleType @relation(fields: [idMemberRoleType], references: [id])
+  createdByUser  User?          @relation("MinistryMemberCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([idMember])
+  @@index([assignmentType])
+  @@index([idMember, idMinistry, active])
+  @@map("ministry_member")
+}
+
+model Article {
+  id          Int       @id @default(autoincrement())
+  idChurch    Int       @map("id_church")
+  code        String    @db.VarChar(30)
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(200)
+  brand       String?   @db.VarChar(80)
+  model       String?   @db.VarChar(80)
+  unitCost    Decimal   @map("unit_cost") @db.Decimal(12, 2)
+  active      Boolean   @default(true) // Soft-delete
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy   Int?      @map("created_by")
+
+  church             Church              @relation(fields: [idChurch], references: [id])
+  createdByUser      User?               @relation("ArticleCreatedBy", fields: [createdBy], references: [id])
+  inventoryMovements InventoryMovement[]
+
+  @@unique([idChurch, code])
+  @@map("article")
+}
+
+model InventoryMovement {
+  id             Int       @id @default(autoincrement())
+  idChurch       Int       @map("id_church")
+  type           String    @db.VarChar(10) // CHECK ('Inbound','Outbound')
+  documentNumber String?   @map("document_number") @db.VarChar(30)
+  datetime       DateTime  @db.Timestamptz()
+  idUser         Int?      @map("id_user")
+  idArticle      Int       @map("id_article")
+  quantity       Decimal   @db.Decimal(10, 2)
+  notes          String?
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+
+  church  Church  @relation(fields: [idChurch], references: [id])
+  user    User?   @relation(fields: [idUser], references: [id])
+  article Article @relation(fields: [idArticle], references: [id])
+
+  @@map("inventory_movement")
+}
+
+model Event {
+  id                Int       @id @default(autoincrement())
+  idChurch          Int       @map("id_church")
+  idEventType       Int?      @map("id_event_type")
+  idMinistry        Int?      @map("id_ministry") // NULL = church-wide event
+  title             String    @db.VarChar(100)
+  description       String?
+  location          String?   @db.VarChar(200)
+  estimatedBudget   Decimal?  @map("estimated_budget") @db.Decimal(12, 2) // Optional for special events
+  isRecurrent       Boolean   @map("is_recurrent")
+  frequency         String?   @db.VarChar(20) // CHECK ('daily','weekly','biweekly','monthly'). NULL when is_recurrent=false
+  dayOfWeek         String?   @map("day_of_week") @db.VarChar(15) // NULL for non-weekly frequencies
+  recurrenceEndDate DateTime? @map("recurrence_end_date") @db.Date // NULL = indefinite recurrence
+  startDatetime     DateTime  @map("start_datetime") @db.Timestamptz()
+  endDatetime       DateTime  @map("end_datetime") @db.Timestamptz()
+  status            String    @default("Planned") @db.VarChar(20) // CHECK ('Planned','In Progress','Completed','Cancelled')
+  cancelReason      String?   @map("cancel_reason")
+  cancelledAt       DateTime? @map("cancelled_at") @db.Timestamptz()
+  cancelledBy       Int?      @map("cancelled_by")
+  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy         Int?      @map("created_by")
+
+  church            Church    @relation(fields: [idChurch], references: [id])
+  eventType         EventType? @relation(fields: [idEventType], references: [id])
+  ministry          Ministry?  @relation(fields: [idMinistry], references: [id])
+  cancelledByUser   User?      @relation("EventCancelledBy", fields: [cancelledBy], references: [id])
+  createdByUser     User?      @relation("EventCreatedBy", fields: [createdBy], references: [id])
+  responsibleMembers EventResponsibleMember[]
+  memberEvents      MemberEvent[]
+  tripDetail        TripDetail?
+  fundraisingDetail FundraisingDetail?
+  financialTransactions FinancialTransaction[]
+
+  @@index([idChurch, startDatetime])
+  @@index([idMinistry])
+  @@index([status])
+  @@map("event")
+}
+
+model EventResponsibleMember {
+  id       Int @id @default(autoincrement())
+  idEvent  Int @map("id_event")
+  idMember Int @map("id_member")
+
+  event  Event  @relation(fields: [idEvent], references: [id])
+  member Member @relation(fields: [idMember], references: [id])
+
+  @@unique([idEvent, idMember])
+  @@map("event_responsible_member")
+}
+
+model MemberEvent {
+  id        Int       @id @default(autoincrement())
+  idEvent   Int       @map("id_event")
+  idMember  Int       @map("id_member")
+  attended  Boolean   @default(false)
+  notes     String?
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+
+  event  Event  @relation(fields: [idEvent], references: [id])
+  member Member @relation(fields: [idMember], references: [id])
+
+  @@unique([idEvent, idMember])
+  @@map("member_event")
+}
+
+model TripDetail {
+  id          Int    @id @default(autoincrement())
+  idEvent     Int    @unique @map("id_event") // Solo si event_category=trip
+  origin      String @db.VarChar(200)
+  destination String @db.VarChar(200)
+  notes       String?
+
+  event Event @relation(fields: [idEvent], references: [id])
+
+  @@map("trip_detail")
+}
+
+model FundraisingDetail {
+  id           Int      @id @default(autoincrement())
+  idEvent      Int      @unique @map("id_event") // Solo si event_category=fundraising
+  targetAmount Decimal? @map("target_amount") @db.Decimal(12, 2) // Goal to raise
+  notes        String?
+
+  event Event @relation(fields: [idEvent], references: [id])
+
+  @@map("fundraising_detail")
+}
+
+model FinancialTransaction {
+  id              Int       @id @default(autoincrement())
+  idChurch        Int       @map("id_church")
+  idCategory      Int       @map("id_category") // Category determines income/expense type
+  amount          Decimal   @db.Decimal(12, 2)
+  description     String    @db.VarChar(200)
+  transactionDate DateTime  @map("transaction_date") @db.Date
+  paymentMethod   String?   @map("payment_method") @db.VarChar(20) // CHECK ('Cash','Transfer','Check','Card')
+  receiptType     String?   @map("receipt_type") @db.VarChar(20) // CHECK ('Receipt','Invoice','Certificate','Note','Other')
+  receiptNumber   String?   @map("receipt_number") @db.VarChar(50) // Invoice/receipt number if applicable
+  notes           String?
+  idEvent         Int?      @map("id_event") // Optional: link to fundraising or trip event
+  idMinistry      Int?      @map("id_ministry") // NULL = church general funds
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy       Int?      @map("created_by") // Administradora who registered it
+
+  church        Church              @relation(fields: [idChurch], references: [id])
+  category      TransactionCategory @relation(fields: [idCategory], references: [id])
+  event         Event?              @relation(fields: [idEvent], references: [id])
+  ministry      Ministry?           @relation(fields: [idMinistry], references: [id])
+  createdByUser User?               @relation("FinancialTransactionCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([idChurch, transactionDate])
+  @@index([idCategory])
+  @@index([idEvent])
+  @@index([idMinistry])
+  @@map("financial_transaction")
+}
+
+model FinancialReport {
+  id            Int       @id @default(autoincrement())
+  idChurch      Int       @map("id_church")
+  idMinistry    Int?      @map("id_ministry") // NULL = church-wide report
+  reportType    String    @default("annual") @map("report_type") @db.VarChar(20) // CHECK ('annual','quarterly','monthly')
+  periodStart   DateTime  @map("period_start") @db.Date
+  periodEnd     DateTime  @map("period_end") @db.Date
+  title         String    @db.VarChar(100)
+  summary       String?
+  totalIncome   Decimal   @default(0) @map("total_income") @db.Decimal(12, 2) // Frozen snapshot when status=Approved
+  totalExpenses Decimal   @default(0) @map("total_expenses") @db.Decimal(12, 2) // Frozen snapshot when status=Approved
+  netResult     Decimal   @default(0) @map("net_result") @db.Decimal(12, 2) // Frozen snapshot when status=Approved
+  status        String    @default("Draft") @db.VarChar(20) // CHECK ('Draft','Presented','Approved')
+  presentedAt   DateTime? @map("presented_at") @db.Timestamptz() // When presented to concilio/iglesia
+  presentedBy   Int?      @map("presented_by") // Administradora who presented it
+  approvedAt    DateTime? @map("approved_at") @db.Timestamptz()
+  approvedBy    Int?      @map("approved_by")
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy     Int?      @map("created_by")
+
+  church            Church   @relation(fields: [idChurch], references: [id])
+  ministry          Ministry? @relation(fields: [idMinistry], references: [id])
+  presentedByUser   User?    @relation("FinancialReportPresentedBy", fields: [presentedBy], references: [id])
+  approvedByUser    User?    @relation("FinancialReportApprovedBy", fields: [approvedBy], references: [id])
+  createdByUser     User?    @relation("FinancialReportCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([idChurch, periodStart, periodEnd])
+  @@index([idMinistry])
+  @@index([status])
+  @@map("financial_report")
+}
+
+model PeriodClosure {
+  id                Int       @id @default(autoincrement())
+  idChurch          Int       @map("id_church")
+  year              Int
+  ownFunds          Decimal   @map("own_funds") @db.Decimal(12, 2) // Caja chica + cuenta corriente operativa
+  accumulatedReserve Decimal  @map("accumulated_reserve") @db.Decimal(12, 2) // Ahorros historicos
+  closureDate       DateTime? @map("closure_date") @db.Date
+  notes             String?
+  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy         Int?      @map("created_by")
+
+  church        Church @relation(fields: [idChurch], references: [id])
+  createdByUser User?  @relation("PeriodClosureCreatedBy", fields: [createdBy], references: [id])
+
+  @@unique([idChurch, year])
+  @@map("period_closure")
+}
+
+model Budget {
+  id          Int       @id @default(autoincrement())
+  idChurch    Int       @map("id_church")
+  periodStart DateTime  @map("period_start") @db.Date // Always January 1st of the year
+  periodEnd   DateTime  @map("period_end") @db.Date // Always December 31st of the year
+  description String?
+  status      String    @default("Draft") @db.VarChar(20) // CHECK ('Draft','Active','Closed')
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy   Int?      @map("created_by")
+
+  church              Church               @relation(fields: [idChurch], references: [id])
+  createdByUser       User?                @relation("BudgetCreatedBy", fields: [createdBy], references: [id])
+  budgetCategories    BudgetCategory[]
+  budgetDistributions BudgetDistribution[]
+
+  @@unique([idChurch, periodStart, periodEnd])
+  @@map("budget")
+}
+
+model BudgetCategory {
+  id           Int     @id @default(autoincrement())
+  idBudget     Int     @map("id_budget")
+  idCategory   Int     @map("id_category")
+  annualAmount Decimal @map("annual_amount") @db.Decimal(12, 2) // Budgeted amount for the year
+  notes        String?
+
+  budget   Budget              @relation(fields: [idBudget], references: [id])
+  category TransactionCategory @relation(fields: [idCategory], references: [id])
+
+  @@unique([idBudget, idCategory])
+  @@map("budget_category")
+}
+
+model BudgetDistribution {
+  id         Int       @id @default(autoincrement())
+  idBudget   Int       @map("id_budget")
+  idMinistry Int       @map("id_ministry")
+  percentage Decimal   @db.Decimal(5, 2) // Active distribution must sum to 100.00
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy  Int?      @map("created_by")
+
+  budget        Budget   @relation(fields: [idBudget], references: [id])
+  ministry      Ministry @relation(fields: [idMinistry], references: [id])
+  createdByUser User?    @relation("BudgetDistributionCreatedBy", fields: [createdBy], references: [id])
+
+  @@unique([idBudget, idMinistry])
+  @@map("budget_distribution")
+}
