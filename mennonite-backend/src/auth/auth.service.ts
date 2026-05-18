@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { MeResponseDto } from './dto/me-response.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 
@@ -16,6 +19,64 @@ const DEFAULT_INITIAL_ROLE_NAME =
 @Injectable()
 export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async me(userId: number): Promise<MeResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        active: true,
+        userRole: {
+          select: {
+            id: true,
+            name: true,
+            rolePermissions: {
+              select: {
+                permission: {
+                  select: {
+                    code: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Token invalido: usuario no encontrado');
+    }
+
+    if (!user.active) {
+      throw new ForbiddenException('Usuario desactivado');
+    }
+
+    if (!user.userRole) {
+      throw new InternalServerErrorException(
+        'El usuario no tiene rol asignado',
+      );
+    }
+
+    const permissions = Array.from(
+      new Set(
+        user.userRole.rolePermissions.map(
+          (rolePermission) => rolePermission.permission.code,
+        ),
+      ),
+    );
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: {
+        id: user.userRole.id,
+        name: user.userRole.name,
+      },
+      permissions,
+    };
+  }
 
   async register(payload: RegisterRequestDto): Promise<RegisterResponseDto> {
     const email = payload.email?.trim().toLowerCase();
