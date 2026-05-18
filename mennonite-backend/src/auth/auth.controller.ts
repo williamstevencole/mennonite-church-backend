@@ -1,14 +1,32 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { AuthService } from './auth.service';
+import { MeResponseDto } from './dto/me-response.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+
+type AuthenticatedRequest = Request & { authUserId: number };
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -27,5 +45,16 @@ export class AuthController {
   })
   register(@Body() payload: RegisterRequestDto): Promise<RegisterResponseDto> {
     return this.authService.register(payload);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Obtener datos del usuario autenticado actual' })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiForbiddenResponse({ description: 'Usuario desactivado' })
+  @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
+  me(@Req() request: AuthenticatedRequest): Promise<MeResponseDto> {
+    return this.authService.me(request.authUserId);
   }
 }

@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 type CreateUserArgs = {
@@ -18,6 +22,21 @@ type DefaultRole = {
   name: string;
 };
 
+type MeUserRecord = {
+  id: number;
+  email: string;
+  active: boolean;
+  userRole: {
+    id: number;
+    name: string;
+    rolePermissions: Array<{
+      permission: {
+        code: string;
+      };
+    }>;
+  } | null;
+};
+
 type PrismaMock = {
   userRole: {
     findFirst: jest.Mock<Promise<DefaultRole | null>, []>;
@@ -25,6 +44,7 @@ type PrismaMock = {
   user: {
     count: jest.Mock<Promise<number>, []>;
     create: jest.Mock<Promise<{ id: number }>, [CreateUserArgs]>;
+    findUnique: jest.Mock<Promise<MeUserRecord | null>, [unknown]>;
   };
 };
 
@@ -36,6 +56,7 @@ describe('AuthService', () => {
     user: {
       count: jest.fn<Promise<number>, []>(),
       create: jest.fn<Promise<{ id: number }>, [CreateUserArgs]>(),
+      findUnique: jest.fn<Promise<MeUserRecord | null>, [unknown]>(),
     },
   };
 
@@ -137,5 +158,50 @@ describe('AuthService', () => {
     }
 
     expect(prisma.userRole.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('returns id, email, role and permissions for authenticated user', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 9,
+      email: 'mi.usuario@iglesia.org',
+      active: true,
+      userRole: {
+        id: 1,
+        name: 'Administrador',
+        rolePermissions: [
+          { permission: { code: 'users.read' } },
+          { permission: { code: 'users.write' } },
+          { permission: { code: 'users.read' } },
+        ],
+      },
+    });
+
+    const result = await authService.me(9);
+
+    expect(result).toEqual({
+      id: 9,
+      email: 'mi.usuario@iglesia.org',
+      role: {
+        id: 1,
+        name: 'Administrador',
+      },
+      permissions: ['users.read', 'users.write'],
+    });
+  });
+
+  it('throws forbidden when authenticated user is deactivated', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 9,
+      email: 'mi.usuario@iglesia.org',
+      active: false,
+      userRole: {
+        id: 1,
+        name: 'Administrador',
+        rolePermissions: [],
+      },
+    });
+
+    await expect(authService.me(9)).rejects.toThrow(ForbiddenException);
+    await expect(authService.me(9)).rejects.toThrow('Usuario desactivado');
   });
 });
