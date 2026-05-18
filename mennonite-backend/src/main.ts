@@ -9,6 +9,14 @@ async function bootstrap() {
     .setTitle('Mennonite Backend API')
     .setDescription('Documentacion de endpoints del backend')
     .setVersion('1.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+      'JWT-auth',
+    )
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig, {
     deepScanRoutes: true,
