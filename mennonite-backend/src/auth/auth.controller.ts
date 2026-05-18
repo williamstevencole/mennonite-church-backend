@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -14,12 +15,13 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -29,6 +31,8 @@ import { RegisterResponseDto } from './dto/register-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 type AuthenticatedRequest = Request & { authUserId: number };
+const AUTH_SESSION_COOKIE_NAME =
+  process.env.AUTH_SESSION_COOKIE_NAME?.trim() || 'access_token';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -61,6 +65,22 @@ export class AuthController {
   @ApiForbiddenResponse({ description: 'Usuario desactivado' })
   login(@Body() payload: LoginRequestDto): Promise<LoginResponseDto> {
     return this.authService.login(payload);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Cerrar sesion del usuario autenticado' })
+  @ApiNoContentResponse({ description: 'Sesion cerrada' })
+  @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
+  logout(@Res({ passthrough: true }) response: Response): void {
+    response.clearCookie(AUTH_SESSION_COOKIE_NAME, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
   }
 
   @Get('me')
