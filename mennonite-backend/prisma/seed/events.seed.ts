@@ -16,7 +16,13 @@ type EventSeed = {
   estimatedBudget?: number;
 };
 
-function at(year: number, month: number, day: number, hour: number, minute = 0): Date {
+function at(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute = 0,
+): Date {
   return new Date(year, month - 1, day, hour, minute, 0);
 }
 
@@ -99,7 +105,9 @@ export async function seedEvents(
   for (const data of DEMO_EVENTS) {
     const eventType = eventTypeByName.get(data.eventTypeName);
     if (!eventType) {
-      throw new Error(`Tipo de evento no encontrado en seed: ${data.eventTypeName}`);
+      throw new Error(
+        `Tipo de evento no encontrado en seed: ${data.eventTypeName}`,
+      );
     }
 
     const ministry = data.ministryCode
