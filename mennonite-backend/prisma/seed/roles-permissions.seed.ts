@@ -7,28 +7,239 @@ const BASIC_ROLES = [
 ] as const;
 
 const BASE_PERMISSIONS = [
-  { code: 'users.read', description: 'Ver usuarios' },
-  { code: 'users.write', description: 'Crear y editar usuarios' },
-  { code: 'roles.read', description: 'Ver roles' },
-  { code: 'roles.write', description: 'Crear y editar roles' },
-  { code: 'permissions.read', description: 'Ver permisos' },
-  { code: 'events.read', description: 'Ver eventos' },
-  { code: 'events.write', description: 'Crear y editar eventos' },
-  { code: 'finance.read', description: 'Ver finanzas y reportes' },
-  { code: 'finance.write', description: 'Registrar movimientos financieros' },
-  { code: 'members.read', description: 'Ver miembros' },
-  { code: 'members.write', description: 'Crear y editar miembros' },
+  // Usuarios del sistema
+  { code: 'users.read', description: 'Ver la lista de usuarios del sistema' },
+  { code: 'users.create', description: 'Registrar nuevos usuarios' },
+  { code: 'users.update', description: 'Editar los datos de los usuarios' },
+  { code: 'users.delete', description: 'Desactivar o eliminar usuarios' },
+
+  // Roles y permisos
+  { code: 'roles.read', description: 'Ver los roles disponibles' },
+  { code: 'roles.create', description: 'Crear nuevos roles' },
+  {
+    code: 'roles.update',
+    description: 'Editar roles y los permisos asignados',
+  },
+  { code: 'roles.delete', description: 'Eliminar roles que ya no se usan' },
+  {
+    code: 'permissions.read',
+    description: 'Ver el listado de permisos disponibles',
+  },
+
+  // Miembros de la iglesia
+  {
+    code: 'members.read',
+    description: 'Ver la lista de miembros de la iglesia',
+  },
+  { code: 'members.create', description: 'Registrar nuevos miembros' },
+  {
+    code: 'members.update',
+    description: 'Editar la informacion de los miembros',
+  },
+  { code: 'members.delete', description: 'Dar de baja o eliminar miembros' },
+
+  // Ministerios
+  { code: 'ministries.read', description: 'Ver los ministerios de la iglesia' },
+  { code: 'ministries.create', description: 'Crear nuevos ministerios' },
+  {
+    code: 'ministries.update',
+    description: 'Editar la informacion de un ministerio',
+  },
+  { code: 'ministries.delete', description: 'Eliminar ministerios' },
+
+  // Concilios / juntas
+  {
+    code: 'boards.read',
+    description: 'Ver los concilios y juntas de la iglesia',
+  },
+  { code: 'boards.create', description: 'Crear nuevos concilios o juntas' },
+  {
+    code: 'boards.update',
+    description: 'Editar la informacion de un concilio',
+  },
+  { code: 'boards.delete', description: 'Eliminar concilios' },
+
+  // Asignacion de miembros a ministerios y concilios
+  {
+    code: 'assignments.read',
+    description: 'Ver las asignaciones de miembros a ministerios y concilios',
+  },
+  {
+    code: 'assignments.create',
+    description: 'Asignar miembros a ministerios o concilios',
+  },
+  {
+    code: 'assignments.update',
+    description: 'Editar una asignacion existente',
+  },
+  {
+    code: 'assignments.delete',
+    description: 'Quitar a un miembro de un ministerio o concilio',
+  },
+
+  // Eventos
+  { code: 'events.read', description: 'Ver el calendario y los eventos' },
+  {
+    code: 'events.create',
+    description: 'Crear nuevos eventos (cultos, viajes, recaudaciones, etc.)',
+  },
+  { code: 'events.update', description: 'Editar los detalles de un evento' },
+  { code: 'events.delete', description: 'Cancelar o eliminar eventos' },
+
+  // Inventario - articulos
+  { code: 'inventory.read', description: 'Ver el inventario de la iglesia' },
+  {
+    code: 'inventory.create',
+    description: 'Registrar nuevos articulos en el inventario',
+  },
+  { code: 'inventory.update', description: 'Editar los datos de un articulo' },
+  {
+    code: 'inventory.delete',
+    description: 'Eliminar articulos del inventario',
+  },
+
+  // Inventario - movimientos (entradas/salidas)
+  {
+    code: 'inventory.movements.read',
+    description: 'Ver el historial de entradas y salidas del inventario',
+  },
+  {
+    code: 'inventory.movements.create',
+    description: 'Registrar entradas o salidas de inventario',
+  },
+
+  // Finanzas - transacciones (ingresos / egresos)
+  {
+    code: 'finance.read',
+    description: 'Ver los movimientos financieros (ingresos y egresos)',
+  },
+  {
+    code: 'finance.create',
+    description: 'Registrar nuevos ingresos o egresos',
+  },
+  {
+    code: 'finance.update',
+    description: 'Corregir un movimiento financiero registrado',
+  },
+  { code: 'finance.delete', description: 'Eliminar un movimiento financiero' },
+
+  // Presupuestos
+  { code: 'budgets.read', description: 'Ver los presupuestos anuales' },
+  { code: 'budgets.create', description: 'Crear un nuevo presupuesto anual' },
+  {
+    code: 'budgets.update',
+    description: 'Editar un presupuesto y sus distribuciones',
+  },
+  { code: 'budgets.delete', description: 'Eliminar un presupuesto' },
+
+  // Reportes financieros
+  { code: 'reports.read', description: 'Ver los reportes financieros' },
+  {
+    code: 'reports.create',
+    description: 'Generar nuevos reportes financieros',
+  },
+
+  // Cierres de periodo (mensuales / anuales)
+  {
+    code: 'period-closures.read',
+    description: 'Ver los cierres de periodo realizados',
+  },
+  {
+    code: 'period-closures.create',
+    description: 'Realizar el cierre de un periodo (mes o ano)',
+  },
+
+  // Catalogos: tipos de evento
+  {
+    code: 'catalog.event-types.read',
+    description: 'Ver los tipos de evento disponibles',
+  },
+  {
+    code: 'catalog.event-types.manage',
+    description: 'Crear, editar o eliminar tipos de evento',
+  },
+
+  // Catalogos: categorias financieras
+  {
+    code: 'catalog.transaction-categories.read',
+    description: 'Ver las categorias de ingresos y egresos',
+  },
+  {
+    code: 'catalog.transaction-categories.manage',
+    description: 'Crear, editar o eliminar categorias financieras',
+  },
+
+  // Catalogos: tipos de rol de miembro
+  {
+    code: 'catalog.member-role-types.read',
+    description: 'Ver los tipos de rol que un miembro puede tener',
+  },
+  {
+    code: 'catalog.member-role-types.manage',
+    description: 'Crear, editar o eliminar tipos de rol de miembro',
+  },
+
+  // Bitacora / auditoria
+  {
+    code: 'audit.read',
+    description: 'Ver la bitacora de actividad del sistema',
+  },
 ] as const;
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   Administrador: BASE_PERMISSIONS.map((permission) => permission.code),
-  Pastor: ['members.read', 'members.write', 'events.read', 'events.write', 'finance.read'],
-  Tesorero: ['finance.read', 'finance.write', 'events.read', 'members.read'],
+  Pastor: [
+    'members.read',
+    'members.create',
+    'members.update',
+    'ministries.read',
+    'ministries.create',
+    'ministries.update',
+    'boards.read',
+    'boards.create',
+    'boards.update',
+    'assignments.read',
+    'assignments.create',
+    'assignments.update',
+    'assignments.delete',
+    'events.read',
+    'events.create',
+    'events.update',
+    'events.delete',
+    'inventory.read',
+    'finance.read',
+    'budgets.read',
+    'reports.read',
+    'catalog.event-types.read',
+    'catalog.transaction-categories.read',
+    'catalog.member-role-types.read',
+    'audit.read',
+  ],
+  Tesorero: [
+    'members.read',
+    'events.read',
+    'inventory.read',
+    'finance.read',
+    'finance.create',
+    'finance.update',
+    'finance.delete',
+    'budgets.read',
+    'budgets.create',
+    'budgets.update',
+    'budgets.delete',
+    'reports.read',
+    'reports.create',
+    'period-closures.read',
+    'period-closures.create',
+    'catalog.transaction-categories.read',
+    'catalog.transaction-categories.manage',
+  ],
 };
 
-export async function seedRolesAndPermissions(
-  prisma: PrismaClient,
-): Promise<{ rolesByName: Map<string, UserRole>; permissionsByCode: Map<string, Permission> }> {
+export async function seedRolesAndPermissions(prisma: PrismaClient): Promise<{
+  rolesByName: Map<string, UserRole>;
+  permissionsByCode: Map<string, Permission>;
+}> {
   const roles = await Promise.all(
     BASIC_ROLES.map(({ name, description }) =>
       prisma.userRole.upsert({
@@ -64,32 +275,38 @@ export async function seedRolesAndPermissions(
   );
 
   const rolesByName = new Map(roles.map((role) => [role.name, role]));
-  const permissionsByCode = new Map(permissions.map((permission) => [permission.code, permission]));
+  const permissionsByCode = new Map(
+    permissions.map((permission) => [permission.code, permission]),
+  );
 
   await Promise.all(
-    Object.entries(ROLE_PERMISSIONS).map(async ([roleName, permissionCodes]) => {
-      const role = rolesByName.get(roleName);
-      if (!role) {
-        throw new Error(`Role not found during seed: ${roleName}`);
-      }
-
-      const rolePermissionRows = permissionCodes.map((permissionCode) => {
-        const permission = permissionsByCode.get(permissionCode);
-        if (!permission) {
-          throw new Error(`Permission not found during seed: ${permissionCode}`);
+    Object.entries(ROLE_PERMISSIONS).map(
+      async ([roleName, permissionCodes]) => {
+        const role = rolesByName.get(roleName);
+        if (!role) {
+          throw new Error(`Role not found during seed: ${roleName}`);
         }
 
-        return {
-          idUserRole: role.id,
-          idPermission: permission.id,
-        };
-      });
+        const rolePermissionRows = permissionCodes.map((permissionCode) => {
+          const permission = permissionsByCode.get(permissionCode);
+          if (!permission) {
+            throw new Error(
+              `Permission not found during seed: ${permissionCode}`,
+            );
+          }
 
-      await prisma.rolePermission.createMany({
-        data: rolePermissionRows,
-        skipDuplicates: true,
-      });
-    }),
+          return {
+            idUserRole: role.id,
+            idPermission: permission.id,
+          };
+        });
+
+        await prisma.rolePermission.createMany({
+          data: rolePermissionRows,
+          skipDuplicates: true,
+        });
+      },
+    ),
   );
 
   return { rolesByName, permissionsByCode };

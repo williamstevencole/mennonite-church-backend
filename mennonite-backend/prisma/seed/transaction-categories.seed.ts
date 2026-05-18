@@ -19,9 +19,17 @@ const EXPENSE_CATEGORIES = [
   'Papeleria y Suministros',
 ] as const;
 
-export async function seedTransactionCategories(prisma: PrismaClient): Promise<void> {
-  const incomeRows = INCOME_CATEGORIES.map((name) => ({ name, type: 'income' as const }));
-  const expenseRows = EXPENSE_CATEGORIES.map((name) => ({ name, type: 'expense' as const }));
+export async function seedTransactionCategories(
+  prisma: PrismaClient,
+): Promise<void> {
+  const incomeRows = INCOME_CATEGORIES.map((name) => ({
+    name,
+    type: 'income' as const,
+  }));
+  const expenseRows = EXPENSE_CATEGORIES.map((name) => ({
+    name,
+    type: 'expense' as const,
+  }));
   const categories = [...incomeRows, ...expenseRows];
 
   await Promise.all(

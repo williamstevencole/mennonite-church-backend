@@ -10,11 +10,16 @@ function hashPassword(password: string): string {
   return createHash('sha256').update(password).digest('hex');
 }
 
-export async function seedAdminUser(prisma: PrismaClient, idUserRole: number): Promise<User> {
+export async function seedAdminUser(
+  prisma: PrismaClient,
+  idUserRole: number,
+  idChurch?: number,
+): Promise<User> {
   return prisma.user.upsert({
     where: { email: ADMIN_SEED_CREDENTIALS.email },
     update: {
       idUserRole,
+      idChurch,
       active: true,
       passwordHash: hashPassword(ADMIN_SEED_CREDENTIALS.password),
     },
@@ -23,6 +28,7 @@ export async function seedAdminUser(prisma: PrismaClient, idUserRole: number): P
       passwordHash: hashPassword(ADMIN_SEED_CREDENTIALS.password),
       active: true,
       idUserRole,
+      idChurch,
     },
   });
 }
