@@ -21,6 +21,8 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
+import { LoginRequestDto } from './dto/login-request.dto';
+import { LoginResponseDto } from './dto/login-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
@@ -45,6 +47,20 @@ export class AuthController {
   })
   register(@Body() payload: RegisterRequestDto): Promise<RegisterResponseDto> {
     return this.authService.register(payload);
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Autenticar usuario existente con email y password',
+  })
+  @ApiOkResponse({ type: LoginResponseDto })
+  @ApiUnauthorizedResponse({
+    description: 'Credenciales invalidas',
+  })
+  @ApiForbiddenResponse({ description: 'Usuario desactivado' })
+  login(@Body() payload: LoginRequestDto): Promise<LoginResponseDto> {
+    return this.authService.login(payload);
   }
 
   @Get('me')

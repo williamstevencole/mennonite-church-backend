@@ -2,7 +2,10 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { createHash } from 'crypto';
 import { AuthService } from './auth.service';
 
 type CreateUserArgs = {
@@ -25,6 +28,7 @@ type DefaultRole = {
 type MeUserRecord = {
   id: number;
   email: string;
+  passwordHash?: string;
   active: boolean;
   userRole: {
     id: number;
@@ -59,12 +63,18 @@ describe('AuthService', () => {
       findUnique: jest.fn<Promise<MeUserRecord | null>, [unknown]>(),
     },
   };
+  const jwtService = {
+    signAsync: jest.fn<Promise<string>, [unknown]>(),
+  };
 
   let authService: AuthService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    authService = new AuthService(prisma as never);
+    authService = new AuthService(
+      prisma as never,
+      jwtService as unknown as JwtService,
+    );
   });
 
   it('returns created user id with default role', async () => {
@@ -189,6 +199,116 @@ describe('AuthService', () => {
     });
   });
 
+  it('returns access_token and user data when credentials are valid', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 11,
+      email: 'admin@mennonite.local',
+      passwordHash: hashPassword('Admin12345!'),
+      active: true,
+      userRole: {
+        id: 1,
+        name: 'Administrador',
+        rolePermissions: [
+          { permission: { code: 'users.read' } },
+          { permission: { code: 'users.write' } },
+        ],
+      },
+    });
+    jwtService.signAsync.mockResolvedValue('jwt-token-demo');
+
+    const result = await authService.login({
+      email: 'ADMIN@mennonite.local',
+      password: 'Admin12345!',
+    });
+
+    expect(result).toEqual({
+      access_token: 'jwt-token-demo',
+      user: {
+        id: 11,
+        email: 'admin@mennonite.local',
+        role: {
+          id: 1,
+          name: 'Administrador',
+        },
+        permissions: ['users.read', 'users.write'],
+      },
+    });
+  });
+
+  it('throws unauthorized with generic message when email is not found', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(
+      authService.login({
+        email: 'noexiste@mennonite.local',
+        password: 'Admin12345!',
+      }),
+    ).rejects.toThrow(UnauthorizedException);
+    await expect(
+      authService.login({
+        email: 'noexiste@mennonite.local',
+        password: 'Admin12345!',
+      }),
+    ).rejects.toThrow('Credenciales invalidas');
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
+  });
+
+  it('throws unauthorized with generic message when password is invalid', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 11,
+      email: 'admin@mennonite.local',
+      passwordHash: hashPassword('OtraPassword123!'),
+      active: true,
+      userRole: {
+        id: 1,
+        name: 'Administrador',
+        rolePermissions: [],
+      },
+    });
+
+    await expect(
+      authService.login({
+        email: 'admin@mennonite.local',
+        password: 'Admin12345!',
+      }),
+    ).rejects.toThrow(UnauthorizedException);
+    await expect(
+      authService.login({
+        email: 'admin@mennonite.local',
+        password: 'Admin12345!',
+      }),
+    ).rejects.toThrow('Credenciales invalidas');
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
+  });
+
+  it('throws forbidden when login user is inactive', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 11,
+      email: 'admin@mennonite.local',
+      passwordHash: hashPassword('Admin12345!'),
+      active: false,
+      userRole: {
+        id: 1,
+        name: 'Administrador',
+        rolePermissions: [],
+      },
+    });
+
+    await expect(
+      authService.login({
+        email: 'admin@mennonite.local',
+        password: 'Admin12345!',
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    await expect(
+      authService.login({
+        email: 'admin@mennonite.local',
+        password: 'Admin12345!',
+      }),
+    ).rejects.toThrow('Usuario desactivado');
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
+  });
+
   it('throws forbidden when authenticated user is deactivated', async () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 9,
@@ -205,3 +325,7 @@ describe('AuthService', () => {
     await expect(authService.me(9)).rejects.toThrow('Usuario desactivado');
   });
 });
+
+function hashPassword(password: string): string {
+  return createHash('sha256').update(password).digest('hex');
+}

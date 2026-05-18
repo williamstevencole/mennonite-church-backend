@@ -6,8 +6,11 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { LoginRequestDto } from './dto/login-request.dto';
+import { LoginResponseDto } from './dto/login-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
@@ -18,7 +21,73 @@ const DEFAULT_INITIAL_ROLE_NAME =
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  async login(payload: LoginRequestDto): Promise<LoginResponseDto> {
+    const email = payload.email?.trim().toLowerCase();
+    const password = payload.password?.trim();
+
+    if (!email || !password) {
+      throw new UnauthorizedException('Credenciales invalidas');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        active: true,
+        userRole: {
+          select: {
+            id: true,
+            name: true,
+            rolePermissions: {
+              select: {
+                permission: {
+                  select: {
+                    code: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user || user.passwordHash !== this.hashPassword(password)) {
+      throw new UnauthorizedException('Credenciales invalidas');
+    }
+
+    if (!user.active) {
+      throw new ForbiddenException('Usuario desactivado');
+    }
+
+    if (!user.userRole) {
+      throw new InternalServerErrorException(
+        'El usuario no tiene rol asignado',
+      );
+    }
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.id,
+      email: user.email,
+      role: user.userRole.name,
+    });
+
+    return {
+      access_token: accessToken,
+      user: this.buildMeResponse({
+        id: user.id,
+        email: user.email,
+        userRole: user.userRole,
+      }),
+    };
+  }
 
   async me(userId: number): Promise<MeResponseDto> {
     const user = await this.prisma.user.findUnique({
@@ -59,23 +128,11 @@ export class AuthService {
       );
     }
 
-    const permissions = Array.from(
-      new Set(
-        user.userRole.rolePermissions.map(
-          (rolePermission) => rolePermission.permission.code,
-        ),
-      ),
-    );
-
-    return {
+    return this.buildMeResponse({
       id: user.id,
       email: user.email,
-      role: {
-        id: user.userRole.id,
-        name: user.userRole.name,
-      },
-      permissions,
-    };
+      userRole: user.userRole,
+    });
   }
 
   async register(payload: RegisterRequestDto): Promise<RegisterResponseDto> {
@@ -150,6 +207,38 @@ export class AuthService {
 
   private hashPassword(password: string): string {
     return createHash('sha256').update(password).digest('hex');
+  }
+
+  private buildMeResponse(user: {
+    id: number;
+    email: string;
+    userRole: {
+      id: number;
+      name: string;
+      rolePermissions: Array<{
+        permission: {
+          code: string;
+        };
+      }>;
+    };
+  }): MeResponseDto {
+    const permissions = Array.from(
+      new Set(
+        user.userRole.rolePermissions.map(
+          (rolePermission) => rolePermission.permission.code,
+        ),
+      ),
+    );
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: {
+        id: user.userRole.id,
+        name: user.userRole.name,
+      },
+      permissions,
+    };
   }
 
   private isValidEmail(email: string): boolean {
