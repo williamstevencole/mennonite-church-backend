@@ -15,7 +15,7 @@ export async function seedAdminUser(
   idUserRole: number,
   idChurch?: number,
 ): Promise<User> {
-  return prisma.user.upsert({
+  return await prisma.user.upsert({
     where: { email: ADMIN_SEED_CREDENTIALS.email },
     update: {
       idUserRole,

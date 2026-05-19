@@ -2,8 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ApiStatusDto {
   @ApiProperty({ example: 'ok' })
-  status: string;
+  status!: string;
 
   @ApiProperty({ example: 'mennonite-backend' })
-  service: string;
+  service!: string;
 }
