@@ -5,9 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Req,
   Res,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -21,16 +19,17 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
+import type { JwtPayload } from './strategies/jwt.strategy';
 import { AuthService } from './auth.service';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
-type AuthenticatedRequest = Request & { authUserId: number };
 const AUTH_SESSION_COOKIE_NAME =
   process.env.AUTH_SESSION_COOKIE_NAME?.trim() || 'access_token';
 
@@ -39,6 +38,7 @@ const AUTH_SESSION_COOKIE_NAME =
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Registrar la cuenta inicial de la instancia' })
@@ -53,6 +53,7 @@ export class AuthController {
     return this.authService.register(payload);
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -69,7 +70,6 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Cerrar sesion del usuario autenticado' })
   @ApiNoContentResponse({ description: 'Sesion cerrada' })
@@ -84,13 +84,12 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Obtener datos del usuario autenticado actual' })
   @ApiOkResponse({ type: MeResponseDto })
   @ApiForbiddenResponse({ description: 'Usuario desactivado' })
   @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
-  me(@Req() request: AuthenticatedRequest): Promise<MeResponseDto> {
-    return this.authService.me(request.authUserId);
+  me(@CurrentUser() user: JwtPayload): Promise<MeResponseDto> {
+    return this.authService.me(user.sub);
   }
 }

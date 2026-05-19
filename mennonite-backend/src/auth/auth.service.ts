@@ -73,10 +73,19 @@ export class AuthService {
       );
     }
 
+    const permissions = Array.from(
+      new Set(
+        user.userRole.rolePermissions.map(
+          (rolePermission) => rolePermission.permission.code,
+        ),
+      ),
+    );
+
     const accessToken = await this.jwtService.signAsync({
       sub: user.id,
       email: user.email,
       role: user.userRole.name,
+      permissions,
     });
 
     return {
