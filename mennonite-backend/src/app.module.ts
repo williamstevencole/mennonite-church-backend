@@ -7,6 +7,8 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 
+import { MemberRoleTypesModule } from './modules/member-role-types/member-role-types.module';
+
 const resolveJwtExpiresIn = (value?: string): number | StringValue => {
   if (!value) {
     return '1h';
@@ -43,6 +45,7 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
         };
       },
     }),
+    MemberRoleTypesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
