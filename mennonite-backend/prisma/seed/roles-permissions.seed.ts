@@ -179,6 +179,27 @@ const BASE_PERMISSIONS = [
     description: 'Crear, editar o eliminar tipos de rol de miembro',
   },
 
+  // Iglesias (CRUD completo a nivel administrativo)
+  { code: 'churches.read', description: 'Ver las iglesias registradas' },
+  { code: 'churches.create', description: 'Registrar nuevas iglesias' },
+  { code: 'churches.update', description: 'Editar iglesias existentes' },
+  { code: 'churches.delete', description: 'Dar de baja iglesias' },
+
+  // Catalogos geograficos
+  {
+    code: 'catalog.departments.read',
+    description: 'Ver los departamentos disponibles',
+  },
+  {
+    code: 'catalog.departments.manage',
+    description: 'Crear, editar o eliminar departamentos',
+  },
+  { code: 'catalog.cities.read', description: 'Ver las ciudades disponibles' },
+  {
+    code: 'catalog.cities.manage',
+    description: 'Crear, editar o eliminar ciudades',
+  },
+
   // Bitacora / auditoria
   {
     code: 'audit.read',
@@ -213,6 +234,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'catalog.event-types.read',
     'catalog.transaction-categories.read',
     'catalog.member-role-types.read',
+    'churches.read',
     'audit.read',
   ],
   Tesorero: [
