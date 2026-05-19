@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import type { StringValue } from 'ms';
 import { AppController } from './app.controller';
@@ -22,6 +23,7 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
     JwtModule.registerAsync({
