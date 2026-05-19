@@ -11,7 +11,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: sh -c "npm install && npx prisma db push && npm run db:seed && npm run start:dev"
+    command: sh -c "pnpm install --frozen-lockfile --config.strict-dep-builds=false && pnpm exec prisma db push && pnpm run db:seed && pnpm run start:dev"
 
   postgres:
     image: postgres:16-alpine

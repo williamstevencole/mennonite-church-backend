@@ -14,4 +14,4 @@ RUN pnpm install --frozen-lockfile --config.strict-dep-builds=false
 COPY . .
 
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && pnpm run start:dev"]
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && pnpm run start:dev"]
