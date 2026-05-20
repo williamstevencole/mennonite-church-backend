@@ -14,13 +14,13 @@ const BASE_PERMISSIONS = [
   { code: 'users.delete', description: 'Desactivar o eliminar usuarios' },
 
   // Roles y permisos
-  { code: 'roles.read', description: 'Ver los roles disponibles' },
-  { code: 'roles.create', description: 'Crear nuevos roles' },
+  { code: 'user-roles.read', description: 'Ver los roles disponibles' },
+  { code: 'user-roles.create', description: 'Crear nuevos roles' },
   {
-    code: 'roles.update',
+    code: 'user-roles.update',
     description: 'Editar roles y los permisos asignados',
   },
-  { code: 'roles.delete', description: 'Eliminar roles que ya no se usan' },
+  { code: 'user-roles.delete', description: 'Eliminar roles que ya no se usan' },
   {
     code: 'permissions.read',
     description: 'Ver el listado de permisos disponibles',
