@@ -41,6 +41,12 @@ export class CreateUserDto {
   @MinLength(8)
   password!: string;
 
+  @ApiProperty({ example: 1, description: 'Id del miembro asociado' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  id_member!: number;
+
   @ApiProperty({ example: 1 })
   @Type(() => Number)
   @IsInt()
