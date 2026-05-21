@@ -54,6 +54,7 @@ export class PermissionsController {
 
   @Get()
   @Permissions('permissions.read')
+  @ApiOperation({ summary: 'Listar todos los permisos' })
   @ApiOkResponse({ type: PermissionResponseDto, isArray: true })
   findAll(): Promise<PermissionResponseDto[]> {
     return this.service.findAll();
@@ -61,6 +62,7 @@ export class PermissionsController {
 
   @Get(':id')
   @Permissions('permissions.read')
+  @ApiOperation({ summary: 'Obtener un permiso por id' })
   @ApiOkResponse({ type: PermissionResponseDto })
   @ApiNotFoundResponse({ description: 'Permiso no encontrado' })
   findOne(
@@ -71,6 +73,7 @@ export class PermissionsController {
 
   @Patch(':id')
   @Permissions('user-roles.update')
+  @ApiOperation({ summary: 'Actualizar un permiso' })
   @ApiOkResponse({ type: PermissionResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiNotFoundResponse({ description: 'Permiso no encontrado' })
@@ -84,6 +87,7 @@ export class PermissionsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Permissions('user-roles.update')
+  @ApiOperation({ summary: 'Dar de baja un permiso' })
   @ApiNoContentResponse({ description: 'Permiso dado de baja' })
   @ApiConflictResponse({ description: 'Permiso asignado a roles' })
   @ApiNotFoundResponse({ description: 'Permiso no encontrado' })
