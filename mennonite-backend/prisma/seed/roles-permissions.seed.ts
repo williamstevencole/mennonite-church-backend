@@ -20,7 +20,10 @@ const BASE_PERMISSIONS = [
     code: 'user-roles.update',
     description: 'Editar roles y los permisos asignados',
   },
-  { code: 'user-roles.delete', description: 'Eliminar roles que ya no se usan' },
+  {
+    code: 'user-roles.delete',
+    description: 'Eliminar roles que ya no se usan',
+  },
   {
     code: 'permissions.read',
     description: 'Ver el listado de permisos disponibles',
