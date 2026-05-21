@@ -1,8 +1,5 @@
 import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
+  Injectable
 } from '@nestjs/common';
 import { Prisma } from '.prisma/client/wasm';
 import { PrismaService } from '../../prisma/prisma.service';

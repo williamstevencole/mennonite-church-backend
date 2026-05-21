@@ -1,9 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
-
-const trimToUndefined = ({ value }: { value: unknown }): unknown =>
-  typeof value === 'string' ? value.trim() || undefined : value;
+import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
 
 const toBoolean = ({ value }: { value: unknown }): unknown => {
   if (typeof value === 'boolean') return value;
