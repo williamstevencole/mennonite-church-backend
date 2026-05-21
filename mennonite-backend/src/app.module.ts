@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 import { MemberRoleTypesModule } from './modules/member-role-types/member-role-types.module';
+import { PermissionsModule } from './modules/permissions/permissions.module';
 import { UserRolesModule } from './modules/user-roles/user-roles.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -48,6 +49,7 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
       },
     }),
     MemberRoleTypesModule,
+    PermissionsModule,
     UserRolesModule,
     UsersModule,
   ],
