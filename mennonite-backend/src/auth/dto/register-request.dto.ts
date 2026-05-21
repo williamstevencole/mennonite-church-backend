@@ -7,7 +7,6 @@ export class RegisterRequestDto {
   @IsEmail()
   @Transform(({ value }): unknown =>
     typeof value === 'string' ? value.trim() : value,
-
   )
   email!: string;
 

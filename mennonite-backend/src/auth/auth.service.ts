@@ -7,7 +7,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { createHash } from 'crypto';
+import { hashPassword } from '../common/utils/password.utils';
+import { isDuplicateEmailError } from '../common/utils/prisma.utils';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -59,7 +60,7 @@ export class AuthService {
       },
     });
 
-    if (!user || user.passwordHash !== this.hashPassword(password)) {
+    if (!user || user.passwordHash !== hashPassword(password)) {
       throw new UnauthorizedException('Credenciales invalidas');
     }
 
@@ -190,7 +191,7 @@ export class AuthService {
       const createdUser = await this.prisma.user.create({
         data: {
           email,
-          passwordHash: this.hashPassword(password),
+          passwordHash: hashPassword(password),
           active: true,
           idUserRole: defaultRole.id,
         },
@@ -204,7 +205,7 @@ export class AuthService {
         role: defaultRole,
       };
     } catch (error: unknown) {
-      if (this.isDuplicateEmailError(error)) {
+      if (isDuplicateEmailError(error)) {
         throw new ConflictException(
           'Ya existe un usuario registrado con ese email',
         );
@@ -212,10 +213,6 @@ export class AuthService {
 
       throw error;
     }
-  }
-
-  private hashPassword(password: string): string {
-    return createHash('sha256').update(password).digest('hex');
   }
 
   private buildMeResponse(user: {
@@ -252,34 +249,5 @@ export class AuthService {
 
   private isValidEmail(email: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  }
-
-  private isDuplicateEmailError(error: unknown): boolean {
-    if (!error || typeof error !== 'object') {
-      return false;
-    }
-
-    const candidate = error as {
-      code?: unknown;
-      meta?: {
-        target?: unknown;
-      };
-    };
-
-    if (candidate.code !== 'P2002') {
-      return false;
-    }
-
-    const target = candidate.meta?.target;
-
-    if (Array.isArray(target)) {
-      return target.includes('email');
-    }
-
-    if (typeof target === 'string') {
-      return target.includes('email');
-    }
-
-    return true;
   }
 }
