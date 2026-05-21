@@ -11,6 +11,7 @@ import { MemberRoleTypesModule } from './modules/member-role-types/member-role-t
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { UserRolesModule } from './modules/user-roles/user-roles.module';
 import { UsersModule } from './modules/users/users.module';
+import { MinistriesModule } from './modules/ministries/ministries.module';
 
 const resolveJwtExpiresIn = (value?: string): number | StringValue => {
   if (!value) {
@@ -52,8 +53,9 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
     PermissionsModule,
     UserRolesModule,
     UsersModule,
+    MinistriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
