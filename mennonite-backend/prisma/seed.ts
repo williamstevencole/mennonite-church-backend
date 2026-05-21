@@ -1,5 +1,10 @@
 import { PrismaClient } from '@prisma/client';
-import { seedAdminUser, ADMIN_SEED_CREDENTIALS } from './seed/admin-user.seed';
+import {
+  seedAdminUser,
+  seedMemberUsers,
+  ADMIN_SEED_CREDENTIALS,
+  MEMBER_USER_SEED_CREDENTIALS,
+} from './seed/admin-user.seed';
 import { seedBoards } from './seed/boards.seed';
 import { seedBudgets } from './seed/budgets.seed';
 import { seedChurch } from './seed/church.seed';
@@ -28,23 +33,31 @@ async function main(): Promise<void> {
   await seedMemberRoleTypes(prisma);
   await seedEventTypes(prisma);
 
-  // 4. Seguridad: roles + permisos + admin
+  // 4. Roles + permisos
   const { rolesByName } = await seedRolesAndPermissions(prisma);
   const adminRole = rolesByName.get('Administrador');
   if (!adminRole) {
     throw new Error('No se encontro el rol Administrador durante el seed.');
   }
-  await seedAdminUser(prisma, adminRole.id, church.id);
 
   // 5. Miembros, ministerios y concilio
   const membersByName = await seedMembers(prisma, church.id);
   const ministriesByCode = await seedMinistries(prisma, church.id);
   const board = await seedBoards(prisma, church.id);
 
-  // 6. Eventos
+  // 6. Usuarios (admin + usuarios ligados a miembros)
+  await seedAdminUser(prisma, adminRole.id, church.id);
+  const memberUsers = await seedMemberUsers(
+    prisma,
+    church.id,
+    membersByName,
+    rolesByName,
+  );
+
+  // 7. Eventos
   await seedEvents(prisma, church.id, ministriesByCode);
 
-  // 7. Presupuesto anual + categorias
+  // 8. Presupuesto anual + categorias
   const budget = await seedBudgets(prisma, church.id);
 
   console.log('Seed completado correctamente.');
@@ -55,6 +68,10 @@ async function main(): Promise<void> {
   console.log(`Presupuesto: ${budget.description} (id=${budget.id})`);
   console.log(`Admin user: ${ADMIN_SEED_CREDENTIALS.email}`);
   console.log(`Admin password: ${ADMIN_SEED_CREDENTIALS.password}`);
+  console.log(`Usuarios ligados a miembros: ${memberUsers.length}`);
+  for (const cred of MEMBER_USER_SEED_CREDENTIALS) {
+    console.log(`  - ${cred.email} / ${cred.password}`);
+  }
 }
 
 main()
