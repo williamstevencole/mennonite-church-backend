@@ -1,6 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { hashPassword } from '../../common/utils/password.utils';
+import { isDuplicateEmailError } from '../../common/utils/prisma.utils';
+import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserResponseDto } from './dto/create-user.response.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UserDetailResponseDto } from './dto/user-detail.response.dto';
 import { UserListItemResponseDto } from './dto/user-list-item.response.dto';
@@ -72,6 +81,49 @@ export class UsersService {
       page,
       size,
     };
+  }
+
+  async create(dto: CreateUserDto): Promise<CreateUserResponseDto> {
+    const role = await this.prisma.userRole.findUnique({
+      where: { id: dto.id_role },
+      select: { id: true, active: true },
+    });
+
+    if (!role?.active) {
+      throw new BadRequestException('Rol inexistente');
+    }
+
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        'Ya existe un usuario registrado con ese email',
+      );
+    }
+
+    try {
+      const created = await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          passwordHash: hashPassword(dto.password),
+          active: true,
+          idUserRole: role.id,
+        },
+        select: { id: true },
+      });
+
+      return { id: created.id };
+    } catch (error: unknown) {
+      if (isDuplicateEmailError(error)) {
+        throw new ConflictException(
+          'Ya existe un usuario registrado con ese email',
+        );
+      }
+      throw error;
+    }
   }
 
   async findOne(id: number): Promise<UserDetailResponseDto> {
