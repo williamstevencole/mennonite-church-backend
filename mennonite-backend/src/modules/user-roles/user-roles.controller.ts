@@ -10,6 +10,8 @@ import {
   Patch,
   Post,
   Put,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -25,8 +27,12 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreateUserRoleDto } from './dto/create-user-role.dto';
+import { ListUserRolesQueryDto } from './dto/list-user-roles-query.dto';
 import { UserRoleResponseDto } from './dto/user-role.response.dto';
+import { UserRolesPageResponseDto } from './dto/user-roles-page.response.dto';
 import { SetUserRolePermissionsDto } from './dto/set-user-role-permissions.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UserRolesService } from './user-roles.service';
@@ -35,6 +41,7 @@ import { UserRolesService } from './user-roles.service';
 @ApiBearerAuth('JWT-auth')
 @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
 @ApiForbiddenResponse({ description: 'Faltan permisos requeridos' })
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('user-roles')
 export class UserRolesController {
   constructor(private readonly service: UserRolesService) {}
@@ -54,13 +61,17 @@ export class UserRolesController {
 
   @Get()
   @Permissions('user-roles.read')
-  @ApiOkResponse({ type: UserRoleResponseDto, isArray: true })
-  findAll(): Promise<UserRoleResponseDto[]> {
-    return this.service.findAll();
+  @ApiOperation({ summary: 'Listar roles con paginacion' })
+  @ApiOkResponse({ type: UserRolesPageResponseDto })
+  findAll(
+    @Query() query: ListUserRolesQueryDto,
+  ): Promise<UserRolesPageResponseDto> {
+    return this.service.findAll(query);
   }
 
   @Get(':id')
   @Permissions('user-roles.read')
+  @ApiOperation({ summary: 'Obtener un rol por id' })
   @ApiOkResponse({ type: UserRoleResponseDto })
   @ApiNotFoundResponse({ description: 'Rol no encontrado' })
   findOne(@Param('id', ParseIntPipe) id: number): Promise<UserRoleResponseDto> {
@@ -69,6 +80,7 @@ export class UserRolesController {
 
   @Patch(':id')
   @Permissions('user-roles.update')
+  @ApiOperation({ summary: 'Actualizar nombre o descripcion de un rol' })
   @ApiOkResponse({ type: UserRoleResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o permisos inexistentes',
@@ -100,6 +112,7 @@ export class UserRolesController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Permissions('user-roles.delete')
+  @ApiOperation({ summary: 'Dar de baja un rol' })
   @ApiNoContentResponse({ description: 'Rol dado de baja' })
   @ApiConflictResponse({ description: 'Hay usuarios con este rol' })
   @ApiNotFoundResponse({ description: 'Rol no encontrado' })

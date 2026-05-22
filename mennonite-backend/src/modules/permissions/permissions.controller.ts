@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -28,7 +29,9 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreatePermissionDto } from './dto/create-permission.dto';
+import { ListPermissionsQueryDto } from './dto/list-permissions-query.dto';
 import { PermissionResponseDto } from './dto/permission.response.dto';
+import { PermissionsPageResponseDto } from './dto/permissions-page.response.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
 import { PermissionsService } from './permissions.service';
 
@@ -54,13 +57,17 @@ export class PermissionsController {
 
   @Get()
   @Permissions('permissions.read')
-  @ApiOkResponse({ type: PermissionResponseDto, isArray: true })
-  findAll(): Promise<PermissionResponseDto[]> {
-    return this.service.findAll();
+  @ApiOperation({ summary: 'Listar permisos con paginacion' })
+  @ApiOkResponse({ type: PermissionsPageResponseDto })
+  findAll(
+    @Query() query: ListPermissionsQueryDto,
+  ): Promise<PermissionsPageResponseDto> {
+    return this.service.findAll(query);
   }
 
   @Get(':id')
   @Permissions('permissions.read')
+  @ApiOperation({ summary: 'Obtener un permiso por id' })
   @ApiOkResponse({ type: PermissionResponseDto })
   @ApiNotFoundResponse({ description: 'Permiso no encontrado' })
   findOne(
@@ -71,6 +78,7 @@ export class PermissionsController {
 
   @Patch(':id')
   @Permissions('user-roles.update')
+  @ApiOperation({ summary: 'Actualizar un permiso' })
   @ApiOkResponse({ type: PermissionResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiNotFoundResponse({ description: 'Permiso no encontrado' })
@@ -84,6 +92,7 @@ export class PermissionsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Permissions('user-roles.update')
+  @ApiOperation({ summary: 'Dar de baja un permiso' })
   @ApiNoContentResponse({ description: 'Permiso dado de baja' })
   @ApiConflictResponse({ description: 'Permiso asignado a roles' })
   @ApiNotFoundResponse({ description: 'Permiso no encontrado' })
