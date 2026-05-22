@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -29,7 +30,9 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreateUserRoleDto } from './dto/create-user-role.dto';
+import { ListUserRolesQueryDto } from './dto/list-user-roles-query.dto';
 import { UserRoleResponseDto } from './dto/user-role.response.dto';
+import { UserRolesPageResponseDto } from './dto/user-roles-page.response.dto';
 import { SetUserRolePermissionsDto } from './dto/set-user-role-permissions.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UserRolesService } from './user-roles.service';
@@ -58,10 +61,12 @@ export class UserRolesController {
 
   @Get()
   @Permissions('user-roles.read')
-  @ApiOperation({ summary: 'Listar todos los roles' })
-  @ApiOkResponse({ type: UserRoleResponseDto, isArray: true })
-  findAll(): Promise<UserRoleResponseDto[]> {
-    return this.service.findAll();
+  @ApiOperation({ summary: 'Listar roles con paginacion' })
+  @ApiOkResponse({ type: UserRolesPageResponseDto })
+  findAll(
+    @Query() query: ListUserRolesQueryDto,
+  ): Promise<UserRolesPageResponseDto> {
+    return this.service.findAll(query);
   }
 
   @Get(':id')

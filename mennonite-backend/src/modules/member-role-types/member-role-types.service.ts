@@ -9,6 +9,7 @@ import { MemberRoleBelongsTo } from './member-role-belongs-to.enum';
 import { CreateMemberRoleTypeDto } from './dto/create-member-role-type.dto';
 import { ListMemberRoleTypesQueryDto } from './dto/list-member-role-types-query.dto';
 import { MemberRoleTypeResponseDto } from './dto/member-role-type.response.dto';
+import { MemberRoleTypesPageResponseDto } from './dto/member-role-types-page.response.dto';
 import { UpdateMemberRoleTypeDto } from './dto/update-member-role-type.dto';
 
 @Injectable()
@@ -41,18 +42,30 @@ export class MemberRoleTypesService {
 
   async findAll(
     query: ListMemberRoleTypesQueryDto,
-  ): Promise<MemberRoleTypeResponseDto[]> {
+  ): Promise<MemberRoleTypesPageResponseDto> {
+    const page = query.page ?? 1;
+    const size = query.size ?? 20;
     const where: Prisma.MemberRoleTypeWhereInput = { active: true };
     if (query.belongsTo) {
       where.belongsTo = query.belongsTo;
     }
 
-    const items = await this.prisma.memberRoleType.findMany({
-      where,
-      orderBy: { name: 'asc' },
-    });
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.memberRoleType.count({ where }),
+      this.prisma.memberRoleType.findMany({
+        where,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        skip: (page - 1) * size,
+        take: size,
+      }),
+    ]);
 
-    return items.map((item) => this.toResponse(item));
+    return {
+      data: items.map((item) => this.toResponse(item)),
+      total,
+      page,
+      size,
+    };
   }
 
   async findOne(id: number): Promise<MemberRoleTypeResponseDto> {
