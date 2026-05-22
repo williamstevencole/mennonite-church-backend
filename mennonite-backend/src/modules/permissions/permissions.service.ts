@@ -6,7 +6,9 @@ import {
 import { Permission } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePermissionDto } from './dto/create-permission.dto';
+import { ListPermissionsQueryDto } from './dto/list-permissions-query.dto';
 import { PermissionResponseDto } from './dto/permission.response.dto';
+import { PermissionsPageResponseDto } from './dto/permissions-page.response.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
 
 @Injectable()
@@ -29,12 +31,29 @@ export class PermissionsService {
     return this.toResponse(created);
   }
 
-  async findAll(): Promise<PermissionResponseDto[]> {
-    const items = await this.prisma.permission.findMany({
-      where: { active: true },
-      orderBy: { code: 'asc' },
-    });
-    return items.map((item) => this.toResponse(item));
+  async findAll(
+    query: ListPermissionsQueryDto,
+  ): Promise<PermissionsPageResponseDto> {
+    const page = query.page ?? 1;
+    const size = query.size ?? 20;
+    const where = { active: true };
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.permission.count({ where }),
+      this.prisma.permission.findMany({
+        where,
+        orderBy: [{ code: 'asc' }, { id: 'asc' }],
+        skip: (page - 1) * size,
+        take: size,
+      }),
+    ]);
+
+    return {
+      data: items.map((item) => this.toResponse(item)),
+      total,
+      page,
+      size,
+    };
   }
 
   async findOne(id: number): Promise<PermissionResponseDto> {
