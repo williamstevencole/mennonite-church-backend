@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { MinistriesService } from './ministries.service';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { MinistriesController } from './ministries.controller';
+import { MinistriesService } from './ministries.service';
 
 @Module({
   controllers: [MinistriesController],
