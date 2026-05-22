@@ -8,4 +8,4 @@ import { MinistriesController } from './ministries.controller';
   controllers: [MinistriesController],
   providers: [MinistriesService, JwtAuthGuard, PermissionsGuard],
 })
-export class MinistriesModule { }
+export class MinistriesModule {}
