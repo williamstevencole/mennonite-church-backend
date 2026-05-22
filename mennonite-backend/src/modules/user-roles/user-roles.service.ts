@@ -6,7 +6,9 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserRoleDto } from './dto/create-user-role.dto';
+import { ListUserRolesQueryDto } from './dto/list-user-roles-query.dto';
 import { UserRoleResponseDto } from './dto/user-role.response.dto';
+import { UserRolesPageResponseDto } from './dto/user-roles-page.response.dto';
 import { SetUserRolePermissionsDto } from './dto/set-user-role-permissions.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 
@@ -46,13 +48,30 @@ export class UserRolesService {
     return this.toResponse(created);
   }
 
-  async findAll(): Promise<UserRoleResponseDto[]> {
-    const items = await this.prisma.userRole.findMany({
-      where: { active: true },
-      orderBy: { name: 'asc' },
-      ...this.includePermissions(),
-    });
-    return items.map((item) => this.toResponse(item));
+  async findAll(
+    query: ListUserRolesQueryDto,
+  ): Promise<UserRolesPageResponseDto> {
+    const page = query.page ?? 1;
+    const size = query.size ?? 20;
+    const where = { active: true };
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.userRole.count({ where }),
+      this.prisma.userRole.findMany({
+        where,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        skip: (page - 1) * size,
+        take: size,
+        ...this.includePermissions(),
+      }),
+    ]);
+
+    return {
+      data: items.map((item) => this.toResponse(item)),
+      total,
+      page,
+      size,
+    };
   }
 
   async findOne(id: number): Promise<UserRoleResponseDto> {

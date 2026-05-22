@@ -1,49 +1,67 @@
 import {
   Body,
   Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
   Post,
+  Query,
   UseGuards,
-  Req,
 } from '@nestjs/common';
-
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
-  ApiBadRequestResponse,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-
+import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-
 import { CreateMinistryDto } from './dto/create-ministry.dto';
+import { ListMinistriesQueryDto } from './dto/list-ministries-query.dto';
+import { MinistriesPageResponseDto } from './dto/ministries-page.response.dto';
 import { MinistryCreatedResponseDto } from './dto/ministry-created.response.dto';
-
 import { MinistriesService } from './ministries.service';
 
 @ApiTags('Ministries')
 @ApiBearerAuth('JWT-auth')
+@ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
+@ApiForbiddenResponse({ description: 'Faltan permisos requeridos' })
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('ministries')
 export class MinistriesController {
   constructor(private readonly ministriesService: MinistriesService) {}
 
-  @Post()
-  @Permissions('ministries.create')
-  @ApiOperation({ summary: 'Crear ministerio' })
-  @ApiCreatedResponse({ type: MinistryCreatedResponseDto })
-  @ApiConflictResponse({ description: 'Codigo duplicado' })
-  @ApiBadRequestResponse({ description: 'Leader member no existe' })
-  async create(
-    @Body() dto: CreateMinistryDto,
-    @Req() req: any,
-  ): Promise<MinistryCreatedResponseDto> {
-      console.log('req.user:', req.user);
+  @Get()
+  @Permissions('ministries.read')
+  @ApiOperation({ summary: 'Listar ministerios con filtros y paginacion' })
+  @ApiOkResponse({ type: MinistriesPageResponseDto })
+  findAll(
+    @Query() query: ListMinistriesQueryDto,
+  ): Promise<MinistriesPageResponseDto> {
+    return this.ministriesService.findAll(query);
+  }
 
-    return this.ministriesService.create(dto, req.user);
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @Permissions('ministries.create')
+  @ApiOperation({ summary: 'Crear un ministerio en la iglesia del usuario' })
+  @ApiCreatedResponse({ type: MinistryCreatedResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o lider inexistente',
+  })
+  @ApiConflictResponse({ description: 'Codigo de ministerio duplicado' })
+  create(
+    @Body() dto: CreateMinistryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<MinistryCreatedResponseDto> {
+    return this.ministriesService.create(dto, user);
   }
 }
-

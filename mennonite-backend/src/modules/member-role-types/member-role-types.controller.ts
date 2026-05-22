@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -25,9 +26,12 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreateMemberRoleTypeDto } from './dto/create-member-role-type.dto';
 import { ListMemberRoleTypesQueryDto } from './dto/list-member-role-types-query.dto';
 import { MemberRoleTypeResponseDto } from './dto/member-role-type.response.dto';
+import { MemberRoleTypesPageResponseDto } from './dto/member-role-types-page.response.dto';
 import { UpdateMemberRoleTypeDto } from './dto/update-member-role-type.dto';
 import { MemberRoleTypesService } from './member-role-types.service';
 
@@ -35,6 +39,7 @@ import { MemberRoleTypesService } from './member-role-types.service';
 @ApiBearerAuth('JWT-auth')
 @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
 @ApiForbiddenResponse({ description: 'Faltan permisos requeridos' })
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('member-role-types')
 export class MemberRoleTypesController {
   constructor(
@@ -57,12 +62,13 @@ export class MemberRoleTypesController {
   @Get()
   @Permissions('catalog.member-role-types.read')
   @ApiOperation({
-    summary: 'Listar cargos activos, opcionalmente filtrados por ambito',
+    summary:
+      'Listar cargos activos con paginacion, opcionalmente filtrados por ambito',
   })
-  @ApiOkResponse({ type: MemberRoleTypeResponseDto, isArray: true })
+  @ApiOkResponse({ type: MemberRoleTypesPageResponseDto })
   findAll(
     @Query() query: ListMemberRoleTypesQueryDto,
-  ): Promise<MemberRoleTypeResponseDto[]> {
+  ): Promise<MemberRoleTypesPageResponseDto> {
     return this.memberRoleTypesService.findAll(query);
   }
 
