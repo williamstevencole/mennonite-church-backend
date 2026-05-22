@@ -58,4 +58,4 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

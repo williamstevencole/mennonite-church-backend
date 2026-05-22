@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiForbiddenResponse,
@@ -17,8 +10,8 @@ import {
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { MinistriesPageResponseDto } from './dto/ministries-page.response.dto';
 import { ListMinistriesQueryDto } from './dto/list-ministries-query.dto';
+import { MinistriesPageResponseDto } from './dto/ministries-page.response.dto';
 import { MinistriesService } from './ministries.service';
 
 @ApiTags('Ministries')
@@ -28,23 +21,15 @@ import { MinistriesService } from './ministries.service';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('ministries')
 export class MinistriesController {
-  constructor(private readonly ministriesService: MinistriesService) { }
+  constructor(private readonly ministriesService: MinistriesService) {}
 
   @Get()
   @Permissions('ministries.read')
   @ApiOperation({ summary: 'Listar ministerios con filtros y paginacion' })
   @ApiOkResponse({ type: MinistriesPageResponseDto })
-  findAll(@Query() query: ListMinistriesQueryDto): Promise<MinistriesPageResponseDto> {
+  findAll(
+    @Query() query: ListMinistriesQueryDto,
+  ): Promise<MinistriesPageResponseDto> {
     return this.ministriesService.findAll(query);
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.ministriesService.findOne(+id);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.ministriesService.remove(+id);
   }
 }
