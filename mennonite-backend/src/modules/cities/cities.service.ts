@@ -1,0 +1,124 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { City, Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CityResponseDto } from './dto/city.response.dto';
+import { CreateCityDto } from './dto/create-city.dto';
+import { ListCitiesQueryDto } from './dto/list-cities-query.dto';
+import { UpdateCityDto } from './dto/update-city.dto';
+
+@Injectable()
+export class CitiesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(dto: CreateCityDto): Promise<CityResponseDto> {
+    await this.assertDepartment(dto.idDepartment);
+    await this.assertUnique(dto.name, dto.idDepartment);
+
+    const created = await this.prisma.city.create({
+      data: { name: dto.name, idDepartment: dto.idDepartment },
+    });
+    return this.toResponse(created);
+  }
+
+  async findAll(query: ListCitiesQueryDto): Promise<CityResponseDto[]> {
+    const where: Prisma.CityWhereInput = {};
+    if (query.idDepartment !== undefined) {
+      where.idDepartment = query.idDepartment;
+    }
+    const items = await this.prisma.city.findMany({
+      where,
+      orderBy: { name: 'asc' },
+    });
+    return items.map((item) => this.toResponse(item));
+  }
+
+  async findOne(id: number): Promise<CityResponseDto> {
+    const item = await this.prisma.city.findUnique({ where: { id } });
+    if (!item) {
+      throw new NotFoundException(`Ciudad ${id} no encontrada`);
+    }
+    return this.toResponse(item);
+  }
+
+  async update(id: number, dto: UpdateCityDto): Promise<CityResponseDto> {
+    const current = await this.prisma.city.findUnique({ where: { id } });
+    if (!current) {
+      throw new NotFoundException(`Ciudad ${id} no encontrada`);
+    }
+    if (dto.idDepartment !== undefined) {
+      await this.assertDepartment(dto.idDepartment);
+    }
+    if (dto.name || dto.idDepartment !== undefined) {
+      await this.assertUnique(
+        dto.name ?? current.name,
+        dto.idDepartment ?? current.idDepartment,
+        id,
+      );
+    }
+    const updated = await this.prisma.city.update({
+      where: { id },
+      data: { name: dto.name, idDepartment: dto.idDepartment },
+    });
+    return this.toResponse(updated);
+  }
+
+  async remove(id: number): Promise<void> {
+    const existing = await this.prisma.city.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Ciudad ${id} no encontrada`);
+    }
+    const churchCount = await this.prisma.church.count({
+      where: { idCity: id },
+    });
+    if (churchCount > 0) {
+      throw new ConflictException(
+        `No se puede eliminar: ${churchCount} iglesia(s) usan esta ciudad`,
+      );
+    }
+    await this.prisma.city.delete({ where: { id } });
+  }
+
+  private async assertDepartment(idDepartment: number): Promise<void> {
+    const exists = await this.prisma.department.findUnique({
+      where: { id: idDepartment },
+      select: { id: true },
+    });
+    if (!exists) {
+      throw new BadRequestException(
+        `El departamento con id ${idDepartment} no existe`,
+      );
+    }
+  }
+
+  private async assertUnique(
+    name: string,
+    idDepartment: number,
+    excludeId?: number,
+  ): Promise<void> {
+    const dup = await this.prisma.city.findFirst({
+      where: { name, idDepartment },
+      select: { id: true },
+    });
+    if (dup && dup.id !== excludeId) {
+      throw new ConflictException(
+        `Ya existe la ciudad "${name}" en este departamento`,
+      );
+    }
+  }
+
+  private toResponse(entity: City): CityResponseDto {
+    return {
+      id: entity.id,
+      name: entity.name,
+      idDepartment: entity.idDepartment,
+    };
+  }
+}
