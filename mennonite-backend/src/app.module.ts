@@ -12,6 +12,8 @@ import { PermissionsModule } from './modules/permissions/permissions.module';
 import { UserRolesModule } from './modules/user-roles/user-roles.module';
 import { UsersModule } from './modules/users/users.module';
 import { MinistriesModule } from './modules/ministries/ministries.module';
+import { DepartmentsModule } from './modules/departments/departments.module';
+import { CitiesModule } from './modules/cities/cities.module';
 
 const resolveJwtExpiresIn = (value?: string): number | StringValue => {
   if (!value) {
@@ -54,6 +56,8 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
     UserRolesModule,
     UsersModule,
     MinistriesModule,
+    DepartmentsModule,
+    CitiesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
