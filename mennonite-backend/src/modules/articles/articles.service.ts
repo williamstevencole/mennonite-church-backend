@@ -61,4 +61,26 @@ export class ArticlesService {
       unitCost: Number(entity.unitCost),
     };
   }
+
+  async findAll(user: JwtPayload): Promise<ArticleResponseDto[]> {
+    const userRecord = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      select: { idChurch: true },
+    });
+
+    if (!userRecord?.idChurch) {
+      throw new BadRequestException('Usuario no encontrado o sin iglesia');
+    }
+
+    const articles = await this.prisma.article.findMany({
+      where: {
+        idChurch: userRecord.idChurch,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return articles.map((article) => this.toResponse(article));
+  }
 }

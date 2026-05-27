@@ -4,6 +4,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -12,7 +13,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { Controller, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { Body, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { CreateArticleDto } from './dto/create-article.dto';
@@ -42,5 +43,14 @@ export class ArticlesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<ArticleResponseDto> {
     return this.service.create(dto, user);
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @Permissions('inventory.read')
+  @ApiOperation({ summary: 'Listar articulos' })
+  @ApiOkResponse({ type: [ArticleResponseDto] })
+  findAll(@CurrentUser() user: JwtPayload): Promise<ArticleResponseDto[]> {
+    return this.service.findAll(user);
   }
 }
