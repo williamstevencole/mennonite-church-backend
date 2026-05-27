@@ -17,6 +17,7 @@ import { CitiesModule } from './modules/cities/cities.module';
 import { TransactionCategoriesModule } from './modules/transaction-categories/transaction-categories.module';
 import { ChurchesModule } from './modules/churches/churches.module';
 import { EventTypesModule } from './modules/event-types/event-types.module';
+import { ArticlesModule } from './modules/articles/articles.module';
 
 const resolveJwtExpiresIn = (value?: string): number | StringValue => {
   if (!value) {
@@ -64,6 +65,7 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
     TransactionCategoriesModule,
     ChurchesModule,
     EventTypesModule,
+    ArticlesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
