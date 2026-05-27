@@ -19,6 +19,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   UseGuards,
@@ -64,5 +65,17 @@ export class ArticlesController {
     @Query() query: FindArticlesQueryDto,
   ): Promise<ArticleResponseDto[]> {
     return this.service.findAll(user, query);
+  }
+
+  @Get(':id')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('inventory.read')
+  @ApiOperation({ summary: 'Obtener articulo por ID' })
+  @ApiOkResponse({ type: ArticleResponseDto })
+  findOne(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<ArticleResponseDto> {
+    return this.service.findOne(user, Number(id));
   }
 }

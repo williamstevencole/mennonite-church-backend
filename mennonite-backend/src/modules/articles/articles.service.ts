@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Prisma, Article } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -84,6 +85,30 @@ export class ArticlesService {
     const articles = await this.prisma.article.findMany({ where });
 
     return articles.map((article) => this.toResponse(article));
+  }
+
+  async findOne(user: JwtPayload, id: number): Promise<ArticleResponseDto> {
+    const userRecord = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      select: { idChurch: true },
+    });
+
+    if (!userRecord?.idChurch) {
+      throw new BadRequestException('Usuario no reconocido');
+    }
+
+    const article = await this.prisma.article.findFirst({
+      where: {
+        id,
+        idChurch: userRecord.idChurch,
+      },
+    });
+
+    if (!article) {
+      throw new NotFoundException('Articulo no encontrado');
+    }
+
+    return this.toResponse(article);
   }
 
   private toResponse(entity: Article): ArticleResponseDto {
