@@ -10,15 +10,15 @@ datasource db {
 }
 
 model AuditLog {
-  id         BigInt    @id @default(autoincrement())
-  tableName  String    @map("table_name") @db.VarChar(80)
-  recordId   Int       @map("record_id")
-  operation  String    @db.VarChar(10) // CHECK ('INSERT','UPDATE','DELETE')
-  changedBy  Int?      @map("changed_by") // NULL if background process
-  changedAt  DateTime  @default(now()) @map("changed_at") @db.Timestamptz()
-  oldData    String?   @map("old_data")
+  id        BigInt   @id @default(autoincrement())
+  tableName String   @map("table_name") @db.VarChar(80)
+  recordId  Int      @map("record_id")
+  operation String   @db.VarChar(10) // CHECK ('INSERT','UPDATE','DELETE')
+  changedBy Int?     @map("changed_by") // NULL if background process
+  changedAt DateTime @default(now()) @map("changed_at") @db.Timestamptz()
+  oldData   String?  @map("old_data")
 
-  changedByUser User?  @relation(fields: [changedBy], references: [id])
+  changedByUser User? @relation(fields: [changedBy], references: [id])
 
   @@index([tableName, recordId])
   @@index([changedAt])
@@ -27,8 +27,8 @@ model AuditLog {
 }
 
 model Department {
-  id     Int    @id @default(autoincrement())
-  name   String @db.VarChar(100)
+  id   Int    @id @default(autoincrement())
+  name String @db.VarChar(100)
 
   cities City[]
 
@@ -36,12 +36,12 @@ model Department {
 }
 
 model City {
-  id           Int        @id @default(autoincrement())
-  idDepartment Int        @map("id_department")
-  name         String     @db.VarChar(100)
+  id           Int    @id @default(autoincrement())
+  idDepartment Int    @map("id_department")
+  name         String @db.VarChar(100)
 
-  department   Department @relation(fields: [idDepartment], references: [id])
-  churches     Church[]
+  department Department @relation(fields: [idDepartment], references: [id])
+  churches   Church[]
 
   @@map("city")
 }
@@ -61,19 +61,19 @@ model Church {
   createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy      Int?      @map("created_by")
 
-  city                 City?                 @relation(fields: [idCity], references: [id])
-  createdByUser        User?                 @relation("ChurchCreatedBy", fields: [createdBy], references: [id])
-  users                User[]                @relation("UserChurch")
-  members              Member[]
-  ministries           Ministry[]
-  boards               Board[]
-  articles             Article[]
-  inventoryMovements   InventoryMovement[]
-  events               Event[]
+  city                  City?                  @relation(fields: [idCity], references: [id])
+  createdByUser         User?                  @relation("ChurchCreatedBy", fields: [createdBy], references: [id])
+  users                 User[]                 @relation("UserChurch")
+  members               Member[]
+  ministries            Ministry[]
+  boards                Board[]
+  articles              Article[]
+  inventoryMovements    InventoryMovement[]
+  events                Event[]
   financialTransactions FinancialTransaction[]
-  financialReports     FinancialReport[]
-  periodClosures       PeriodClosure[]
-  budgets              Budget[]
+  financialReports      FinancialReport[]
+  periodClosures        PeriodClosure[]
+  budgets               Budget[]
 
   @@map("church")
 }
@@ -140,8 +140,8 @@ model Permission {
 }
 
 model RolePermission {
-  idUserRole   Int      @map("id_user_role")
-  idPermission Int      @map("id_permission")
+  idUserRole   Int       @map("id_user_role")
+  idPermission Int       @map("id_permission")
   createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz()
 
   userRole   UserRole   @relation(fields: [idUserRole], references: [id])
@@ -162,32 +162,32 @@ model User {
   createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy    Int?      @map("created_by")
 
-  church        Church?  @relation("UserChurch", fields: [idChurch], references: [id])
-  member        Member?  @relation("UserMember", fields: [idMember], references: [id])
+  church        Church?   @relation("UserChurch", fields: [idChurch], references: [id])
+  member        Member?   @relation("UserMember", fields: [idMember], references: [id])
   userRole      UserRole? @relation(fields: [idUserRole], references: [id])
-  createdByUser User?    @relation("UserCreatedBy", fields: [createdBy], references: [id])
+  createdByUser User?     @relation("UserCreatedBy", fields: [createdBy], references: [id])
 
   // Self-referencing back-relations
-  createdUsers         User[]                @relation("UserCreatedBy")
-  auditLogs            AuditLog[]
-  churchesCreated      Church[]              @relation("ChurchCreatedBy")
-  userRolesCreated     UserRole[]            @relation("UserRoleCreatedBy")
-  membersCreated       Member[]              @relation("MemberCreatedBy")
-  ministriesCreated    Ministry[]            @relation("MinistryCreatedBy")
-  boardsCreated        Board[]               @relation("BoardCreatedBy")
-  boardMembersCreated  BoardMember[]         @relation("BoardMemberCreatedBy")
-  ministryMembersCreated MinistryMember[]    @relation("MinistryMemberCreatedBy")
-  articlesCreated      Article[]             @relation("ArticleCreatedBy")
-  inventoryMovements   InventoryMovement[]
-  eventsCancelled      Event[]               @relation("EventCancelledBy")
-  eventsCreated        Event[]               @relation("EventCreatedBy")
-  financialTransactions FinancialTransaction[] @relation("FinancialTransactionCreatedBy")
-  financialReportsPresented FinancialReport[] @relation("FinancialReportPresentedBy")
-  financialReportsApproved  FinancialReport[] @relation("FinancialReportApprovedBy")
-  financialReportsCreated   FinancialReport[] @relation("FinancialReportCreatedBy")
-  periodClosuresCreated PeriodClosure[]      @relation("PeriodClosureCreatedBy")
-  budgetsCreated       Budget[]              @relation("BudgetCreatedBy")
-  budgetDistributionsCreated BudgetDistribution[] @relation("BudgetDistributionCreatedBy")
+  createdUsers               User[]                 @relation("UserCreatedBy")
+  auditLogs                  AuditLog[]
+  churchesCreated            Church[]               @relation("ChurchCreatedBy")
+  userRolesCreated           UserRole[]             @relation("UserRoleCreatedBy")
+  membersCreated             Member[]               @relation("MemberCreatedBy")
+  ministriesCreated          Ministry[]             @relation("MinistryCreatedBy")
+  boardsCreated              Board[]                @relation("BoardCreatedBy")
+  boardMembersCreated        BoardMember[]          @relation("BoardMemberCreatedBy")
+  ministryMembersCreated     MinistryMember[]       @relation("MinistryMemberCreatedBy")
+  articlesCreated            Article[]              @relation("ArticleCreatedBy")
+  inventoryMovements         InventoryMovement[]
+  eventsCancelled            Event[]                @relation("EventCancelledBy")
+  eventsCreated              Event[]                @relation("EventCreatedBy")
+  financialTransactions      FinancialTransaction[] @relation("FinancialTransactionCreatedBy")
+  financialReportsPresented  FinancialReport[]      @relation("FinancialReportPresentedBy")
+  financialReportsApproved   FinancialReport[]      @relation("FinancialReportApprovedBy")
+  financialReportsCreated    FinancialReport[]      @relation("FinancialReportCreatedBy")
+  periodClosuresCreated      PeriodClosure[]        @relation("PeriodClosureCreatedBy")
+  budgetsCreated             Budget[]               @relation("BudgetCreatedBy")
+  budgetDistributionsCreated BudgetDistribution[]   @relation("BudgetDistributionCreatedBy")
 
   @@map("user")
 }
@@ -197,7 +197,7 @@ model Member {
   idChurch       Int       @map("id_church")
   name           String    @db.VarChar(60)
   documentType   String    @map("document_type") @db.VarChar(30) // CHECK ('National ID','Passport','Birth Certificate')
-  documentNumber String    @map("document_number") @db.VarChar(30)
+  documentNumber String    @unique @map("document_number") @db.VarChar(30)
   profession     String?   @db.VarChar(100)
   birthDate      DateTime  @map("birth_date") @db.Date
   phone          String?   @db.VarChar(20)
@@ -210,13 +210,13 @@ model Member {
   createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy      Int?      @map("created_by")
 
-  church          Church          @relation(fields: [idChurch], references: [id])
-  createdByUser   User?           @relation("MemberCreatedBy", fields: [createdBy], references: [id])
-  user            User?           @relation("UserMember")
-  boardMembers    BoardMember[]
-  ministryMembers MinistryMember[]
+  church                Church                   @relation(fields: [idChurch], references: [id])
+  createdByUser         User?                    @relation("MemberCreatedBy", fields: [createdBy], references: [id])
+  user                  User?                    @relation("UserMember")
+  boardMembers          BoardMember[]
+  ministryMembers       MinistryMember[]
   eventResponsibilities EventResponsibleMember[]
-  memberEvents    MemberEvent[]
+  memberEvents          MemberEvent[]
 
   @@unique([documentType, documentNumber])
   @@map("member")
@@ -231,13 +231,13 @@ model Ministry {
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy Int?      @map("created_by")
 
-  church          Church           @relation(fields: [idChurch], references: [id])
-  createdByUser   User?            @relation("MinistryCreatedBy", fields: [createdBy], references: [id])
-  ministryMembers MinistryMember[]
-  events          Event[]
+  church                Church                 @relation(fields: [idChurch], references: [id])
+  createdByUser         User?                  @relation("MinistryCreatedBy", fields: [createdBy], references: [id])
+  ministryMembers       MinistryMember[]
+  events                Event[]
   financialTransactions FinancialTransaction[]
-  financialReports FinancialReport[]
-  budgetDistributions BudgetDistribution[]
+  financialReports      FinancialReport[]
+  budgetDistributions   BudgetDistribution[]
 
   @@unique([idChurch, code])
   @@map("ministry")
@@ -369,15 +369,15 @@ model Event {
   createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy         Int?      @map("created_by")
 
-  church            Church    @relation(fields: [idChurch], references: [id])
-  eventType         EventType? @relation(fields: [idEventType], references: [id])
-  ministry          Ministry?  @relation(fields: [idMinistry], references: [id])
-  cancelledByUser   User?      @relation("EventCancelledBy", fields: [cancelledBy], references: [id])
-  createdByUser     User?      @relation("EventCreatedBy", fields: [createdBy], references: [id])
-  responsibleMembers EventResponsibleMember[]
-  memberEvents      MemberEvent[]
-  tripDetail        TripDetail?
-  fundraisingDetail FundraisingDetail?
+  church                Church                   @relation(fields: [idChurch], references: [id])
+  eventType             EventType?               @relation(fields: [idEventType], references: [id])
+  ministry              Ministry?                @relation(fields: [idMinistry], references: [id])
+  cancelledByUser       User?                    @relation("EventCancelledBy", fields: [cancelledBy], references: [id])
+  createdByUser         User?                    @relation("EventCreatedBy", fields: [createdBy], references: [id])
+  responsibleMembers    EventResponsibleMember[]
+  memberEvents          MemberEvent[]
+  tripDetail            TripDetail?
+  fundraisingDetail     FundraisingDetail?
   financialTransactions FinancialTransaction[]
 
   @@index([idChurch, startDatetime])
@@ -414,10 +414,10 @@ model MemberEvent {
 }
 
 model TripDetail {
-  id          Int    @id @default(autoincrement())
-  idEvent     Int    @unique @map("id_event") // Solo si event_category=trip
-  origin      String @db.VarChar(200)
-  destination String @db.VarChar(200)
+  id          Int     @id @default(autoincrement())
+  idEvent     Int     @unique @map("id_event") // Solo si event_category=trip
+  origin      String  @db.VarChar(200)
+  destination String  @db.VarChar(200)
   notes       String?
 
   event Event @relation(fields: [idEvent], references: [id])
@@ -485,11 +485,11 @@ model FinancialReport {
   createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy     Int?      @map("created_by")
 
-  church            Church   @relation(fields: [idChurch], references: [id])
-  ministry          Ministry? @relation(fields: [idMinistry], references: [id])
-  presentedByUser   User?    @relation("FinancialReportPresentedBy", fields: [presentedBy], references: [id])
-  approvedByUser    User?    @relation("FinancialReportApprovedBy", fields: [approvedBy], references: [id])
-  createdByUser     User?    @relation("FinancialReportCreatedBy", fields: [createdBy], references: [id])
+  church          Church    @relation(fields: [idChurch], references: [id])
+  ministry        Ministry? @relation(fields: [idMinistry], references: [id])
+  presentedByUser User?     @relation("FinancialReportPresentedBy", fields: [presentedBy], references: [id])
+  approvedByUser  User?     @relation("FinancialReportApprovedBy", fields: [approvedBy], references: [id])
+  createdByUser   User?     @relation("FinancialReportCreatedBy", fields: [createdBy], references: [id])
 
   @@index([idChurch, periodStart, periodEnd])
   @@index([idMinistry])
@@ -498,15 +498,15 @@ model FinancialReport {
 }
 
 model PeriodClosure {
-  id                Int       @id @default(autoincrement())
-  idChurch          Int       @map("id_church")
-  year              Int
-  ownFunds          Decimal   @map("own_funds") @db.Decimal(12, 2) // Caja chica + cuenta corriente operativa
-  accumulatedReserve Decimal  @map("accumulated_reserve") @db.Decimal(12, 2) // Ahorros historicos
-  closureDate       DateTime? @map("closure_date") @db.Date
-  notes             String?
-  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz()
-  createdBy         Int?      @map("created_by")
+  id                 Int       @id @default(autoincrement())
+  idChurch           Int       @map("id_church")
+  year               Int
+  ownFunds           Decimal   @map("own_funds") @db.Decimal(12, 2) // Caja chica + cuenta corriente operativa
+  accumulatedReserve Decimal   @map("accumulated_reserve") @db.Decimal(12, 2) // Ahorros historicos
+  closureDate        DateTime? @map("closure_date") @db.Date
+  notes              String?
+  createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy          Int?      @map("created_by")
 
   church        Church @relation(fields: [idChurch], references: [id])
   createdByUser User?  @relation("PeriodClosureCreatedBy", fields: [createdBy], references: [id])
