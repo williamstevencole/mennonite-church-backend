@@ -62,23 +62,51 @@ export class ArticlesService {
     };
   }
 
-  async findAll(user: JwtPayload): Promise<ArticleResponseDto[]> {
+  async findAll(
+    user: JwtPayload,
+    active?: string,
+    q?: string,
+  ): Promise<ArticleResponseDto[]> {
     const userRecord = await this.prisma.user.findUnique({
       where: { id: user.sub },
       select: { idChurch: true },
     });
 
-    if (!userRecord?.idChurch) {
-      throw new BadRequestException('Usuario no encontrado o sin iglesia');
+    if (!userRecord || !userRecord.idChurch) {
+      throw new BadRequestException('Usuario no reconocido');
+    }
+
+    const where: Prisma.ArticleWhereInput = {
+      idChurch: userRecord.idChurch,
+    };
+
+    if (active !== undefined) {
+      where.active = active === 'true';
+    }
+
+    if (q) {
+      where.AND = [
+        {
+          OR: [
+            {
+              code: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+            {
+              description: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+      ];
     }
 
     const articles = await this.prisma.article.findMany({
-      where: {
-        idChurch: userRecord.idChurch,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      where,
     });
 
     return articles.map((article) => this.toResponse(article));
