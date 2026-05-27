@@ -8,6 +8,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -15,6 +16,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -26,7 +28,9 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { MembersService } from './members.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { MemberCreatedResponseDto } from './dto/member-created.response.dto';
+import { MembersPageResponseDto } from './dto/members-page.response.dto';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
+import { ListMembersQueryDto } from './dto/list-members-query.dto';
 
 @ApiTags('Members')
 @ApiBearerAuth('JWT-auth')
@@ -54,8 +58,13 @@ export class MembersController {
   }
 
   @Get()
-  findAll() {
-    return this.membersService.findAll();
+  @Permissions('members.read')
+  @ApiOperation({ summary: 'Listar miembros' })
+  @ApiOkResponse({ type: MembersPageResponseDto })
+  findAll(
+    @Query() query: ListMembersQueryDto,
+  ): Promise<MembersPageResponseDto> {
+    return this.membersService.findAll(query);
   }
 
   @Get(':id')

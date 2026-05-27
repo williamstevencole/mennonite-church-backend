@@ -3,9 +3,13 @@ import {
   ConflictException,
   Injectable,
 } from '@nestjs/common';
+import { Member, Prisma } from '@prisma/client';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { CreateMemberDto } from './dto/create-member.dto';
+import { MemberListItemResponseDto } from './dto/member-list-item.response.dto';
 import { MemberCreatedResponseDto } from './dto/member-created.response.dto';
+import { MembersPageResponseDto } from './dto/members-page.response.dto';
+import { ListMembersQueryDto } from './dto/list-members-query.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DocumentType } from './doc-type-enum';
 
@@ -86,8 +90,36 @@ export class MembersService {
     return { id: member.id };
   }
 
-  findAll() {
-    return `This action returns all members`;
+  async findAll(query: ListMembersQueryDto): Promise<MembersPageResponseDto> {
+    const page = query.page ?? 1;
+    const size = query.size ?? 20;
+    const name = query.name?.trim();
+    const where: Prisma.MemberWhereInput = {};
+
+    if (query.active !== undefined) {
+      where.active = query.active;
+    }
+
+    if (query.name !== undefined) {
+      where.name = { contains: name, mode: 'insensitive' };
+    }
+
+    const [total, members] = await this.prisma.$transaction([
+      this.prisma.member.count({ where }),
+      this.prisma.member.findMany({
+        where,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        skip: (page - 1) * size,
+        take: size,
+      }),
+    ]);
+
+    return {
+      data: members.map((member) => this.toListItem(member)),
+      total,
+      page,
+      size,
+    };
   }
 
   findOne(id: number) {
@@ -96,5 +128,24 @@ export class MembersService {
 
   remove(id: number) {
     return `This action removes a #${id} member`;
+  }
+
+  private toListItem(member: Member): MemberListItemResponseDto {
+    return {
+      id: member.id,
+      idChurch: member.idChurch,
+      name: member.name,
+      documentType: member.documentType as DocumentType,
+      documentNumber: member.documentNumber,
+      profession: member.profession,
+      birthDate: member.birthDate,
+      phone: member.phone,
+      personalEmail: member.personalEmail,
+      address: member.address,
+      baptismDate: member.baptismDate,
+      joinDate: member.joinDate,
+      inactivatedAt: member.inactivatedAt,
+      active: member.active,
+    };
   }
 }
