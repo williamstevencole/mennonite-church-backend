@@ -13,7 +13,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { Body, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { CreateArticleDto } from './dto/create-article.dto';
@@ -48,9 +48,13 @@ export class ArticlesController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @Permissions('inventory.read')
-  @ApiOperation({ summary: 'Listar articulos' })
+  @ApiOperation({ summary: 'Obtener articulos con filtros' })
   @ApiOkResponse({ type: [ArticleResponseDto] })
-  findAll(@CurrentUser() user: JwtPayload): Promise<ArticleResponseDto[]> {
-    return this.service.findAll(user);
+  findAll(
+    @CurrentUser() user: JwtPayload,
+    @Query('active') active?: string,
+    @Query('q') q?: string,
+  ) {
+    return this.service.findAll(user, active, q);
   }
 }
