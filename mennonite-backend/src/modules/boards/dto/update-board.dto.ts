@@ -14,6 +14,11 @@ export class UpdateBoardDto {
   @MaxLength(100)
   name?: string;
 
+  @ApiPropertyOptional({ example: 'Junta electa en asamblea anual' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
   @ApiPropertyOptional({ example: '2026-01-01' })
   @IsOptional()
   @IsDateString()
