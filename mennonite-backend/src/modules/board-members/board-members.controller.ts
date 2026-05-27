@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -16,6 +17,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -65,6 +67,18 @@ export class BoardMembersController {
     @Body() dto: UpdateBoardMemberDto,
   ): Promise<BoardMemberDetailResponseDto> {
     return this.service.update(id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Permissions('assignments.delete')
+  @ApiOperation({ summary: 'Retirar integrante de concilio (soft delete)' })
+  @ApiNoContentResponse({ description: 'Integrante de concilio retirado' })
+  @ApiNotFoundResponse({
+    description: 'Integrante de concilio no encontrado',
+  })
+  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    return this.service.remove(id);
   }
 
   @Get(':id')
