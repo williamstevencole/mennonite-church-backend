@@ -297,6 +297,28 @@ export class BoardMembersService {
     return members.map((item) => this.toListItem(item));
   }
 
+  async remove(id: number): Promise<void> {
+    const boardMember = await this.prisma.boardMember.findFirst({
+      where: { id, assignmentType: 'board' },
+      select: { id: true, active: true },
+    });
+
+    if (!boardMember) {
+      throw new NotFoundException(
+        `Integrante de concilio con id ${id} no encontrado`,
+      );
+    }
+
+    if (!boardMember.active) {
+      return;
+    }
+
+    await this.prisma.boardMember.update({
+      where: { id },
+      data: { active: false },
+    });
+  }
+
   private listInclude() {
     return {
       member: { select: { id: true, name: true } },
