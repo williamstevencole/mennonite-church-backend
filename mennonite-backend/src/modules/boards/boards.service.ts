@@ -87,6 +87,7 @@ export class BoardsService {
       data: {
         idChurch,
         name: dto.name,
+        description: dto.description,
         startDate,
         endDate,
         active,
@@ -147,6 +148,10 @@ export class BoardsService {
 
     if (dto.name !== undefined) {
       data.name = dto.name;
+    }
+
+    if (dto.description !== undefined) {
+      data.description = dto.description;
     }
 
     if (dto.start_date !== undefined) {

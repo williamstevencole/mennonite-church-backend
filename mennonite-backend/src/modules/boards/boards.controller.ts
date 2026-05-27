@@ -88,6 +88,18 @@ export class BoardsController {
     return this.service.update(id, dto, user);
   }
 
+  @Get(':id')
+  @Permissions('boards.read')
+  @ApiOperation({ summary: 'Obtener detalle de un concilio' })
+  @ApiOkResponse({ type: BoardDetailResponseDto })
+  @ApiNotFoundResponse({ description: 'Concilio no encontrado' })
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<BoardDetailResponseDto> {
+    return this.service.findOne(id, user);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Permissions('boards.delete')
@@ -99,17 +111,5 @@ export class BoardsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.service.remove(id, user);
-  }
-
-  @Get(':id')
-  @Permissions('boards.read')
-  @ApiOperation({ summary: 'Obtener detalle de un concilio' })
-  @ApiOkResponse({ type: BoardDetailResponseDto })
-  @ApiNotFoundResponse({ description: 'Concilio no encontrado' })
-  findOne(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: JwtPayload,
-  ): Promise<BoardDetailResponseDto> {
-    return this.service.findOne(id, user);
   }
 }

@@ -13,6 +13,11 @@ export class CreateBoardDto {
   @MaxLength(100)
   name!: string;
 
+  @ApiPropertyOptional({ example: 'Junta electa en asamblea anual' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
   @ApiProperty({ example: '2026-01-01' })
   @IsDateString()
   start_date!: string;
