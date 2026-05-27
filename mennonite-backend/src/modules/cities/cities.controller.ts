@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -25,6 +26,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CitiesService } from './cities.service';
 import { CityResponseDto } from './dto/city.response.dto';
 import { CreateCityDto } from './dto/create-city.dto';
@@ -35,6 +38,7 @@ import { UpdateCityDto } from './dto/update-city.dto';
 @ApiBearerAuth('JWT-auth')
 @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
 @ApiForbiddenResponse({ description: 'Faltan permisos requeridos' })
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('cities')
 export class CitiesController {
   constructor(private readonly service: CitiesService) {}

@@ -3,12 +3,11 @@ import {
   ConflictException,
   Injectable,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { Prisma, Article } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
 import { ArticleResponseDto } from './dto/article.response.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
-import { Article } from '.prisma/client';
 
 @Injectable()
 export class ArticlesService {
