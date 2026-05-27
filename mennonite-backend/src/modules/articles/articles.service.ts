@@ -6,32 +6,41 @@ import {
 } from '@nestjs/common';
 import { Prisma, Article } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+
 import { ArticleResponseDto } from './dto/article.response.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
+import { ArticlesPageResponseDto } from './dto/articles-page.response.dto';
+
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 
 @Injectable()
 export class ArticlesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(
-    dto: CreateArticleDto,
-    user: JwtPayload,
-  ): Promise<ArticleResponseDto> {
+  private async getChurchId(user: JwtPayload): Promise<number> {
     const userRecord = await this.prisma.user.findUnique({
       where: { id: user.sub },
       select: { idChurch: true },
     });
 
     if (!userRecord?.idChurch) {
-      throw new BadRequestException('Usuario no encontrado o sin iglesia');
+      throw new BadRequestException('Usuario no reconocido');
     }
+
+    return userRecord.idChurch;
+  }
+
+  async create(
+    dto: CreateArticleDto,
+    user: JwtPayload,
+  ): Promise<ArticleResponseDto> {
+    const idChurch = await this.getChurchId(user);
 
     try {
       const created = await this.prisma.article.create({
         data: {
-          idChurch: userRecord.idChurch,
+          idChurch,
           name: dto.name,
           code: dto.code,
           description: dto.description ?? null,
@@ -56,18 +65,17 @@ export class ArticlesService {
   async findAll(
     user: JwtPayload,
     query: FindArticlesQueryDto,
-  ): Promise<ArticleResponseDto[]> {
-    const userRecord = await this.prisma.user.findUnique({
-      where: { id: user.sub },
-      select: { idChurch: true },
-    });
+  ): Promise<ArticlesPageResponseDto> {
+    const idChurch = await this.getChurchId(user);
 
-    if (!userRecord?.idChurch) {
-      throw new BadRequestException('Usuario no reconocido');
-    }
+    const page = query.page ?? 1;
+    const size = query.size ?? 20;
+
+    const skip = (page - 1) * size;
+    const take = size;
 
     const where: Prisma.ArticleWhereInput = {
-      idChurch: userRecord.idChurch,
+      idChurch,
     };
 
     if (query.active !== undefined) {
@@ -82,25 +90,31 @@ export class ArticlesService {
       ];
     }
 
-    const articles = await this.prisma.article.findMany({ where });
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.article.count({ where }),
+      this.prisma.article.findMany({
+        where,
+        orderBy: { id: 'desc' },
+        skip,
+        take,
+      }),
+    ]);
 
-    return articles.map((article) => this.toResponse(article));
+    return {
+      data: items.map((i) => this.toResponse(i)),
+      total,
+      page,
+      size,
+    };
   }
 
   async findOne(user: JwtPayload, id: number): Promise<ArticleResponseDto> {
-    const userRecord = await this.prisma.user.findUnique({
-      where: { id: user.sub },
-      select: { idChurch: true },
-    });
-
-    if (!userRecord?.idChurch) {
-      throw new BadRequestException('Usuario no reconocido');
-    }
+    const idChurch = await this.getChurchId(user);
 
     const article = await this.prisma.article.findFirst({
       where: {
         id,
-        idChurch: userRecord.idChurch,
+        idChurch,
       },
     });
 

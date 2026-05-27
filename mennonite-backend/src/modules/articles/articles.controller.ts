@@ -4,6 +4,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -20,6 +21,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   Post,
   Query,
   UseGuards,
@@ -29,6 +31,7 @@ import { CreateArticleDto } from './dto/create-article.dto';
 import { ArticleResponseDto } from './dto/article.response.dto';
 import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesService } from './articles.service';
+import { ArticlesPageResponseDto } from './dto/articles-page.response.dto';
 
 @ApiTags('Articles')
 @ApiBearerAuth('JWT-auth')
@@ -58,12 +61,12 @@ export class ArticlesController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @Permissions('inventory.read')
-  @ApiOperation({ summary: 'Obtener articulos con filtros' })
-  @ApiOkResponse({ type: [ArticleResponseDto] })
+  @ApiOperation({ summary: 'Listar articulos con filtros' })
+  @ApiOkResponse({ type: ArticlesPageResponseDto })
   findAll(
     @CurrentUser() user: JwtPayload,
     @Query() query: FindArticlesQueryDto,
-  ): Promise<ArticleResponseDto[]> {
+  ): Promise<ArticlesPageResponseDto> {
     return this.service.findAll(user, query);
   }
 
@@ -72,10 +75,11 @@ export class ArticlesController {
   @Permissions('inventory.read')
   @ApiOperation({ summary: 'Obtener articulo por ID' })
   @ApiOkResponse({ type: ArticleResponseDto })
+  @ApiNotFoundResponse({ description: 'Articulo no encontrado' })
   findOne(
     @CurrentUser() user: JwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
   ): Promise<ArticleResponseDto> {
-    return this.service.findOne(user, Number(id));
+    return this.service.findOne(user, id);
   }
 }
