@@ -4,6 +4,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -12,11 +13,20 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { Controller, UseGuards } from '@nestjs/common';
-import { Body, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { ArticleResponseDto } from './dto/article.response.dto';
+import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesService } from './articles.service';
 
 @ApiTags('Articles')
@@ -42,5 +52,17 @@ export class ArticlesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<ArticleResponseDto> {
     return this.service.create(dto, user);
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @Permissions('inventory.read')
+  @ApiOperation({ summary: 'Obtener articulos con filtros' })
+  @ApiOkResponse({ type: [ArticleResponseDto] })
+  findAll(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: FindArticlesQueryDto,
+  ): Promise<ArticleResponseDto[]> {
+    return this.service.findAll(user, query);
   }
 }
