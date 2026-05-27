@@ -1,12 +1,20 @@
 import {
+  Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -18,7 +26,10 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { BoardMembersService } from './board-members.service';
+import { BoardMemberCreatedResponseDto } from './dto/board-member-created.response.dto';
 import { BoardMemberDetailResponseDto } from './dto/board-member-detail.response.dto';
+import { CreateBoardMemberDto } from './dto/create-board-member.dto';
+import { UpdateBoardMemberDto } from './dto/update-board-member.dto';
 
 @ApiTags('Board Members')
 @ApiBearerAuth('JWT-auth')
@@ -28,6 +39,33 @@ import { BoardMemberDetailResponseDto } from './dto/board-member-detail.response
 @Controller('board-members')
 export class BoardMembersController {
   constructor(private readonly service: BoardMembersService) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @Permissions('assignments.create')
+  @ApiOperation({ summary: 'Registrar un integrante de concilio' })
+  @ApiCreatedResponse({ type: BoardMemberCreatedResponseDto })
+  @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
+  @ApiConflictResponse({ description: 'Rol unico duplicado en el concilio' })
+  create(
+    @Body() dto: CreateBoardMemberDto,
+  ): Promise<BoardMemberCreatedResponseDto> {
+    return this.service.create(dto);
+  }
+
+  @Patch(':id')
+  @Permissions('assignments.update')
+  @ApiOperation({ summary: 'Actualizar rol o fechas de un integrante' })
+  @ApiOkResponse({ type: BoardMemberDetailResponseDto })
+  @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
+  @ApiConflictResponse({ description: 'Rol unico duplicado en el concilio' })
+  @ApiNotFoundResponse({ description: 'Integrante de concilio no encontrado' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateBoardMemberDto,
+  ): Promise<BoardMemberDetailResponseDto> {
+    return this.service.update(id, dto);
+  }
 
   @Get(':id')
   @Permissions('assignments.read')
