@@ -13,11 +13,20 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { Body, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { ArticleResponseDto } from './dto/article.response.dto';
+import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesService } from './articles.service';
 
 @ApiTags('Articles')
@@ -52,9 +61,8 @@ export class ArticlesController {
   @ApiOkResponse({ type: [ArticleResponseDto] })
   findAll(
     @CurrentUser() user: JwtPayload,
-    @Query('active') active?: string,
-    @Query('q') q?: string,
-  ) {
-    return this.service.findAll(user, active, q);
+    @Query() query: FindArticlesQueryDto,
+  ): Promise<ArticleResponseDto[]> {
+    return this.service.findAll(user, query);
   }
 }
