@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -25,6 +26,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreateTransactionCategoryDto } from './dto/create-transaction-category.dto';
 import { ListTransactionCategoriesQueryDto } from './dto/list-transaction-categories-query.dto';
 import { TransactionCategoryResponseDto } from './dto/transaction-category.response.dto';
@@ -35,6 +38,7 @@ import { TransactionCategoriesService } from './transaction-categories.service';
 @ApiBearerAuth('JWT-auth')
 @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
 @ApiForbiddenResponse({ description: 'Faltan permisos requeridos' })
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('transaction-categories')
 export class TransactionCategoriesController {
   constructor(private readonly service: TransactionCategoriesService) {}

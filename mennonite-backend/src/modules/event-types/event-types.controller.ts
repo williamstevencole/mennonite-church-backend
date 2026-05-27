@@ -27,67 +27,70 @@ import {
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { DepartmentsService } from './departments.service';
-import { CreateDepartmentDto } from './dto/create-department.dto';
-import { DepartmentResponseDto } from './dto/department.response.dto';
-import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { CreateEventTypeDto } from './dto/create-event-type.dto';
+import { EventTypeResponseDto } from './dto/event-type.response.dto';
+import { UpdateEventTypeDto } from './dto/update-event-type.dto';
+import { EventTypesService } from './event-types.service';
 
-@ApiTags('Departments')
+@ApiTags('Event Types')
 @ApiBearerAuth('JWT-auth')
 @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
 @ApiForbiddenResponse({ description: 'Faltan permisos requeridos' })
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@Controller('departments')
-export class DepartmentsController {
-  constructor(private readonly service: DepartmentsService) {}
+@Controller('event-types')
+export class EventTypesController {
+  constructor(private readonly service: EventTypesService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @Permissions('catalog.departments.manage')
-  @ApiOperation({ summary: 'Crear un departamento' })
-  @ApiCreatedResponse({ type: DepartmentResponseDto })
+  @Permissions('catalog.event-types.manage')
+  @ApiOperation({ summary: 'Crear un nuevo tipo de evento' })
+  @ApiCreatedResponse({ type: EventTypeResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Nombre duplicado' })
-  create(@Body() dto: CreateDepartmentDto): Promise<DepartmentResponseDto> {
+  create(@Body() dto: CreateEventTypeDto): Promise<EventTypeResponseDto> {
     return this.service.create(dto);
   }
 
   @Get()
-  @Permissions('catalog.departments.read')
-  @ApiOkResponse({ type: DepartmentResponseDto, isArray: true })
-  findAll(): Promise<DepartmentResponseDto[]> {
+  @Permissions('catalog.event-types.read')
+  @ApiOperation({ summary: 'Listar tipos de evento' })
+  @ApiOkResponse({ type: EventTypeResponseDto, isArray: true })
+  findAll(): Promise<EventTypeResponseDto[]> {
     return this.service.findAll();
   }
 
   @Get(':id')
-  @Permissions('catalog.departments.read')
-  @ApiOkResponse({ type: DepartmentResponseDto })
-  @ApiNotFoundResponse({ description: 'Departamento no encontrado' })
+  @Permissions('catalog.event-types.read')
+  @ApiOkResponse({ type: EventTypeResponseDto })
+  @ApiNotFoundResponse({ description: 'Tipo de evento no encontrado' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
-  ): Promise<DepartmentResponseDto> {
+  ): Promise<EventTypeResponseDto> {
     return this.service.findOne(id);
   }
 
   @Patch(':id')
-  @Permissions('catalog.departments.manage')
-  @ApiOkResponse({ type: DepartmentResponseDto })
+  @Permissions('catalog.event-types.manage')
+  @ApiOkResponse({ type: EventTypeResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Nombre duplicado' })
-  @ApiNotFoundResponse({ description: 'Departamento no encontrado' })
+  @ApiNotFoundResponse({ description: 'Tipo de evento no encontrado' })
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateDepartmentDto,
-  ): Promise<DepartmentResponseDto> {
+    @Body() dto: UpdateEventTypeDto,
+  ): Promise<EventTypeResponseDto> {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions('catalog.departments.manage')
-  @ApiNoContentResponse({ description: 'Departamento eliminado' })
-  @ApiConflictResponse({ description: 'Existen ciudades asociadas' })
-  @ApiNotFoundResponse({ description: 'Departamento no encontrado' })
+  @Permissions('catalog.event-types.manage')
+  @ApiNoContentResponse({ description: 'Tipo de evento eliminado' })
+  @ApiConflictResponse({
+    description: 'Existen eventos que usan este tipo',
+  })
+  @ApiNotFoundResponse({ description: 'Tipo de evento no encontrado' })
   remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.service.remove(id);
   }
