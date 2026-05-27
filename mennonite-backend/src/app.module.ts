@@ -19,6 +19,7 @@ import { ChurchesModule } from './modules/churches/churches.module';
 import { EventTypesModule } from './modules/event-types/event-types.module';
 import { ArticlesModule } from './modules/articles/articles.module';
 import { BoardMembersModule } from './modules/board-members/board-members.module';
+import { BoardsModule } from './modules/boards/boards.module';
 
 const resolveJwtExpiresIn = (value?: string): number | StringValue => {
   if (!value) {
@@ -68,6 +69,7 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
     EventTypesModule,
     ArticlesModule,
     BoardMembersModule,
+    BoardsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
