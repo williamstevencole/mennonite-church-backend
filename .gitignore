@@ -2,6 +2,7 @@
 /mennonite-backend/dist
 /mennonite-backend/node_modules
 /mennonite-backend/build
+/mennonite-backend/.pnpm-store
 
 # Logs
 /mennonite-backend/logs

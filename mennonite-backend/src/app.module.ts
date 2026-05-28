@@ -22,6 +22,7 @@ import { InventoryMovementsModule } from './modules/inventory-movements/inventor
 import { BoardMembersModule } from './modules/board-members/board-members.module';
 import { BoardsModule } from './modules/boards/boards.module';
 import { FinancialTransactionsModule } from './modules/financial-transactions/financial-transactions.module';
+import { MemberAssignmentsModule } from './modules/member-assignments/member-assignments.module';
 
 const resolveJwtExpiresIn = (value?: string): number | StringValue => {
   if (!value) {
@@ -74,6 +75,7 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
     BoardMembersModule,
     BoardsModule,
     FinancialTransactionsModule,
+    MemberAssignmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
