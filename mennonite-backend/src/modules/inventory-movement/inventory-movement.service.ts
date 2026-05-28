@@ -13,6 +13,7 @@ import {
   InventoryMovementType,
 } from './dto/create-inventory-movement.dto';
 import { FindInventoryMovementsQueryDto } from './dto/find-inventory.query.dto';
+import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
 
 @Injectable()
 export class InventoryMovementsService {
@@ -199,5 +200,48 @@ export class InventoryMovementsService {
         unitCost: Number(movement.article.unitCost),
       },
     };
+  }
+
+  async update(id: number, dto: UpdateInventoryMovementDto, user: JwtPayload) {
+    const idChurch = await this.getChurchId(user);
+
+    const movement = await this.prisma.inventoryMovement.findFirst({
+      where: {
+        id,
+        idChurch,
+      },
+    });
+
+    if (!movement) {
+      throw new NotFoundException('Movement not found');
+    }
+
+    if (
+      dto.quantity !== undefined ||
+      dto.type !== undefined ||
+      dto.idArticle !== undefined
+    ) {
+      throw new BadRequestException(
+        'quantity, type y article no pueden ser modificados. Por favor, crear un nuevo movimiento.',
+      );
+    }
+
+    return this.prisma.inventoryMovement.update({
+      where: { id },
+      data: {
+        documentNumber: dto.documentNumber ?? movement.documentNumber,
+        notes: dto.notes ?? movement.notes,
+        datetime: dto.datetime ? new Date(dto.datetime) : movement.datetime,
+      },
+      include: {
+        article: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
   }
 }

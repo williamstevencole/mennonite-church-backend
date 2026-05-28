@@ -9,6 +9,7 @@ import {
   Query,
   Param,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 
 import {
@@ -33,6 +34,7 @@ import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { Permissions } from 'src/common/decorators/permissions.decorator';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { FindInventoryMovementsQueryDto } from './dto/find-inventory.query.dto';
+import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
 
 @ApiTags('Inventory Movements')
 @ApiBearerAuth('JWT-auth')
@@ -78,5 +80,15 @@ export class InventoryMovementsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.inventoryMovementsService.findOne(id, user);
+  }
+
+  @Patch(':id')
+  @Permissions('inventory.update')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateInventoryMovementDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.inventoryMovementsService.update(id, dto, user);
   }
 }
