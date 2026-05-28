@@ -1,5 +1,10 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiCreatedResponse, ApiConflictResponse, ApiBadRequestResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiCreatedResponse,
+  ApiConflictResponse,
+  ApiBadRequestResponse,
+} from '@nestjs/swagger';
 
 import { BudgetDistributionService } from './budget-distributions.service';
 import { CreateBudgetDistributionDto } from './dto/create-budget-distribution.dto';
@@ -19,7 +24,9 @@ export class BudgetDistributionController {
   @Permissions('budgets.create')
   @ApiCreatedResponse({ description: 'Creado' })
   @ApiConflictResponse({ description: 'Distribucion duplicada' })
-  @ApiBadRequestResponse({ description: 'Porcentaje Total no puede exceder 100%' })
+  @ApiBadRequestResponse({
+    description: 'Porcentaje Total no puede exceder 100%',
+  })
   create(
     @Body() dto: CreateBudgetDistributionDto,
     @CurrentUser() user: JwtPayload,
