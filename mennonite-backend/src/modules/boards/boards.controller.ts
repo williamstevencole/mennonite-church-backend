@@ -30,6 +30,9 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { BoardMembersService } from '../board-members/board-members.service';
+import { BoardMemberListItemResponseDto } from '../board-members/dto/board-member-list-item.response.dto';
+import { ListBoardMembersQueryDto } from '../board-members/dto/list-board-members-query.dto';
 import { BoardCreatedResponseDto } from './dto/board-created.response.dto';
 import { BoardDetailResponseDto } from './dto/board-detail.response.dto';
 import { BoardListItemResponseDto } from './dto/board-list-item.response.dto';
@@ -46,7 +49,10 @@ import { BoardsService } from './boards.service';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('boards')
 export class BoardsController {
-  constructor(private readonly service: BoardsService) {}
+  constructor(
+    private readonly service: BoardsService,
+    private readonly boardMembersService: BoardMembersService,
+  ) {}
 
   @Get()
   @Permissions('boards.read')
@@ -86,6 +92,18 @@ export class BoardsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<BoardResponseDto> {
     return this.service.update(id, dto, user);
+  }
+
+  @Get(':id/members')
+  @Permissions('assignments.read')
+  @ApiOperation({ summary: 'Listar integrantes de un concilio' })
+  @ApiOkResponse({ type: BoardMemberListItemResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'Concilio no encontrado' })
+  findMembers(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: ListBoardMembersQueryDto,
+  ): Promise<BoardMemberListItemResponseDto[]> {
+    return this.boardMembersService.findByBoard(id, query);
   }
 
   @Get(':id')
