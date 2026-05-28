@@ -27,6 +27,7 @@ import {
 } from '@nestjs/swagger';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { MembersService } from './members.service';
@@ -35,7 +36,6 @@ import { UpdateMemberDto } from './dto/update-member.dto';
 import { MemberCreatedResponseDto } from './dto/member-created.response.dto';
 import { MemberDetailResponseDto } from './dto/member-detail.response.dto';
 import { MembersPageResponseDto } from './dto/members-page.response.dto';
-import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { ListMembersQueryDto } from './dto/list-members-query.dto';
 
 @ApiTags('Members')
@@ -47,30 +47,29 @@ import { ListMembersQueryDto } from './dto/list-members-query.dto';
 export class MembersController {
   constructor(private readonly membersService: MembersService) {}
 
+  @Get()
+  @Permissions('members.read')
+  @ApiOperation({ summary: 'Listar miembros con filtros y paginacion' })
+  @ApiOkResponse({ type: MembersPageResponseDto })
+  findAll(
+    @Query() query: ListMembersQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<MembersPageResponseDto> {
+    return this.membersService.findAll(query, user);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @Permissions('members.create')
-  @ApiOperation({ summary: 'Crear un miembro' })
+  @ApiOperation({ summary: 'Crear un miembro en la iglesia del usuario' })
   @ApiCreatedResponse({ type: MemberCreatedResponseDto })
-  @ApiBadRequestResponse({
-    description: 'Formato o payload invalido',
-  })
+  @ApiBadRequestResponse({ description: 'Formato o payload invalido' })
   @ApiConflictResponse({ description: 'Miembro duplicado' })
   create(
     @Body() createMemberDto: CreateMemberDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<MemberCreatedResponseDto> {
     return this.membersService.create(createMemberDto, user);
-  }
-
-  @Get()
-  @Permissions('members.read')
-  @ApiOperation({ summary: 'Listar miembros' })
-  @ApiOkResponse({ type: MembersPageResponseDto })
-  findAll(
-    @Query() query: ListMembersQueryDto,
-  ): Promise<MembersPageResponseDto> {
-    return this.membersService.findAll(query);
   }
 
   @Patch(':id')
@@ -82,8 +81,22 @@ export class MembersController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateMemberDto: UpdateMemberDto,
+    @CurrentUser() user: JwtPayload,
   ): Promise<MemberDetailResponseDto> {
-    return this.membersService.update(id, updateMemberDto);
+    return this.membersService.update(id, updateMemberDto, user);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Permissions('members.delete')
+  @ApiOperation({ summary: 'Dar de baja un miembro (soft delete)' })
+  @ApiNoContentResponse({ description: 'Miembro dado de baja' })
+  @ApiNotFoundResponse({ description: 'Miembro no encontrado' })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.membersService.remove(id, user);
   }
 
   @Get(':id')
@@ -93,17 +106,8 @@ export class MembersController {
   @ApiNotFoundResponse({ description: 'Miembro no encontrado' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
   ): Promise<MemberDetailResponseDto> {
-    return this.membersService.findOne(id);
-  }
-
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions('members.delete')
-  @ApiOperation({ summary: 'Dar de baja un miembro (soft delete)' })
-  @ApiNoContentResponse({ description: 'Miembro dado de baja' })
-  @ApiNotFoundResponse({ description: 'Miembro no encontrado' })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    return this.membersService.remove(id);
+    return this.membersService.findOne(id, user);
   }
 }
