@@ -13,6 +13,7 @@ import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesPageResponseDto } from './dto/articles-page.response.dto';
 
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { UpdateArticleDto } from './dto/update-article.dto';
 
 @Injectable()
 export class ArticlesService {
@@ -137,5 +138,57 @@ export class ArticlesService {
       brand: entity.brand ?? undefined,
       model: entity.model ?? undefined,
     };
+  }
+
+  async update(
+    id: number,
+    dto: UpdateArticleDto,
+    user: JwtPayload,
+  ): Promise<ArticleResponseDto> {
+    const idChurch = await this.getChurchId(user);
+
+    const existing = await this.prisma.article.findFirst({
+      where: {
+        id,
+        idChurch,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Articulo no encontrado');
+    }
+
+    try {
+      const updated = await this.prisma.article.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.code !== undefined && { code: dto.code }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
+          ...(dto.unitCost !== undefined && {
+            unitCost: dto.unitCost,
+          }),
+          ...(dto.brand !== undefined && {
+            brand: dto.brand,
+          }),
+          ...(dto.model !== undefined && {
+            model: dto.model,
+          }),
+        },
+      });
+
+      return this.toResponse(updated);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('Ya existe un articulo con ese codigo');
+      }
+
+      throw error;
+    }
   }
 }
