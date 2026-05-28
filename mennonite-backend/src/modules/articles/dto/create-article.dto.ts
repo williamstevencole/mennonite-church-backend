@@ -47,4 +47,18 @@ export class CreateArticleDto {
     { message: 'unitCost debe ser un numero valido' },
   )
   unitCost!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Transform(trim)
+  @MaxLength(50)
+  brand?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Transform(trim)
+  @MaxLength(50)
+  model?: string;
 }

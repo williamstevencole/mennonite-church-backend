@@ -4,6 +4,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -19,15 +20,21 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
   Post,
   Query,
   UseGuards,
+  Patch,
+  Delete,
 } from '@nestjs/common';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { ArticleResponseDto } from './dto/article.response.dto';
 import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesService } from './articles.service';
+import { ArticlesPageResponseDto } from './dto/articles-page.response.dto';
+import { UpdateArticleDto } from './dto/update-article.dto';
 
 @ApiTags('Articles')
 @ApiBearerAuth('JWT-auth')
@@ -57,12 +64,54 @@ export class ArticlesController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @Permissions('inventory.read')
-  @ApiOperation({ summary: 'Obtener articulos con filtros' })
-  @ApiOkResponse({ type: [ArticleResponseDto] })
+  @ApiOperation({ summary: 'Listar articulos con filtros' })
+  @ApiOkResponse({ type: ArticlesPageResponseDto })
   findAll(
     @CurrentUser() user: JwtPayload,
     @Query() query: FindArticlesQueryDto,
-  ): Promise<ArticleResponseDto[]> {
+  ): Promise<ArticlesPageResponseDto> {
     return this.service.findAll(user, query);
+  }
+
+  @Get(':id')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('inventory.read')
+  @ApiOperation({ summary: 'Obtener articulo por ID' })
+  @ApiOkResponse({ type: ArticleResponseDto })
+  @ApiNotFoundResponse({ description: 'Articulo no encontrado' })
+  findOne(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ArticleResponseDto> {
+    return this.service.findOne(user, id);
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('inventory.update')
+  @ApiOperation({ summary: 'Actualizar articulo' })
+  @ApiOkResponse({ type: ArticleResponseDto })
+  @ApiNotFoundResponse({ description: 'Articulo no encontrado' })
+  @ApiConflictResponse({
+    description: 'Ya existe un articulo con ese codigo',
+  })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateArticleDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ArticleResponseDto> {
+    return this.service.update(id, dto, user);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Permissions('inventory.delete')
+  @ApiOperation({ summary: 'Retirar articulo del inventario' })
+  @ApiNotFoundResponse({ description: 'Articulo no encontrado' })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.service.remove(id, user);
   }
 }
