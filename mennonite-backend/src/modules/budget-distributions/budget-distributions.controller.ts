@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
@@ -10,69 +12,123 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiCreatedResponse } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 
-import { BudgetDistributionService } from './budget-distributions.service';
+import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { BudgetDistributionsService } from './budget-distributions.service';
+import { BudgetDistributionCreatedResponseDto } from './dto/budget-distribution-created.response.dto';
+import { BudgetDistributionResponseDto } from './dto/budget-distribution.response.dto';
 import { CreateBudgetDistributionDto } from './dto/create-budget-distribution.dto';
-import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { PermissionsGuard } from 'src/common/guards/permissions.guard';
-import { Permissions } from 'src/common/decorators/permissions.decorator';
-import type { JwtPayload } from 'src/auth/strategies/jwt.strategy';
 import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.dto';
 import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
 
 @ApiTags('Budget Distributions')
+@ApiBearerAuth('JWT-auth')
+@ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
+@ApiForbiddenResponse({ description: 'Faltan permisos requeridos' })
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('budget-distributions')
-export class BudgetDistributionController {
+export class BudgetDistributionsController {
   constructor(
-    private readonly budgetDistributionService: BudgetDistributionService,
+    private readonly budgetDistributionsService: BudgetDistributionsService,
   ) {}
+
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   @Permissions('budgets.create')
-  @ApiCreatedResponse({ description: 'Distribution created' })
+  @ApiOperation({
+    summary: 'Crear una distribución de porcentaje para un ministerio',
+  })
+  @ApiCreatedResponse({ type: BudgetDistributionCreatedResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o porcentaje total excede 100%',
+  })
+  @ApiNotFoundResponse({
+    description: 'Presupuesto o ministerio no encontrado',
+  })
+  @ApiConflictResponse({
+    description:
+      'Ya existe una distribución para este ministerio en el presupuesto',
+  })
   create(
     @Body() dto: CreateBudgetDistributionDto,
     @CurrentUser() user: JwtPayload,
-  ) {
-    return this.budgetDistributionService.create(dto, user);
+  ): Promise<BudgetDistributionCreatedResponseDto> {
+    return this.budgetDistributionsService.create(dto, user);
   }
 
   @Get()
   @Permissions('budgets.read')
+  @ApiOperation({
+    summary: 'Listar distribuciones de un presupuesto con monto calculado',
+  })
+  @ApiOkResponse({ type: BudgetDistributionResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'Presupuesto no encontrado' })
   findAll(
     @Query() query: FindBudgetDistributionsQueryDto,
     @CurrentUser() user: JwtPayload,
-  ) {
-    return this.budgetDistributionService.findAll(query, user);
+  ): Promise<BudgetDistributionResponseDto[]> {
+    return this.budgetDistributionsService.findAll(query, user);
   }
 
   @Get(':id')
   @Permissions('budgets.read')
+  @ApiOperation({ summary: 'Obtener detalle de una distribución' })
+  @ApiOkResponse({ type: BudgetDistributionResponseDto })
+  @ApiNotFoundResponse({ description: 'Distribución no encontrada' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
-  ) {
-    return this.budgetDistributionService.findOne(id, user);
+  ): Promise<BudgetDistributionResponseDto> {
+    return this.budgetDistributionsService.findOne(id, user);
   }
 
   @Patch(':id')
   @Permissions('budgets.update')
+  @ApiOperation({ summary: 'Actualizar el porcentaje de una distribución' })
+  @ApiOkResponse({ type: BudgetDistributionResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o porcentaje total excede 100%',
+  })
+  @ApiNotFoundResponse({ description: 'Distribución no encontrada' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBudgetDistributionDto,
     @CurrentUser() user: JwtPayload,
-  ) {
-    return this.budgetDistributionService.update(id, dto, user);
+  ): Promise<BudgetDistributionResponseDto> {
+    return this.budgetDistributionsService.update(id, dto, user);
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Permissions('budgets.delete')
+  @ApiOperation({ summary: 'Eliminar una distribución de un presupuesto' })
+  @ApiNoContentResponse({ description: 'Distribución eliminada' })
+  @ApiBadRequestResponse({
+    description:
+      'No se puede eliminar una distribución de un presupuesto activo',
+  })
+  @ApiNotFoundResponse({ description: 'Distribución no encontrada' })
   remove(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
-  ) {
-    return this.budgetDistributionService.remove(id, user);
+  ): Promise<void> {
+    return this.budgetDistributionsService.remove(id, user);
   }
 }

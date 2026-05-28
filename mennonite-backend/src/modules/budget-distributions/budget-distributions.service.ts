@@ -11,7 +11,7 @@ import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.
 import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
 
 @Injectable()
-export class BudgetDistributionService {
+export class BudgetDistributionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async getChurchId(user: JwtPayload): Promise<number> {
@@ -319,7 +319,5 @@ export class BudgetDistributionService {
     await this.prisma.budgetDistribution.delete({
       where: { id },
     });
-
-    return { status: 'deleted' };
   }
 }
