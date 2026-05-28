@@ -45,6 +45,8 @@ export class ArticlesService {
           code: dto.code,
           description: dto.description ?? null,
           unitCost: dto.unitCost,
+          brand: dto.brand ?? null,
+          model: dto.model ?? null,
           createdBy: user.sub,
         },
       });
@@ -132,6 +134,8 @@ export class ArticlesService {
       code: entity.code,
       description: entity.description ?? '',
       unitCost: Number(entity.unitCost),
+      brand: entity.brand ?? undefined,
+      model: entity.model ?? undefined,
     };
   }
 }
