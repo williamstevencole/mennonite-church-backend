@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -64,5 +65,14 @@ export class BudgetDistributionController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.budgetDistributionService.update(id, dto, user);
+  }
+
+  @Delete(':id')
+  @Permissions('budgets.delete')
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.budgetDistributionService.remove(id, user);
   }
 }
