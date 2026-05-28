@@ -7,6 +7,8 @@ import {
   HttpStatus,
   UseGuards,
   Query,
+  Param,
+  ParseIntPipe,
 } from '@nestjs/common';
 
 import {
@@ -15,6 +17,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -64,5 +67,16 @@ export class InventoryMovementsController {
     @Query() query: FindInventoryMovementsQueryDto,
   ) {
     return this.inventoryMovementsService.findAll(user, query);
+  }
+
+  @Get(':id')
+  @Permissions('inventory.read')
+  @ApiOkResponse({ description: 'Movimiento encontrado' })
+  @ApiNotFoundResponse({ description: 'Movimiento no encontrado' })
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.inventoryMovementsService.findOne(id, user);
   }
 }

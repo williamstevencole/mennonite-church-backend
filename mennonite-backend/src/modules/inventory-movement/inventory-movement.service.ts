@@ -153,4 +153,51 @@ export class InventoryMovementsService {
       },
     });
   }
+
+  async findOne(id: number, user: JwtPayload) {
+    const idChurch = await this.getChurchId(user);
+
+    const movement = await this.prisma.inventoryMovement.findFirst({
+      where: {
+        id,
+        idChurch,
+      },
+      select: {
+        id: true,
+        type: true,
+        quantity: true,
+        datetime: true,
+        documentNumber: true,
+
+        article: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            unitCost: true,
+          },
+        },
+
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!movement) {
+      throw new NotFoundException('Movement not found');
+    }
+
+    return {
+      ...movement,
+      quantity: Number(movement.quantity),
+      article: {
+        ...movement.article,
+        unitCost: Number(movement.article.unitCost),
+      },
+    };
+  }
 }
