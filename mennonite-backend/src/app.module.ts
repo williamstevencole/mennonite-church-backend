@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 
+import { MembersModule } from './modules/members/members.module';
 import { MemberRoleTypesModule } from './modules/member-role-types/member-role-types.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { UserRolesModule } from './modules/user-roles/user-roles.module';
@@ -20,6 +21,11 @@ import { EventTypesModule } from './modules/event-types/event-types.module';
 import { ArticlesModule } from './modules/articles/articles.module';
 import { InventoryMovementsModule } from './modules/inventory-movement/inventory-movement.module';
 import { BudgetDistributionsModule } from './modules/budget-distributions/budget-distributions.module';
+import { BoardMembersModule } from './modules/board-members/board-members.module';
+import { BoardsModule } from './modules/boards/boards.module';
+import { FinancialTransactionsModule } from './modules/financial-transactions/financial-transactions.module';
+import { MemberAssignmentsModule } from './modules/member-assignments/member-assignments.module';
+import { CalendarEventsModule } from './modules/calendar-events/calendar-events.module';
 
 const resolveJwtExpiresIn = (value?: string): number | StringValue => {
   if (!value) {
@@ -57,6 +63,7 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
         };
       },
     }),
+    MembersModule,
     MemberRoleTypesModule,
     PermissionsModule,
     UserRolesModule,
@@ -70,6 +77,11 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
     ArticlesModule,
     InventoryMovementsModule,
     BudgetDistributionsModule,
+    BoardMembersModule,
+    BoardsModule,
+    FinancialTransactionsModule,
+    MemberAssignmentsModule,
+    CalendarEventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
