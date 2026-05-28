@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { DocumentType } from '../doc-type-enum';
+import {
+  MemberChurchRelationResponseDto,
+  MemberLinkedUserRelationResponseDto,
+} from './member-relations.response.dto';
 
 export class MemberListItemResponseDto {
   @ApiProperty() id!: number;
@@ -17,4 +21,14 @@ export class MemberListItemResponseDto {
   @ApiProperty() @Type(() => Date) joinDate!: Date;
   @ApiPropertyOptional() @Type(() => Date) inactivatedAt!: Date | null;
   @ApiProperty() active!: boolean;
+  @ApiPropertyOptional({
+    nullable: true,
+    type: MemberChurchRelationResponseDto,
+  })
+  church!: MemberChurchRelationResponseDto | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    type: MemberLinkedUserRelationResponseDto,
+  })
+  linkedUser!: MemberLinkedUserRelationResponseDto | null;
 }

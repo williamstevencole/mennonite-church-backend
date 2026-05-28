@@ -4,11 +4,13 @@ import {
   HttpStatus,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Delete,
   UseGuards,
   Query,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -16,6 +18,8 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -27,7 +31,9 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { MembersService } from './members.service';
 import { CreateMemberDto } from './dto/create-member.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
 import { MemberCreatedResponseDto } from './dto/member-created.response.dto';
+import { MemberDetailResponseDto } from './dto/member-detail.response.dto';
 import { MembersPageResponseDto } from './dto/members-page.response.dto';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { ListMembersQueryDto } from './dto/list-members-query.dto';
@@ -67,13 +73,37 @@ export class MembersController {
     return this.membersService.findAll(query);
   }
 
+  @Patch(':id')
+  @Permissions('members.update')
+  @ApiOperation({ summary: 'Actualizar un miembro' })
+  @ApiOkResponse({ type: MemberDetailResponseDto })
+  @ApiNotFoundResponse({ description: 'Miembro no encontrado' })
+  @ApiConflictResponse({ description: 'Miembro duplicado' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateMemberDto: UpdateMemberDto,
+  ): Promise<MemberDetailResponseDto> {
+    return this.membersService.update(id, updateMemberDto);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.membersService.findOne(+id);
+  @Permissions('members.read')
+  @ApiOperation({ summary: 'Obtener detalle de miembro' })
+  @ApiOkResponse({ type: MemberDetailResponseDto })
+  @ApiNotFoundResponse({ description: 'Miembro no encontrado' })
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<MemberDetailResponseDto> {
+    return this.membersService.findOne(id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.membersService.remove(+id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Permissions('members.delete')
+  @ApiOperation({ summary: 'Dar de baja un miembro (soft delete)' })
+  @ApiNoContentResponse({ description: 'Miembro dado de baja' })
+  @ApiNotFoundResponse({ description: 'Miembro no encontrado' })
+  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    return this.membersService.remove(id);
   }
 }
