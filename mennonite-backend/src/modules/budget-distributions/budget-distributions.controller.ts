@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -18,6 +19,7 @@ import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { Permissions } from 'src/common/decorators/permissions.decorator';
 import type { JwtPayload } from 'src/auth/strategies/jwt.strategy';
 import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.dto';
+import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
 
 @ApiTags('Budget Distributions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -52,5 +54,15 @@ export class BudgetDistributionController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.budgetDistributionService.findOne(id, user);
+  }
+
+  @Patch(':id')
+  @Permissions('budgets.update')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateBudgetDistributionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.budgetDistributionService.update(id, dto, user);
   }
 }

@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateBudgetDistributionDto } from './dto/create-budget-distribution.dto';
 import type { JwtPayload } from 'src/auth/strategies/jwt.strategy';
 import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.dto';
+import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
 
 @Injectable()
 export class BudgetDistributionService {
@@ -188,6 +189,83 @@ export class BudgetDistributionService {
     return {
       id: distribution.id,
       ministry: distribution.ministry,
+      percentage,
+      allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
+    };
+  }
+
+  async update(id: number, dto: UpdateBudgetDistributionDto, user: JwtPayload) {
+    const idChurch = await this.getChurchId(user);
+
+    const distribution = await this.prisma.budgetDistribution.findFirst({
+      where: {
+        id,
+        budget: {
+          idChurch,
+        },
+      },
+      include: {
+        budget: true,
+      },
+    });
+
+    if (!distribution) {
+      throw new NotFoundException('Budget distribution no fue encontrado');
+    }
+
+    const newPercentage = dto.percentage ?? Number(distribution.percentage);
+
+    const others = await this.prisma.budgetDistribution.findMany({
+      where: {
+        idBudget: distribution.idBudget,
+        id: {
+          not: id,
+        },
+      },
+    });
+
+    const currentTotalOthers = others.reduce(
+      (sum, d) => sum + Number(d.percentage),
+      0,
+    );
+
+    const newTotal = currentTotalOthers + newPercentage;
+
+    if (newTotal > 100) {
+      throw new BadRequestException(
+        'La suma total de porcentajes no puede exceder 100%',
+      );
+    }
+
+    const updated = await this.prisma.budgetDistribution.update({
+      where: { id },
+      data: {
+        percentage: dto.percentage ?? distribution.percentage,
+      },
+      include: {
+        ministry: true,
+        budget: {
+          include: {
+            budgetCategories: {
+              select: {
+                annualAmount: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const totalBudget = updated.budget.budgetCategories.reduce(
+      (sum, c) => sum + Number(c.annualAmount),
+      0,
+    );
+
+    const percentage = Number(updated.percentage);
+
+    return {
+      id: updated.id,
+      ministry: updated.ministry,
       percentage,
       allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
     };
