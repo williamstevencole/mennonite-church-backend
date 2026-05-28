@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Ministry, Prisma } from '@prisma/client';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
@@ -10,7 +11,29 @@ import { CreateMinistryDto } from './dto/create-ministry.dto';
 import { ListMinistriesQueryDto } from './dto/list-ministries-query.dto';
 import { MinistriesPageResponseDto } from './dto/ministries-page.response.dto';
 import { MinistryCreatedResponseDto } from './dto/ministry-created.response.dto';
+import { MinistryDetailResponseDto } from './dto/ministry-detail.response.dto';
 import { MinistryListItemResponseDto } from './dto/ministry-list-item.response.dto';
+import { MinistryMemberListItemResponseDto } from './dto/ministry-member-list-item.response.dto';
+import { MinistryMemberMemberSummaryResponseDto } from './dto/ministry-member-member-summary.response.dto';
+import { MinistryMemberRoleResponseDto } from './dto/ministry-member-role.response.dto';
+
+type MinistryMemberListRecord = Prisma.MinistryMemberGetPayload<{
+  include: {
+    member: { select: { id: true; name: true } };
+    memberRoleType: { select: { id: true; name: true } };
+  };
+}>;
+
+type MinistryDetailRecord = Prisma.MinistryGetPayload<{
+  include: {
+    ministryMembers: {
+      include: {
+        member: { select: { id: true; name: true } };
+        memberRoleType: { select: { id: true; name: true } };
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class MinistriesService {
@@ -49,20 +72,7 @@ export class MinistriesService {
     dto: CreateMinistryDto,
     user: JwtPayload,
   ): Promise<MinistryCreatedResponseDto> {
-    const userRecord = await this.prisma.user.findUnique({
-      where: { id: user.sub },
-      select: { idChurch: true },
-    });
-
-    if (!userRecord) {
-      throw new BadRequestException('Usuario no encontrado');
-    }
-
-    const idChurch = userRecord.idChurch;
-
-    if (!idChurch) {
-      throw new BadRequestException('El usuario no tiene iglesia asignada');
-    }
+    const idChurch = await this.resolveChurchId(user);
 
     if (dto.id_leader_member) {
       const member = await this.prisma.member.findUnique({
@@ -108,6 +118,32 @@ export class MinistriesService {
     return { id: ministry.id };
   }
 
+  async findOne(
+    id: number,
+    user: JwtPayload,
+  ): Promise<MinistryDetailResponseDto> {
+    const idChurch = await this.resolveChurchId(user);
+    const ministry = await this.prisma.ministry.findFirst({
+      where: { id, idChurch },
+      include: {
+        ministryMembers: {
+          where: { assignmentType: 'ministry' },
+          include: {
+            member: { select: { id: true, name: true } },
+            memberRoleType: { select: { id: true, name: true } },
+          },
+          orderBy: [{ member: { name: 'asc' } }, { id: 'asc' }],
+        },
+      },
+    });
+
+    if (!ministry) {
+      throw new NotFoundException(`Ministerio con id ${id} no encontrado`);
+    }
+
+    return this.toDetail(ministry);
+  }
+
   private toListItem(ministry: Ministry): MinistryListItemResponseDto {
     return {
       id: ministry.id,
@@ -116,5 +152,66 @@ export class MinistriesService {
       code: ministry.code,
       active: ministry.active,
     };
+  }
+
+  private toDetail(entity: MinistryDetailRecord): MinistryDetailResponseDto {
+    return {
+      id: entity.id,
+      idChurch: entity.idChurch,
+      code: entity.code,
+      name: entity.name,
+      active: entity.active,
+      members: entity.ministryMembers.map((member) =>
+        this.toMinistryMemberListItem(member),
+      ),
+    };
+  }
+
+  private toMinistryMemberListItem(
+    record: MinistryMemberListRecord,
+  ): MinistryMemberListItemResponseDto {
+    return {
+      id: record.id,
+      member: this.toMemberSummary(record.member),
+      role: this.toRole(record.memberRoleType),
+      startDate: record.startDate,
+      endDate: record.endDate,
+      active: record.active,
+    };
+  }
+
+  private toMemberSummary(
+    member: MinistryMemberListRecord['member'],
+  ): MinistryMemberMemberSummaryResponseDto {
+    return {
+      id: member.id,
+      name: member.name,
+    };
+  }
+
+  private toRole(
+    role: MinistryMemberListRecord['memberRoleType'],
+  ): MinistryMemberRoleResponseDto {
+    return {
+      id: role.id,
+      name: role.name,
+    };
+  }
+
+  private async resolveChurchId(user: JwtPayload): Promise<number> {
+    const userRecord = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      select: { idChurch: true },
+    });
+
+    if (!userRecord) {
+      throw new BadRequestException('Usuario no encontrado');
+    }
+
+    if (!userRecord.idChurch) {
+      throw new BadRequestException('El usuario no tiene iglesia asignada');
+    }
+
+    return userRecord.idChurch;
   }
 }

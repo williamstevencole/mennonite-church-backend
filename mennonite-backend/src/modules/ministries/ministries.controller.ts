@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
   Post,
   Query,
   UseGuards,
@@ -14,6 +16,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -28,6 +31,7 @@ import { CreateMinistryDto } from './dto/create-ministry.dto';
 import { ListMinistriesQueryDto } from './dto/list-ministries-query.dto';
 import { MinistriesPageResponseDto } from './dto/ministries-page.response.dto';
 import { MinistryCreatedResponseDto } from './dto/ministry-created.response.dto';
+import { MinistryDetailResponseDto } from './dto/ministry-detail.response.dto';
 import { MinistriesService } from './ministries.service';
 
 @ApiTags('Ministries')
@@ -63,5 +67,17 @@ export class MinistriesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<MinistryCreatedResponseDto> {
     return this.ministriesService.create(dto, user);
+  }
+
+  @Get(':id')
+  @Permissions('ministries.read')
+  @ApiOperation({ summary: 'Obtener detalle de un ministerio' })
+  @ApiOkResponse({ type: MinistryDetailResponseDto })
+  @ApiNotFoundResponse({ description: 'Ministerio no encontrado' })
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<MinistryDetailResponseDto> {
+    return this.ministriesService.findOne(id, user);
   }
 }
