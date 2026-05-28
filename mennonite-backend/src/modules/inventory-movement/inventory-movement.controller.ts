@@ -1,10 +1,12 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   HttpCode,
   HttpStatus,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 
 import {
@@ -13,6 +15,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -26,6 +29,7 @@ import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { Permissions } from 'src/common/decorators/permissions.decorator';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { FindInventoryMovementsQueryDto } from './dto/find-inventory.query.dto';
 
 @ApiTags('Inventory Movements')
 @ApiBearerAuth('JWT-auth')
@@ -50,5 +54,15 @@ export class InventoryMovementsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.inventoryMovementsService.create(dto, user);
+  }
+
+  @Get()
+  @Permissions('inventory.read')
+  @ApiOkResponse({ description: 'Lista de movimientos' })
+  findAll(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: FindInventoryMovementsQueryDto,
+  ) {
+    return this.inventoryMovementsService.findAll(user, query);
   }
 }

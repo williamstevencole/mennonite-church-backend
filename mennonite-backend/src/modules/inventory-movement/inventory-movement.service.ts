@@ -12,6 +12,7 @@ import {
   CreateInventoryMovementDto,
   InventoryMovementType,
 } from './dto/create-inventory-movement.dto';
+import { FindInventoryMovementsQueryDto } from './dto/find-inventory.query.dto';
 
 @Injectable()
 export class InventoryMovementsService {
@@ -117,5 +118,39 @@ export class InventoryMovementsService {
     }
 
     return userRecord.idChurch;
+  }
+
+  async findAll(user: JwtPayload, query: FindInventoryMovementsQueryDto) {
+    const idChurch = await this.getChurchId(user);
+
+    const where: Prisma.InventoryMovementWhereInput = {
+      idChurch,
+    };
+
+    if (query.type) {
+      where.type = query.type;
+    }
+
+    if (query.articleId) {
+      where.idArticle = query.articleId;
+    }
+
+    if (query.startDate || query.endDate) {
+      where.datetime = {
+        ...(query.startDate && { gte: new Date(query.startDate) }),
+        ...(query.endDate && { lte: new Date(query.endDate) }),
+      };
+    }
+
+    return this.prisma.inventoryMovement.findMany({
+      where,
+      orderBy: {
+        datetime: 'desc', // required by your spec
+      },
+      include: {
+        article: true,
+        user: true,
+      },
+    });
   }
 }
