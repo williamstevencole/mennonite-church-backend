@@ -25,7 +25,8 @@ export class CalendarEventsService {
     createdBy?: number,
   ): Promise<CalendarEventResponseDto> {
     this.assertDateRange(dto.startDatetime, dto.endDatetime);
-    this.assertRecurrence(dto.isRecurrent, dto.frequency, dto.dayOfWeek);
+    const isRecurrent = dto.isRecurrent ?? false;
+    this.assertRecurrence(isRecurrent, dto.frequency, dto.dayOfWeek);
 
     await this.assertChurchExists(dto.idChurch);
     if (dto.idEventType !== undefined)
@@ -45,7 +46,7 @@ export class CalendarEventsService {
           dto.estimatedBudget !== undefined
             ? new Prisma.Decimal(dto.estimatedBudget)
             : undefined,
-        isRecurrent: dto.isRecurrent,
+        isRecurrent,
         frequency: dto.frequency,
         dayOfWeek: dto.dayOfWeek,
         recurrenceEndDate: dto.recurrenceEndDate
