@@ -270,4 +270,56 @@ export class BudgetDistributionService {
       allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
     };
   }
+
+  async remove(id: number, user: JwtPayload) {
+    const idChurch = await this.getChurchId(user);
+
+    const distribution = await this.prisma.budgetDistribution.findFirst({
+      where: {
+        id,
+        budget: {
+          idChurch,
+        },
+      },
+      include: {
+        budget: true,
+      },
+    });
+
+    if (!distribution) {
+      throw new NotFoundException('Budget distribution no fue encontrado');
+    }
+
+    if (distribution.budget.status === 'Active') {
+      throw new BadRequestException(
+        'No se puede eliminar una distribución de un budget activo',
+      );
+    }
+
+    const others = await this.prisma.budgetDistribution.findMany({
+      where: {
+        idBudget: distribution.idBudget,
+        id: {
+          not: id,
+        },
+      },
+    });
+
+    const remainingTotal = others.reduce(
+      (sum, d) => sum + Number(d.percentage),
+      0,
+    );
+
+    if (remainingTotal > 100) {
+      throw new BadRequestException(
+        'La distribución restante excede 100% después del borrado',
+      );
+    }
+
+    await this.prisma.budgetDistribution.delete({
+      where: { id },
+    });
+
+    return { status: 'deleted' };
+  }
 }
