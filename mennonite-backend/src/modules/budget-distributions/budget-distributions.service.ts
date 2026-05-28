@@ -110,7 +110,7 @@ export class BudgetDistributionService {
     });
 
     if (!budget) {
-      throw new NotFoundException('Budget no fue encontrando');
+      throw new NotFoundException('Budget no fue encontrado');
     }
 
     const totalBudget = budget.budgetCategories.reduce(
@@ -142,5 +142,54 @@ export class BudgetDistributionService {
         allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
       };
     });
+  }
+
+  async findOne(id: number, user: JwtPayload) {
+    const idChurch = await this.getChurchId(user);
+
+    const distribution = await this.prisma.budgetDistribution.findFirst({
+      where: { id },
+      include: {
+        ministry: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        budget: {
+          include: {
+            budgetCategories: {
+              select: {
+                annualAmount: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!distribution) {
+      throw new NotFoundException('Budget distribution no fue encontrado');
+    }
+
+    if (distribution.budget.idChurch !== idChurch) {
+      throw new NotFoundException(
+        'Budget distribution no pertenece a esta iglesia',
+      );
+    }
+
+    const totalBudget = distribution.budget.budgetCategories.reduce(
+      (sum, c) => sum + Number(c.annualAmount),
+      0,
+    );
+
+    const percentage = Number(distribution.percentage);
+
+    return {
+      id: distribution.id,
+      ministry: distribution.ministry,
+      percentage,
+      allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
+    };
   }
 }
