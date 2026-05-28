@@ -1,1 +1,1 @@
-cd mennonite-backend && npm run typecheck
+cd mennonite-backend && pnpm run typecheck
