@@ -10,6 +10,7 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Delete,
 } from '@nestjs/common';
 
 import {
@@ -90,5 +91,15 @@ export class InventoryMovementsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.inventoryMovementsService.update(id, dto, user);
+  }
+
+  @Delete(':id')
+  @Permissions('inventory.delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.inventoryMovementsService.remove(id, user);
   }
 }
