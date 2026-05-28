@@ -5,16 +5,24 @@ import {
   ADMIN_SEED_CREDENTIALS,
   MEMBER_USER_SEED_CREDENTIALS,
 } from './seed/admin-user.seed';
+import { seedBoardMembers } from './seed/board-members.seed';
 import { seedBoards } from './seed/boards.seed';
+import { seedBudgetDistributions } from './seed/budget-distributions.seed';
 import { seedBudgets } from './seed/budgets.seed';
 import { seedChurch } from './seed/church.seed';
 import { seedCities } from './seed/cities.seed';
 import { seedDepartments } from './seed/departments.seed';
+import { seedEventDetails } from './seed/event-details.seed';
 import { seedEventTypes } from './seed/event-types.seed';
 import { seedEvents } from './seed/events.seed';
+import { seedFinancialReports } from './seed/financial-reports.seed';
+import { seedFinancialTransactions } from './seed/financial-transactions.seed';
+import { seedInventory } from './seed/inventory.seed';
 import { seedMembers } from './seed/members.seed';
 import { seedMemberRoleTypes } from './seed/member-role-types.seed';
 import { seedMinistries } from './seed/ministries.seed';
+import { seedMinistryMembers } from './seed/ministry-members.seed';
+import { seedPeriodClosures } from './seed/period-closures.seed';
 import { seedRolesAndPermissions } from './seed/roles-permissions.seed';
 import { seedTransactionCategories } from './seed/transaction-categories.seed';
 
@@ -46,7 +54,7 @@ async function main(): Promise<void> {
   const board = await seedBoards(prisma, church.id);
 
   // 6. Usuarios (admin + usuarios ligados a miembros)
-  await seedAdminUser(prisma, adminRole.id, church.id);
+  const adminUser = await seedAdminUser(prisma, adminRole.id, church.id);
   const memberUsers = await seedMemberUsers(
     prisma,
     church.id,
@@ -60,12 +68,66 @@ async function main(): Promise<void> {
   // 8. Presupuesto anual + categorias
   const budget = await seedBudgets(prisma, church.id);
 
+  // 9. Asignaciones de miembros (concilio + ministerios)
+  const boardMembersCount = await seedBoardMembers(
+    prisma,
+    board,
+    membersByName,
+  );
+  const ministryMembersCount = await seedMinistryMembers(
+    prisma,
+    ministriesByCode,
+    membersByName,
+  );
+
+  // 10. Detalles y participacion en eventos
+  const eventDetails = await seedEventDetails(prisma, church.id, membersByName);
+
+  // 11. Distribucion de presupuesto por ministerio
+  const budgetDistributionsCount = await seedBudgetDistributions(
+    prisma,
+    budget,
+    ministriesByCode,
+  );
+
+  // 12. Finanzas: transacciones, reporte anual y cierre de periodo anterior
+  const financialTransactionsCount = await seedFinancialTransactions(
+    prisma,
+    church.id,
+    adminUser.id,
+  );
+  const financialReportsCount = await seedFinancialReports(
+    prisma,
+    church.id,
+    adminUser.id,
+  );
+  const periodClosuresCount = await seedPeriodClosures(
+    prisma,
+    church.id,
+    adminUser.id,
+  );
+
+  // 13. Inventario (articulos + movimientos)
+  const inventory = await seedInventory(prisma, church.id, adminUser.id);
+
   console.log('Seed completado correctamente.');
   console.log(`Iglesia: ${church.name} (id=${church.id})`);
   console.log(`Miembros: ${membersByName.size}`);
   console.log(`Ministerios: ${ministriesByCode.size}`);
   console.log(`Concilio activo: ${board.name}`);
   console.log(`Presupuesto: ${budget.description} (id=${budget.id})`);
+  console.log(`Miembros del concilio: ${boardMembersCount}`);
+  console.log(`Miembros en ministerios: ${ministryMembersCount}`);
+  console.log(
+    `Eventos: responsables=${eventDetails.responsibles}, asistencias=${eventDetails.attendances}, viajes=${eventDetails.trips}, recaudaciones=${eventDetails.fundraisings}`,
+  );
+  console.log(`Distribuciones de presupuesto: ${budgetDistributionsCount}`);
+  console.log(`Transacciones financieras: ${financialTransactionsCount}`);
+  console.log(`Reportes financieros: ${financialReportsCount}`);
+  console.log(`Cierres de periodo: ${periodClosuresCount}`);
+  console.log(
+    `Inventario: articulos=${inventory.articles}, movimientos=${inventory.movements}`,
+  );
   console.log(`Admin user: ${ADMIN_SEED_CREDENTIALS.email}`);
   console.log(`Admin password: ${ADMIN_SEED_CREDENTIALS.password}`);
   console.log(`Usuarios ligados a miembros: ${memberUsers.length}`);
