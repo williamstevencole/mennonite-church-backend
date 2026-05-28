@@ -24,6 +24,9 @@ type MemberListWithRelations = Prisma.MemberGetPayload<{
   };
 }>;
 
+const DNI_REGEX = /^\d{4}-\d{4}-\d{5}$/;
+const PASSPORT_REGEX = /^[a-zA-Z]{1}[0-9]{6,9}$/;
+
 @Injectable()
 export class MembersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -32,41 +35,12 @@ export class MembersService {
     createMemberDto: CreateMemberDto,
     user: JwtPayload,
   ): Promise<MemberCreatedResponseDto> {
-    const userRecord = await this.prisma.user.findUnique({
-      where: { id: user.sub },
-      select: { idChurch: true },
-    });
+    const idChurch = await this.resolveChurchId(user);
 
-    if (!userRecord) {
-      throw new BadRequestException('Usuario no encontrado');
-    }
-
-    const idChurch = userRecord.idChurch;
-
-    if (!idChurch) {
-      throw new BadRequestException('El usuario no tiene iglesia asignada');
-    }
-
-    if (
-      createMemberDto.documentType === DocumentType.DNI ||
-      createMemberDto.documentType === DocumentType.BIRTH_CERTIFICATE
-    ) {
-      const dniRegex = /^\d{4}-\d{4}-\d{5}$/;
-      if (!dniRegex.test(createMemberDto.documentNumber)) {
-        throw new BadRequestException(
-          'El número de documento debe tener 13 dígitos con espacios para el tipo DNI',
-        );
-      }
-    } else if (createMemberDto.documentType === DocumentType.PASSPORT) {
-      const passportRegex = /^[a-zA-Z]{1}[0-9]{6,9}$/;
-      if (!passportRegex.test(createMemberDto.documentNumber)) {
-        throw new BadRequestException(
-          'El número de documento debe tener entre 6 y 9 caracteres alfanuméricos para el tipo PASSPORT',
-        );
-      }
-    } else {
-      throw new BadRequestException('Tipo de documento no soportado');
-    }
+    this.validateDocumentNumber(
+      createMemberDto.documentType,
+      createMemberDto.documentNumber,
+    );
 
     const existing = await this.prisma.member.findUnique({
       where: {
@@ -75,7 +49,7 @@ export class MembersService {
           documentNumber: createMemberDto.documentNumber,
         },
       },
-      select: { id: true, active: true },
+      select: { id: true },
     });
     if (existing) {
       throw new ConflictException('El numero de identificacion ya existe');
@@ -95,23 +69,28 @@ export class MembersService {
         baptismDate: createMemberDto.baptismDate,
         joinDate: createMemberDto.joinDate,
         inactivatedAt: createMemberDto.inactivatedAt,
+        createdBy: user.sub,
       },
       select: { id: true },
     });
     return { id: member.id };
   }
 
-  async findAll(query: ListMembersQueryDto): Promise<MembersPageResponseDto> {
+  async findAll(
+    query: ListMembersQueryDto,
+    user: JwtPayload,
+  ): Promise<MembersPageResponseDto> {
+    const idChurch = await this.resolveChurchId(user);
     const page = query.page ?? 1;
     const size = query.size ?? 20;
     const name = query.name?.trim();
-    const where: Prisma.MemberWhereInput = {};
+    const where: Prisma.MemberWhereInput = { idChurch };
 
     if (query.active !== undefined) {
       where.active = query.active;
     }
 
-    if (query.name !== undefined) {
+    if (name) {
       where.name = { contains: name, mode: 'insensitive' };
     }
 
@@ -139,9 +118,13 @@ export class MembersService {
     };
   }
 
-  async findOne(id: number): Promise<MemberDetailResponseDto> {
-    const member = await this.prisma.member.findUnique({
-      where: { id },
+  async findOne(
+    id: number,
+    user: JwtPayload,
+  ): Promise<MemberDetailResponseDto> {
+    const idChurch = await this.resolveChurchId(user);
+    const member = await this.prisma.member.findFirst({
+      where: { id, idChurch },
       include: {
         church: { select: { id: true, name: true } },
         createdByUser: { select: { id: true, email: true } },
@@ -250,9 +233,11 @@ export class MembersService {
   async update(
     id: number,
     updateMemberDto: UpdateMemberDto,
+    user: JwtPayload,
   ): Promise<MemberDetailResponseDto> {
-    const existing = await this.prisma.member.findUnique({
-      where: { id },
+    const idChurch = await this.resolveChurchId(user);
+    const existing = await this.prisma.member.findFirst({
+      where: { id, idChurch },
       select: { id: true, documentType: true, documentNumber: true },
     });
 
@@ -290,7 +275,6 @@ export class MembersService {
     }
 
     const data: Prisma.MemberUncheckedUpdateInput = {
-      idChurch: updateMemberDto.idChurch,
       name: updateMemberDto.name,
       documentType: nextDocumentType,
       documentNumber: nextDocumentNumber,
@@ -309,12 +293,13 @@ export class MembersService {
       data,
     });
 
-    return this.findOne(id);
+    return this.findOne(id, user);
   }
 
-  async remove(id: number): Promise<void> {
-    const member = await this.prisma.member.findUnique({
-      where: { id },
+  async remove(id: number, user: JwtPayload): Promise<void> {
+    const idChurch = await this.resolveChurchId(user);
+    const member = await this.prisma.member.findFirst({
+      where: { id, idChurch },
       select: { id: true, active: true },
     });
 
@@ -330,6 +315,23 @@ export class MembersService {
       where: { id },
       data: { active: false },
     });
+  }
+
+  private async resolveChurchId(user: JwtPayload): Promise<number> {
+    const userRecord = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      select: { idChurch: true },
+    });
+
+    if (!userRecord) {
+      throw new BadRequestException('Usuario no encontrado');
+    }
+
+    if (!userRecord.idChurch) {
+      throw new BadRequestException('El usuario no tiene iglesia asignada');
+    }
+
+    return userRecord.idChurch;
   }
 
   private toListItem(
@@ -368,24 +370,29 @@ export class MembersService {
     documentType: DocumentType,
     documentNumber: string,
   ): void {
-    if (
-      documentType === DocumentType.DNI ||
-      documentType === DocumentType.BIRTH_CERTIFICATE
-    ) {
-      const dniRegex = /^\d{4}-\d{4}-\d{5}$/;
-      if (!dniRegex.test(documentNumber)) {
+    if (documentType === DocumentType.DNI) {
+      if (!DNI_REGEX.test(documentNumber)) {
         throw new BadRequestException(
-          'El número de documento debe tener 13 dígitos con dash para el tipo DNI',
+          'El número de DNI debe tener el formato 0000-0000-00000',
         );
       }
       return;
     }
 
     if (documentType === DocumentType.PASSPORT) {
-      const passportRegex = /^[a-zA-Z]{1}[0-9]{6,9}$/;
-      if (!passportRegex.test(documentNumber)) {
+      if (!PASSPORT_REGEX.test(documentNumber)) {
         throw new BadRequestException(
-          'El número de documento debe tener entre 6 y 9 caracteres alfanuméricos para el tipo PASSPORT',
+          'El número de pasaporte debe ser 1 letra seguida de 6 a 9 dígitos',
+        );
+      }
+      return;
+    }
+
+    if (documentType === DocumentType.BIRTH_CERTIFICATE) {
+      const trimmed = documentNumber.trim();
+      if (trimmed.length < 5 || trimmed.length > 30) {
+        throw new BadRequestException(
+          'El número del acta de nacimiento debe tener entre 5 y 30 caracteres',
         );
       }
       return;
