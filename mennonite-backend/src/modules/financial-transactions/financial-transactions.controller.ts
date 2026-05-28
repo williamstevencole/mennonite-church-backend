@@ -48,7 +48,7 @@ export class FinancialTransactionsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @Permissions('finance.transactions.manage')
+  @Permissions('finance.create')
   @ApiOperation({ summary: 'Crear transaccion financiera' })
   @ApiCreatedResponse({ type: FinancialTransactionResponseDto })
   @ApiBadRequestResponse({
@@ -63,7 +63,7 @@ export class FinancialTransactionsController {
   }
 
   @Get()
-  @Permissions('finance.transactions.read')
+  @Permissions('finance.read')
   @ApiOperation({
     summary:
       'Listar transacciones financieras con filtros (type, year, month, category, ministry) y paginacion',
@@ -77,7 +77,7 @@ export class FinancialTransactionsController {
   }
 
   @Get(':id')
-  @Permissions('finance.transactions.read')
+  @Permissions('finance.read')
   @ApiOperation({ summary: 'Obtener detalle de transaccion financiera' })
   @ApiOkResponse({ type: FinancialTransactionResponseDto })
   @ApiNotFoundResponse({ description: 'Transaccion no encontrada' })
@@ -88,7 +88,7 @@ export class FinancialTransactionsController {
   }
 
   @Patch(':id')
-  @Permissions('finance.transactions.manage')
+  @Permissions('finance.update')
   @ApiOperation({ summary: 'Actualizar transaccion financiera' })
   @ApiOkResponse({ type: FinancialTransactionResponseDto })
   @ApiBadRequestResponse({
@@ -105,7 +105,7 @@ export class FinancialTransactionsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions('finance.transactions.manage')
+  @Permissions('finance.delete')
   @ApiOperation({ summary: 'Eliminar transaccion financiera' })
   @ApiNoContentResponse({ description: 'Transaccion eliminada' })
   @ApiConflictResponse({ description: 'Año cerrado para esta iglesia' })

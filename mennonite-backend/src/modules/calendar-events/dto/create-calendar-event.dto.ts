@@ -88,10 +88,11 @@ export class CreateCalendarEventDto {
   @IsPositive()
   estimatedBudget?: number;
 
-  @ApiProperty({ example: false })
+  @ApiPropertyOptional({ example: false, default: false })
+  @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
-  isRecurrent!: boolean;
+  isRecurrent?: boolean = false;
 
   @ApiPropertyOptional({
     enum: EventFrequency,

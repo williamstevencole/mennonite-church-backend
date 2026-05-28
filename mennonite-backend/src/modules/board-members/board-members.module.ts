@@ -5,5 +5,6 @@ import { BoardMembersService } from './board-members.service';
 @Module({
   controllers: [BoardMembersController],
   providers: [BoardMembersService],
+  exports: [BoardMembersService],
 })
 export class BoardMembersModule {}
