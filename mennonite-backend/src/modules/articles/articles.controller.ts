@@ -26,6 +26,7 @@ import {
   Query,
   UseGuards,
   Patch,
+  Delete,
 } from '@nestjs/common';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { CreateArticleDto } from './dto/create-article.dto';
@@ -100,5 +101,17 @@ export class ArticlesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<ArticleResponseDto> {
     return this.service.update(id, dto, user);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Permissions('inventory.delete')
+  @ApiOperation({ summary: 'Retirar articulo del inventario' })
+  @ApiNotFoundResponse({ description: 'Articulo no encontrado' })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.service.remove(id, user);
   }
 }

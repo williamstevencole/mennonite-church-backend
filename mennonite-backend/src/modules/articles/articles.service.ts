@@ -191,4 +191,31 @@ export class ArticlesService {
       throw error;
     }
   }
+
+  async remove(id: number, user: JwtPayload): Promise<void> {
+    const idChurch = await this.getChurchId(user);
+
+    const article = await this.prisma.article.findFirst({
+      where: {
+        id,
+        idChurch,
+      },
+    });
+
+    if (!article) {
+      throw new NotFoundException('Articulo no encontrado');
+    }
+
+    // idempotente: si ya está inactivo igual responde 204
+    if (!article.active) {
+      return;
+    }
+
+    await this.prisma.article.update({
+      where: { id },
+      data: {
+        active: false,
+      },
+    });
+  }
 }

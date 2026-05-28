@@ -10,8 +10,13 @@ import {
 } from 'class-validator';
 
 const toBoolean = ({ value }: { value: unknown }): unknown => {
-  if (value === 'true' || value === true) return true;
-  if (value === 'false' || value === false) return false;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+
   return value;
 };
 
