@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiCreatedResponse } from '@nestjs/swagger';
 
 import { BudgetDistributionService } from './budget-distributions.service';
@@ -34,5 +43,14 @@ export class BudgetDistributionController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.budgetDistributionService.findAll(query, user);
+  }
+
+  @Get(':id')
+  @Permissions('budgets.read')
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.budgetDistributionService.findOne(id, user);
   }
 }
