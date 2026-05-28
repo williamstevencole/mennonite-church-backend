@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -38,13 +38,12 @@ export class ListMemberAssignmentsQueryDto {
   @Min(1)
   size?: number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     enum: MemberAssignmentType,
-    description: 'Filtra por tipo de asignacion (board | ministry)',
+    description: 'Tipo de asignacion (board | ministry). Requerido.',
   })
-  @IsOptional()
   @IsEnum(MemberAssignmentType)
-  type?: MemberAssignmentType;
+  type!: MemberAssignmentType;
 
   @ApiPropertyOptional({ description: 'Filtra por estado activo' })
   @IsOptional()
