@@ -1,0 +1,70 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  Max,
+  Min,
+} from 'class-validator';
+import { EventStatus } from './create-calendar-event.dto';
+
+export class ListCalendarEventsQueryDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 20, default: 20, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  size?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  idChurch?: number;
+
+  @ApiPropertyOptional({ example: 3 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  idMinistry?: number;
+
+  @ApiPropertyOptional({ example: 2 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  idEventType?: number;
+
+  @ApiPropertyOptional({ enum: EventStatus })
+  @IsOptional()
+  @IsEnum(EventStatus)
+  status?: EventStatus;
+
+  @ApiPropertyOptional({
+    example: '2026-06-01',
+    description: 'Inicio del rango (inclusive) por startDatetime',
+  })
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-06-30',
+    description: 'Fin del rango (inclusive) por startDatetime',
+  })
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+}
