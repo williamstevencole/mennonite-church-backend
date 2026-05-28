@@ -26,13 +26,13 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
-import { InventoryMovementsService } from './inventory-movement.service';
+import { InventoryMovementsService } from './inventory-movements.service';
 import { CreateInventoryMovementDto } from './dto/create-inventory-movement.dto';
 
-import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { PermissionsGuard } from 'src/common/guards/permissions.guard';
-import { Permissions } from 'src/common/decorators/permissions.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { FindInventoryMovementsQueryDto } from './dto/find-inventory.query.dto';
 import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';

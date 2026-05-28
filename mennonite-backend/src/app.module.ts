@@ -18,7 +18,10 @@ import { TransactionCategoriesModule } from './modules/transaction-categories/tr
 import { ChurchesModule } from './modules/churches/churches.module';
 import { EventTypesModule } from './modules/event-types/event-types.module';
 import { ArticlesModule } from './modules/articles/articles.module';
-import { InventoryMovementsModule } from './modules/inventory-movement/inventory-movement.module';
+import { InventoryMovementsModule } from './modules/inventory-movements/inventory-movements.module';
+import { BoardMembersModule } from './modules/board-members/board-members.module';
+import { BoardsModule } from './modules/boards/boards.module';
+import { FinancialTransactionsModule } from './modules/financial-transactions/financial-transactions.module';
 
 const resolveJwtExpiresIn = (value?: string): number | StringValue => {
   if (!value) {
@@ -68,6 +71,9 @@ const resolveJwtExpiresIn = (value?: string): number | StringValue => {
     EventTypesModule,
     ArticlesModule,
     InventoryMovementsModule,
+    BoardMembersModule,
+    BoardsModule,
+    FinancialTransactionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
