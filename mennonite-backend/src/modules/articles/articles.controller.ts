@@ -25,6 +25,7 @@ import {
   Post,
   Query,
   UseGuards,
+  Patch,
 } from '@nestjs/common';
 import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { CreateArticleDto } from './dto/create-article.dto';
@@ -32,6 +33,7 @@ import { ArticleResponseDto } from './dto/article.response.dto';
 import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesService } from './articles.service';
 import { ArticlesPageResponseDto } from './dto/articles-page.response.dto';
+import { UpdateArticleDto } from './dto/update-article.dto';
 
 @ApiTags('Articles')
 @ApiBearerAuth('JWT-auth')
@@ -81,5 +83,22 @@ export class ArticlesController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<ArticleResponseDto> {
     return this.service.findOne(user, id);
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('inventory.update')
+  @ApiOperation({ summary: 'Actualizar articulo' })
+  @ApiOkResponse({ type: ArticleResponseDto })
+  @ApiNotFoundResponse({ description: 'Articulo no encontrado' })
+  @ApiConflictResponse({
+    description: 'Ya existe un articulo con ese codigo',
+  })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateArticleDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ArticleResponseDto> {
+    return this.service.update(id, dto, user);
   }
 }
