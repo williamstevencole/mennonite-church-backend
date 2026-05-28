@@ -6,14 +6,19 @@ import {
 } from '@nestjs/common';
 
 import { Prisma } from '@prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { JwtPayload } from 'src/auth/strategies/jwt.strategy';
+import { PrismaService } from '../../prisma/prisma.service';
+import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import {
   CreateInventoryMovementDto,
   InventoryMovementType,
 } from './dto/create-inventory-movement.dto';
 import { FindInventoryMovementsQueryDto } from './dto/find-inventory.query.dto';
 import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
+
+const userPublicSelect = {
+  id: true,
+  email: true,
+} as const;
 
 @Injectable()
 export class InventoryMovementsService {
@@ -60,7 +65,7 @@ export class InventoryMovementsService {
         },
         include: {
           article: true,
-          user: true,
+          user: { select: userPublicSelect },
         },
       });
 
@@ -146,11 +151,11 @@ export class InventoryMovementsService {
     return this.prisma.inventoryMovement.findMany({
       where,
       orderBy: {
-        datetime: 'desc', // required by your spec
+        datetime: 'desc',
       },
       include: {
         article: true,
-        user: true,
+        user: { select: userPublicSelect },
       },
     });
   }
@@ -180,10 +185,7 @@ export class InventoryMovementsService {
         },
 
         user: {
-          select: {
-            id: true,
-            email: true,
-          },
+          select: userPublicSelect,
         },
       },
     });
@@ -235,12 +237,7 @@ export class InventoryMovementsService {
       },
       include: {
         article: true,
-        user: {
-          select: {
-            id: true,
-            email: true,
-          },
-        },
+        user: { select: userPublicSelect },
       },
     });
   }
@@ -256,8 +253,24 @@ export class InventoryMovementsService {
       throw new NotFoundException('Movement not found');
     }
 
-    await this.prisma.inventoryMovement.delete({
-      where: { id },
-    });
+    // Hard delete: preserve the row's contents in audit_log so stock history
+    // remains reconstructable from the audit trail.
+    await this.prisma.$transaction([
+      this.prisma.auditLog.create({
+        data: {
+          tableName: 'inventory_movement',
+          recordId: movement.id,
+          operation: 'DELETE',
+          changedBy: user.sub,
+          oldData: JSON.stringify({
+            ...movement,
+            quantity: Number(movement.quantity),
+          }),
+        },
+      }),
+      this.prisma.inventoryMovement.delete({
+        where: { id },
+      }),
+    ]);
   }
 }
