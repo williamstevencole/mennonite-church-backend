@@ -7,6 +7,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateBudgetDistributionDto } from './dto/create-budget-distribution.dto';
 import type { JwtPayload } from 'src/auth/strategies/jwt.strategy';
+import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.dto';
 
 @Injectable()
 export class BudgetDistributionService {
@@ -19,7 +20,7 @@ export class BudgetDistributionService {
     });
 
     if (!userRecord?.idChurch) {
-      throw new BadRequestException('User not recognized');
+      throw new BadRequestException('Usuario no reconocido');
     }
 
     return userRecord.idChurch;
@@ -36,7 +37,7 @@ export class BudgetDistributionService {
     });
 
     if (!budget) {
-      throw new NotFoundException('Budget not found');
+      throw new NotFoundException('Budget no encontrado');
     }
 
     const ministry = await this.prisma.ministry.findFirst({
@@ -47,7 +48,7 @@ export class BudgetDistributionService {
     });
 
     if (!ministry) {
-      throw new NotFoundException('Ministry not found');
+      throw new NotFoundException('Ministerio no encontrado');
     }
 
     const existing = await this.prisma.budgetDistribution.findUnique({
@@ -60,7 +61,7 @@ export class BudgetDistributionService {
     });
 
     if (existing) {
-      throw new ConflictException('Distribution already exists');
+      throw new ConflictException('Distribucion ya existe.');
     }
 
     const agg = await this.prisma.budgetDistribution.aggregate({
@@ -73,11 +74,10 @@ export class BudgetDistributionService {
 
     if (newTotal > 100) {
       throw new BadRequestException(
-        `Total percentage cannot exceed 100% (current: ${currentTotal}%)`,
+        'Porcentaje total no se puede exceder del 100%',
       );
     }
 
-    // 5. Create ONLY what exists in DB
     const created = await this.prisma.budgetDistribution.create({
       data: {
         idBudget: dto.idBudget,
@@ -90,5 +90,57 @@ export class BudgetDistributionService {
     return {
       id: created.id,
     };
+  }
+
+  async findAll(query: FindBudgetDistributionsQueryDto, user: JwtPayload) {
+    const idChurch = await this.getChurchId(user);
+
+    const budget = await this.prisma.budget.findFirst({
+      where: {
+        id: query.budgetId,
+        idChurch,
+      },
+      include: {
+        budgetCategories: {
+          select: {
+            annualAmount: true,
+          },
+        },
+      },
+    });
+
+    if (!budget) {
+      throw new NotFoundException('Budget no fue encontrando');
+    }
+
+    const totalBudget = budget.budgetCategories.reduce(
+      (sum, category) => sum + Number(category.annualAmount),
+      0,
+    );
+
+    const distributions = await this.prisma.budgetDistribution.findMany({
+      where: {
+        idBudget: query.budgetId,
+      },
+      include: {
+        ministry: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return distributions.map((distribution) => {
+      const percentage = Number(distribution.percentage);
+
+      return {
+        id: distribution.id,
+        ministry: distribution.ministry,
+        percentage,
+        allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
+      };
+    });
   }
 }
