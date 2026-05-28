@@ -244,4 +244,20 @@ export class InventoryMovementsService {
       },
     });
   }
+
+  async remove(id: number, user: JwtPayload) {
+    const idChurch = await this.getChurchId(user);
+
+    const movement = await this.prisma.inventoryMovement.findFirst({
+      where: { id, idChurch },
+    });
+
+    if (!movement) {
+      throw new NotFoundException('Movement not found');
+    }
+
+    await this.prisma.inventoryMovement.delete({
+      where: { id },
+    });
+  }
 }
