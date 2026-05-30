@@ -19,4 +19,13 @@ export class ListMinistriesQueryDto extends PaginationQueryDto {
   @IsBoolean()
   @Transform(toBoolean)
   active?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Si true, incluye registros inactivos en la respuesta',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(toBoolean)
+  includeInactive?: boolean;
 }

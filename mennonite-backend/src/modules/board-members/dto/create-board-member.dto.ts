@@ -7,26 +7,26 @@ export class CreateBoardMemberDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  id_board!: number;
+  idBoard!: number;
 
   @ApiProperty({ example: 1, description: 'Id del miembro' })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  id_member!: number;
+  idMember!: number;
 
   @ApiProperty({ example: 1, description: 'Id del rol del concilio' })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  id_board_role_type!: number;
+  idBoardRoleType!: number;
 
   @ApiProperty({ example: '2026-01-01' })
   @IsDateString()
-  start_date!: string;
+  startDate!: string;
 
   @ApiPropertyOptional({ example: '2026-12-31' })
   @IsOptional()
   @IsDateString()
-  end_date?: string;
+  endDate?: string;
 }

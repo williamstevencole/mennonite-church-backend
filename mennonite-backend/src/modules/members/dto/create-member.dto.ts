@@ -1,10 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsDate, IsOptional, IsEnum, IsEmail } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsDate,
+  IsOptional,
+  IsEnum,
+  IsEmail,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { DocumentType } from '../doc-type-enum';
 
+const trim = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.trim() : value;
+
 export class CreateMemberDto {
-  @ApiProperty() @IsString() name!: string;
+  @ApiProperty()
+  @IsString()
+  @Transform(trim)
+  @MinLength(1)
+  @MaxLength(60)
+  name!: string;
 
   @ApiProperty({ enum: DocumentType })
   @IsEnum(DocumentType)
