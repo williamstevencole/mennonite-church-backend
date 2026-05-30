@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Permission } from '@prisma/client';
+import { Permission, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   buildPagination,
@@ -42,7 +42,10 @@ export class PermissionsService {
   ): Promise<PermissionsPageResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where = { active: true };
+    const where: Prisma.PermissionWhereInput = {};
+    if (query.includeInactive !== true) {
+      where.active = true;
+    }
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.permission.count({ where }),
@@ -61,8 +64,16 @@ export class PermissionsService {
     );
   }
 
-  async findOne(id: number): Promise<PermissionResponseDto> {
-    const item = await this.prisma.permission.findUnique({ where: { id } });
+  async findOne(
+    id: number,
+    includeInactive = false,
+  ): Promise<PermissionResponseDto> {
+    const item = await this.prisma.permission.findFirst({
+      where: {
+        id,
+        ...(includeInactive ? {} : { active: true }),
+      },
+    });
     if (!item) {
       throw new NotFoundException(`Permiso ${id} no encontrado`);
     }

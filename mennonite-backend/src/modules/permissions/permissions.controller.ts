@@ -73,8 +73,9 @@ export class PermissionsController {
   @ApiNotFoundResponse({ description: 'Permiso no encontrado' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: string,
   ): Promise<PermissionResponseDto> {
-    return this.service.findOne(id);
+    return this.service.findOne(id, includeInactive === 'true');
   }
 
   @Patch(':id')

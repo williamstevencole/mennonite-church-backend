@@ -11,8 +11,6 @@ import {
   buildPagination,
   toPaginated,
 } from '../../common/pagination/paginate.util';
-import { MemberRoleBelongsTo } from '../member-role-types/member-role-belongs-to.enum';
-import { CreateMinistryMemberDto } from './dto/create-ministry-member.dto';
 import { CreateMinistryDto } from './dto/create-ministry.dto';
 import { ListMinistriesQueryDto } from './dto/list-ministries-query.dto';
 import { MinistriesPageResponseDto } from './dto/ministries-page.response.dto';
@@ -22,12 +20,12 @@ import { MinistryMemberListItemResponseDto } from './dto/ministry-member-list-it
 import { MinistryMemberMemberSummaryResponseDto } from './dto/ministry-member-member-summary.response.dto';
 import { MinistryMemberRoleResponseDto } from './dto/ministry-member-role.response.dto';
 import { UpdateMinistryDto } from './dto/update-ministry.dto';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 type MinistryMemberListRecord = Prisma.MinistryMemberGetPayload<{
   include: {
     member: { select: { id: true; name: true } };
-    memberRoleType: { select: { id: true; name: true } };
+    ministryRoleType: { select: { id: true; name: true } };
   };
 }>;
 
@@ -36,7 +34,7 @@ type MinistryDetailRecord = Prisma.MinistryGetPayload<{
     ministryMembers: {
       include: {
         member: { select: { id: true; name: true } };
-        memberRoleType: { select: { id: true; name: true } };
+        ministryRoleType: { select: { id: true; name: true } };
       };
     };
   };
@@ -55,6 +53,8 @@ export class MinistriesService {
 
     if (query.active !== undefined) {
       where.active = query.active;
+    } else if (query.includeInactive !== true) {
+      where.active = true;
     }
 
     const [total, ministries] = await this.prisma.$transaction([
@@ -77,7 +77,7 @@ export class MinistriesService {
   async create(
     dto: CreateMinistryDto,
     user: JwtPayload,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     const idChurch = await this.resolveChurchId(user);
 
     if (dto.id_leader_member) {
@@ -95,112 +95,37 @@ export class MinistriesService {
       }
     }
 
-    const existing = await this.prisma.ministry.findUnique({
+    const existing = await this.prisma.ministry.findFirst({
       where: {
-        idChurch_code: {
-          idChurch,
-          code: dto.code,
-        },
+        idChurch,
+        name: { equals: dto.name.trim(), mode: 'insensitive' },
       },
       select: { id: true },
     });
 
     if (existing) {
       throw new ConflictException(
-        `Ya existe un ministerio con el codigo "${dto.code}"`,
+        `Ya existe un ministerio con el nombre "${dto.name}"`,
       );
     }
 
     const ministry = await this.prisma.ministry.create({
       data: {
         idChurch,
-        code: dto.code,
         name: dto.name,
         createdBy: user.sub,
       },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
-    return { id: ministry.id };
-  }
-
-  async addMember(
-    id: number,
-    dto: CreateMinistryMemberDto,
-    user: JwtPayload,
-  ): Promise<IdResponseDto> {
-    const idChurch = await this.resolveChurchId(user);
-    const [ministry, member, role, duplicate] = await Promise.all([
-      this.prisma.ministry.findFirst({
-        where: { id, idChurch },
-        select: { id: true },
-      }),
-      this.prisma.member.findUnique({
-        where: { id: dto.id_member },
-        select: { id: true, active: true },
-      }),
-      this.prisma.memberRoleType.findUnique({
-        where: { id: dto.id_ministry_role_type },
-        select: { id: true, name: true, belongsTo: true, active: true },
-      }),
-      this.prisma.ministryMember.findFirst({
-        where: {
-          idMinistry: id,
-          idMember: dto.id_member,
-          assignmentType: 'ministry',
-          active: true,
-        },
-        select: { id: true },
-      }),
-    ]);
-
-    if (!ministry) {
-      throw new BadRequestException('Ministerio inexistente');
-    }
-
-    if (!member) {
-      throw new BadRequestException('Miembro inexistente');
-    }
-
-    if (!member.active) {
-      throw new BadRequestException('El miembro esta inactivo');
-    }
-
-    if (!role || !role.active) {
-      throw new BadRequestException('Rol de ministerio inexistente');
-    }
-
-    if (role.belongsTo !== MemberRoleBelongsTo.Ministry) {
-      throw new BadRequestException('El rol no pertenece a ministerio');
-    }
-
-    if (duplicate) {
-      throw new ConflictException(
-        'El miembro ya esta asignado en este ministerio',
-      );
-    }
-
-    const startDate = new Date(dto.start_date);
-    const created = await this.prisma.ministryMember.create({
-      data: {
-        idMinistry: id,
-        idMember: dto.id_member,
-        idMemberRoleType: dto.id_ministry_role_type,
-        assignmentType: 'ministry',
-        startDate,
-        active: true,
-      },
-      select: { id: true },
-    });
-
-    return { id: created.id };
+    return { id: ministry.id, name: ministry.name };
   }
 
   async update(
     id: number,
     dto: UpdateMinistryDto,
     user: JwtPayload,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.ministry.findFirst({
@@ -208,7 +133,6 @@ export class MinistriesService {
         select: {
           id: true,
           idChurch: true,
-          code: true,
           name: true,
           active: true,
         },
@@ -216,6 +140,22 @@ export class MinistriesService {
 
       if (!existing) {
         throw new NotFoundException(`Ministerio con id ${id} no encontrado`);
+      }
+
+      if (dto.name !== undefined && dto.name !== existing.name) {
+        const duplicate = await tx.ministry.findFirst({
+          where: {
+            idChurch,
+            name: { equals: dto.name.trim(), mode: 'insensitive' },
+            NOT: { id },
+          },
+          select: { id: true },
+        });
+        if (duplicate) {
+          throw new ConflictException(
+            `Ya existe un ministerio con el nombre "${dto.name}"`,
+          );
+        }
       }
 
       const data: Prisma.MinistryUpdateInput = {};
@@ -249,23 +189,27 @@ export class MinistriesService {
         user.sub,
       );
 
-      return { id };
+      return { id, name: resolvedName };
     });
   }
 
   async findOne(
     id: number,
     user: JwtPayload,
+    includeInactive = false,
   ): Promise<MinistryDetailResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const ministry = await this.prisma.ministry.findFirst({
-      where: { id, idChurch },
+      where: {
+        id,
+        idChurch,
+        ...(includeInactive ? {} : { active: true }),
+      },
       include: {
         ministryMembers: {
-          where: { assignmentType: 'ministry' },
           include: {
             member: { select: { id: true, name: true } },
-            memberRoleType: { select: { id: true, name: true } },
+            ministryRoleType: { select: { id: true, name: true } },
           },
           orderBy: [{ member: { name: 'asc' } }, { id: 'asc' }],
         },
@@ -296,45 +240,10 @@ export class MinistriesService {
         data: { active: false },
       }),
       this.prisma.ministryMember.updateMany({
-        where: { idMinistry: id, assignmentType: 'ministry', active: true },
+        where: { idMinistry: id, active: true },
         data: { active: false },
       }),
     ]);
-  }
-
-  async removeMember(
-    id: number,
-    memberId: number,
-    user: JwtPayload,
-  ): Promise<void> {
-    const idChurch = await this.resolveChurchId(user);
-    const ministry = await this.prisma.ministry.findFirst({
-      where: { id, idChurch },
-      select: { id: true },
-    });
-
-    if (!ministry) {
-      throw new NotFoundException(`Ministerio con id ${id} no encontrado`);
-    }
-
-    const assignment = await this.prisma.ministryMember.findFirst({
-      where: {
-        idMinistry: id,
-        idMember: memberId,
-        assignmentType: 'ministry',
-        active: true,
-      },
-      select: { id: true },
-    });
-
-    if (!assignment) {
-      throw new NotFoundException('Asignacion de ministerio no encontrada');
-    }
-
-    await this.prisma.ministryMember.update({
-      where: { id: assignment.id },
-      data: { active: false },
-    });
   }
 
   private toListItem(ministry: Ministry): MinistryListItemResponseDto {
@@ -342,7 +251,6 @@ export class MinistriesService {
       id: ministry.id,
       idChurch: ministry.idChurch,
       name: ministry.name,
-      code: ministry.code,
       active: ministry.active,
     };
   }
@@ -351,7 +259,6 @@ export class MinistriesService {
     return {
       id: entity.id,
       idChurch: entity.idChurch,
-      code: entity.code,
       name: entity.name,
       active: entity.active,
       members: entity.ministryMembers.map((member) =>
@@ -365,9 +272,9 @@ export class MinistriesService {
     ministryId: number,
     leaderId: number | null,
   ): Promise<void> {
-    const leaderRole = await tx.memberRoleType.findFirst({
+    const leaderRole = await tx.ministryRoleType.findFirst({
       where: {
-        belongsTo: MemberRoleBelongsTo.Ministry,
+        idMinistry: ministryId,
         name: { equals: 'Lider de Ministerio', mode: 'insensitive' },
         active: true,
       },
@@ -382,8 +289,7 @@ export class MinistriesService {
       await tx.ministryMember.updateMany({
         where: {
           idMinistry: ministryId,
-          assignmentType: 'ministry',
-          idMemberRoleType: leaderRole.id,
+          idMinistryRoleType: leaderRole.id,
           active: true,
         },
         data: { active: false },
@@ -408,18 +314,17 @@ export class MinistriesService {
       where: {
         idMinistry: ministryId,
         idMember: leaderId,
-        assignmentType: 'ministry',
         active: true,
       },
-      select: { id: true, idMemberRoleType: true },
+      select: { id: true, idMinistryRoleType: true },
     });
 
     let leaderAssignmentId: number;
     if (existingAssignment) {
-      if (existingAssignment.idMemberRoleType !== leaderRole.id) {
+      if (existingAssignment.idMinistryRoleType !== leaderRole.id) {
         await tx.ministryMember.update({
           where: { id: existingAssignment.id },
-          data: { idMemberRoleType: leaderRole.id },
+          data: { idMinistryRoleType: leaderRole.id },
         });
       }
       leaderAssignmentId = existingAssignment.id;
@@ -428,8 +333,7 @@ export class MinistriesService {
         data: {
           idMinistry: ministryId,
           idMember: leaderId,
-          idMemberRoleType: leaderRole.id,
-          assignmentType: 'ministry',
+          idMinistryRoleType: leaderRole.id,
           startDate: new Date(),
           active: true,
         },
@@ -441,8 +345,7 @@ export class MinistriesService {
     await tx.ministryMember.updateMany({
       where: {
         idMinistry: ministryId,
-        assignmentType: 'ministry',
-        idMemberRoleType: leaderRole.id,
+        idMinistryRoleType: leaderRole.id,
         active: true,
         NOT: { id: leaderAssignmentId },
       },
@@ -654,7 +557,7 @@ export class MinistriesService {
     return {
       id: record.id,
       member: this.toMemberSummary(record.member),
-      role: this.toRole(record.memberRoleType),
+      role: this.toRole(record.ministryRoleType),
       startDate: record.startDate,
       endDate: record.endDate,
       active: record.active,
@@ -671,7 +574,7 @@ export class MinistriesService {
   }
 
   private toRole(
-    role: MinistryMemberListRecord['memberRoleType'],
+    role: MinistryMemberListRecord['ministryRoleType'],
   ): MinistryMemberRoleResponseDto {
     return {
       id: role.id,

@@ -33,7 +33,7 @@ import { CityResponseDto } from './dto/city.response.dto';
 import { CreateCityDto } from './dto/create-city.dto';
 import { ListCitiesQueryDto } from './dto/list-cities-query.dto';
 import { UpdateCityDto } from './dto/update-city.dto';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 @ApiTags('Cities')
 @ApiBearerAuth('JWT-auth')
@@ -48,12 +48,12 @@ export class CitiesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('catalog.cities.manage')
   @ApiOperation({ summary: 'Crear una ciudad' })
-  @ApiCreatedResponse({ type: IdResponseDto })
+  @ApiCreatedResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({
     description: 'Departamento inexistente o payload invalido',
   })
   @ApiConflictResponse({ description: 'Ciudad duplicada en ese departamento' })
-  create(@Body() dto: CreateCityDto): Promise<IdResponseDto> {
+  create(@Body() dto: CreateCityDto): Promise<IdNameResponseDto> {
     return this.service.create(dto);
   }
 
@@ -74,7 +74,7 @@ export class CitiesController {
 
   @Patch(':id')
   @Permissions('catalog.cities.manage')
-  @ApiOkResponse({ type: IdResponseDto })
+  @ApiOkResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({
     description: 'Departamento inexistente o payload invalido',
   })
@@ -83,7 +83,7 @@ export class CitiesController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCityDto,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     return this.service.update(id, dto);
   }
 

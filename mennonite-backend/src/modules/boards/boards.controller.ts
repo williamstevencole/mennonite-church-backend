@@ -36,7 +36,7 @@ import { ListBoardMembersQueryDto } from '../board-members/dto/list-board-member
 import { BoardDetailResponseDto } from './dto/board-detail.response.dto';
 import { BoardsPageResponseDto } from './dto/boards-page.response.dto';
 import { CreateBoardDto } from './dto/create-board.dto';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 import { ListBoardsQueryDto } from './dto/list-boards-query.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 import { BoardsService } from './boards.service';
@@ -68,20 +68,20 @@ export class BoardsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('boards.create')
   @ApiOperation({ summary: 'Crear un nuevo concilio' })
-  @ApiCreatedResponse({ type: IdResponseDto })
+  @ApiCreatedResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Ya existe un concilio activo' })
   create(
     @Body() dto: CreateBoardDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     return this.service.create(dto, user);
   }
 
   @Patch(':id')
   @Permissions('boards.update')
   @ApiOperation({ summary: 'Actualizar datos de un concilio' })
-  @ApiOkResponse({ type: IdResponseDto })
+  @ApiOkResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Ya existe un concilio activo' })
   @ApiNotFoundResponse({ description: 'Concilio no encontrado' })
@@ -89,7 +89,7 @@ export class BoardsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBoardDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     return this.service.update(id, dto, user);
   }
 
@@ -114,8 +114,9 @@ export class BoardsController {
   findOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
+    @Query('includeInactive') includeInactive?: string,
   ): Promise<BoardDetailResponseDto> {
-    return this.service.findOne(id, user);
+    return this.service.findOne(id, user, includeInactive === 'true');
   }
 
   @Delete(':id')
