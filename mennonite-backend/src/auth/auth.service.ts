@@ -82,17 +82,6 @@ export class AuthService {
       throw new ConflictException('El miembro ya tiene un usuario asociado');
     }
 
-    const emailTaken = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      select: { id: true },
-    });
-
-    if (emailTaken) {
-      throw new ConflictException(
-        'Ya existe un usuario registrado con ese email',
-      );
-    }
-
     const { data: authData, error: authError } = await this.supabase
       .getAdminClient()
       .auth.admin.createUser({
@@ -102,14 +91,7 @@ export class AuthService {
       });
 
     if (authError || !authData.user) {
-      if (authError?.message?.includes('already been registered')) {
-        throw new ConflictException(
-          'Ya existe un usuario registrado con ese email',
-        );
-      }
-      throw new BadRequestException(
-        `Error creando usuario en Supabase Auth: ${authError?.message ?? 'desconocido'}`,
-      );
+      throw new BadRequestException();
     }
 
     const supabaseUid = authData.user.id;
@@ -135,9 +117,7 @@ export class AuthService {
       .auth.signInWithPassword({ email: dto.email, password: dto.password });
 
     if (signInError || !signInData.session) {
-      throw new InternalServerErrorException(
-        `Usuario creado pero no se pudo iniciar sesion: ${signInError?.message ?? 'desconocido'}`,
-      );
+      throw new InternalServerErrorException();
     }
 
     const localUser = await this.findLocalUserBySupabaseUid(supabaseUid);
