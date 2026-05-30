@@ -19,10 +19,11 @@ import { seedEvents } from './seed/events.seed';
 import { seedFinancialReports } from './seed/financial-reports.seed';
 import { seedFinancialTransactions } from './seed/financial-transactions.seed';
 import { seedInventory } from './seed/inventory.seed';
+import { seedBoardRoleTypes } from './seed/board-role-types.seed';
 import { seedMembers } from './seed/members.seed';
-import { seedMemberRoleTypes } from './seed/member-role-types.seed';
 import { seedMinistries } from './seed/ministries.seed';
 import { seedMinistryMembers } from './seed/ministry-members.seed';
+import { seedMinistryRoleTypes } from './seed/ministry-role-types.seed';
 import { seedPeriodClosures } from './seed/period-closures.seed';
 import { seedRolesAndPermissions } from './seed/roles-permissions.seed';
 import { seedTransactionCategories } from './seed/transaction-categories.seed';
@@ -57,7 +58,6 @@ async function main(): Promise<void> {
 
   // 3. Catalogos base
   await seedTransactionCategories(prisma, church.id);
-  await seedMemberRoleTypes(prisma, church.id);
   await seedEventTypes(prisma, church.id);
 
   // 4. Roles + permisos
@@ -69,8 +69,10 @@ async function main(): Promise<void> {
 
   // 5. Miembros, ministerios y concilio
   const membersByName = await seedMembers(prisma, church.id);
-  const ministriesByCode = await seedMinistries(prisma, church.id);
+  const ministriesByName = await seedMinistries(prisma, church.id);
+  await seedMinistryRoleTypes(prisma, ministriesByName);
   const board = await seedBoards(prisma, church.id);
+  await seedBoardRoleTypes(prisma, board);
 
   // 6. Usuarios (admin + usuarios ligados a miembros)
   const adminUser = await seedAdminUser(
@@ -88,7 +90,7 @@ async function main(): Promise<void> {
   );
 
   // 7. Eventos
-  await seedEvents(prisma, church.id, ministriesByCode);
+  await seedEvents(prisma, church.id, ministriesByName);
 
   // 8. Presupuesto anual + categorias
   const budget = await seedBudgets(prisma, church.id);
@@ -101,7 +103,7 @@ async function main(): Promise<void> {
   );
   const ministryMembersCount = await seedMinistryMembers(
     prisma,
-    ministriesByCode,
+    ministriesByName,
     membersByName,
   );
 
@@ -112,7 +114,7 @@ async function main(): Promise<void> {
   const budgetDistributionsCount = await seedBudgetDistributions(
     prisma,
     budget,
-    ministriesByCode,
+    ministriesByName,
   );
 
   // 12. Finanzas: transacciones, reporte anual y cierre de periodo anterior
@@ -138,7 +140,7 @@ async function main(): Promise<void> {
   console.log('Seed completado correctamente.');
   console.log(`Iglesia: ${church.name} (id=${church.id})`);
   console.log(`Miembros: ${membersByName.size}`);
-  console.log(`Ministerios: ${ministriesByCode.size}`);
+  console.log(`Ministerios: ${ministriesByName.size}`);
   console.log(`Concilio activo: ${board.name}`);
   console.log(`Presupuesto: ${budget.description} (id=${budget.id})`);
   console.log(`Miembros del concilio: ${boardMembersCount}`);

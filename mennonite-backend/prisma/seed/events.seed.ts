@@ -7,7 +7,7 @@ type EventSeed = {
   description?: string;
   location?: string;
   eventTypeName: string;
-  ministryCode?: string;
+  ministryName?: string;
   isRecurrent: boolean;
   frequency?: string;
   dayOfWeek?: string;
@@ -65,7 +65,7 @@ const DEMO_EVENTS: EventSeed[] = [
     description: 'Conferencia anual para jovenes de la iglesia.',
     location: 'Templo principal',
     eventTypeName: 'Conferencia',
-    ministryCode: 'JOVENES',
+    ministryName: 'Ministerio de Jovenes',
     isRecurrent: false,
     startDatetime: at(YEAR, 7, 18, 18, 0),
     endDatetime: at(YEAR, 7, 20, 21, 0),
@@ -76,7 +76,7 @@ const DEMO_EVENTS: EventSeed[] = [
     description: 'Retiro de fin de semana para el Ministerio de Damas.',
     location: 'Centro de retiros',
     eventTypeName: 'Retiro Espiritual',
-    ministryCode: 'DAMAS',
+    ministryName: 'Ministerio de Damas',
     isRecurrent: false,
     startDatetime: at(YEAR, 9, 12, 16, 0),
     endDatetime: at(YEAR, 9, 14, 14, 0),
@@ -97,7 +97,7 @@ const DEMO_EVENTS: EventSeed[] = [
 export async function seedEvents(
   prisma: PrismaClient,
   idChurch: number,
-  ministriesByCode: Map<string, Ministry>,
+  ministriesByName: Map<string, Ministry>,
 ): Promise<void> {
   const eventTypes = await prisma.eventType.findMany();
   const eventTypeByName = new Map(eventTypes.map((et) => [et.name, et]));
@@ -110,8 +110,8 @@ export async function seedEvents(
       );
     }
 
-    const ministry = data.ministryCode
-      ? ministriesByCode.get(data.ministryCode)
+    const ministry = data.ministryName
+      ? ministriesByName.get(data.ministryName)
       : undefined;
 
     const existing = await prisma.event.findFirst({

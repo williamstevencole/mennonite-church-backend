@@ -2,48 +2,52 @@ import { Member, Ministry, PrismaClient } from '@prisma/client';
 
 const DEMO_MINISTRY_MEMBERS = [
   {
-    ministryCode: 'ALABANZA',
+    ministryName: 'Ministerio de Alabanza',
     memberName: 'Jose Hernandez',
     roleName: 'Lider de Ministerio',
   },
-  { ministryCode: 'ALABANZA', memberName: 'Andrea Quin', roleName: 'Servidor' },
   {
-    ministryCode: 'JOVENES',
+    ministryName: 'Ministerio de Alabanza',
+    memberName: 'Andrea Quin',
+    roleName: 'Servidor',
+  },
+  {
+    ministryName: 'Ministerio de Jovenes',
     memberName: 'David Zelaya',
     roleName: 'Lider de Ministerio',
   },
   {
-    ministryCode: 'JOVENES',
+    ministryName: 'Ministerio de Jovenes',
     memberName: 'William Cole',
     roleName: 'Coordinador',
   },
   {
-    ministryCode: 'NINOS',
+    ministryName: 'Ministerio de Ninos',
     memberName: 'Sofia Gomez',
     roleName: 'Lider de Ministerio',
   },
   {
-    ministryCode: 'DAMAS',
+    ministryName: 'Ministerio de Damas',
     memberName: 'Maria Lopez',
     roleName: 'Lider de Ministerio',
   },
   {
-    ministryCode: 'DAMAS',
+    ministryName: 'Ministerio de Damas',
     memberName: 'Lucia Paredes',
     roleName: 'Colaborador',
   },
   {
-    ministryCode: 'CABALLEROS',
+    ministryName: 'Ministerio de Caballeros',
     memberName: 'Luis Mejia',
     roleName: 'Lider de Ministerio',
   },
   {
-    ministryCode: 'EVANGELISMO',
+    ministryName: 'Ministerio de Evangelismo',
     memberName: 'Manuel Rosales',
     roleName: 'Lider de Ministerio',
   },
   {
-    ministryCode: 'SERVIDORES',
+    ministryName: 'Ministerio de Servidores',
     memberName: 'Ana Rivera',
     roleName: 'Coordinador',
   },
@@ -51,22 +55,17 @@ const DEMO_MINISTRY_MEMBERS = [
 
 export async function seedMinistryMembers(
   prisma: PrismaClient,
-  ministriesByCode: Map<string, Ministry>,
+  ministriesByName: Map<string, Ministry>,
   membersByName: Map<string, Member>,
 ): Promise<number> {
-  const roleTypes = await prisma.memberRoleType.findMany({
-    where: { belongsTo: 'Ministry' },
-  });
-  const roleTypesByName = new Map(roleTypes.map((r) => [r.name, r]));
-
   const startDate = new Date(new Date().getFullYear(), 0, 1);
 
   let count = 0;
   for (const data of DEMO_MINISTRY_MEMBERS) {
-    const ministry = ministriesByCode.get(data.ministryCode);
+    const ministry = ministriesByName.get(data.ministryName);
     if (!ministry) {
       throw new Error(
-        `Seed ministry members: no se encontro el ministerio "${data.ministryCode}".`,
+        `Seed ministry members: no se encontro el ministerio "${data.ministryName}".`,
       );
     }
     const member = membersByName.get(data.memberName);
@@ -75,10 +74,13 @@ export async function seedMinistryMembers(
         `Seed ministry members: no se encontro el miembro "${data.memberName}".`,
       );
     }
-    const roleType = roleTypesByName.get(data.roleName);
+
+    const roleType = await prisma.ministryRoleType.findFirst({
+      where: { idMinistry: ministry.id, name: data.roleName },
+    });
     if (!roleType) {
       throw new Error(
-        `Seed ministry members: no se encontro el rol de ministerio "${data.roleName}".`,
+        `Seed ministry members: no se encontro el rol de ministerio "${data.roleName}" en "${data.ministryName}".`,
       );
     }
 
@@ -86,15 +88,14 @@ export async function seedMinistryMembers(
       where: {
         idMember: member.id,
         idMinistry: ministry.id,
-        idMemberRoleType: roleType.id,
+        idMinistryRoleType: roleType.id,
       },
     });
 
     const payload = {
       idMember: member.id,
-      assignmentType: 'ministry',
       idMinistry: ministry.id,
-      idMemberRoleType: roleType.id,
+      idMinistryRoleType: roleType.id,
       startDate,
       active: true,
     };

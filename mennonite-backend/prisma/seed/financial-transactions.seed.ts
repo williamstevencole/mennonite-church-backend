@@ -11,7 +11,7 @@ type FinancialTransactionSeed = {
   paymentMethod: 'Cash' | 'Transfer' | 'Check' | 'Card';
   receiptType?: 'Receipt' | 'Invoice' | 'Certificate' | 'Note' | 'Other';
   receiptNumber?: string;
-  ministryCode?: string;
+  ministryName?: string;
   eventTitle?: string;
 };
 
@@ -55,7 +55,7 @@ const DEMO_TRANSACTIONS: FinancialTransactionSeed[] = [
     paymentMethod: 'Cash',
     receiptType: 'Invoice',
     receiptNumber: 'F-2026-022',
-    ministryCode: 'NINOS',
+    ministryName: 'Ministerio de Ninos',
   },
   {
     categoryName: 'Ingresos por Eventos',
@@ -76,7 +76,7 @@ const DEMO_TRANSACTIONS: FinancialTransactionSeed[] = [
     transactionDate: new Date(YEAR, 6, 18),
     paymentMethod: 'Cash',
     receiptType: 'Note',
-    ministryCode: 'JOVENES',
+    ministryName: 'Ministerio de Jovenes',
     eventTitle: 'Conferencia de Jovenes',
   },
 ];
@@ -103,10 +103,10 @@ export async function seedFinancialTransactions(
       );
     }
 
-    const ministry = data.ministryCode
+    const ministry = data.ministryName
       ? await prisma.ministry.findUnique({
           where: {
-            idChurch_code: { idChurch, code: data.ministryCode },
+            idChurch_name: { idChurch, name: data.ministryName },
           },
         })
       : null;
