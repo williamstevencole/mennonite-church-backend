@@ -22,12 +22,12 @@ export class UpdateBoardDto {
   @ApiPropertyOptional({ example: '2026-01-01' })
   @IsOptional()
   @IsDateString()
-  start_date?: string;
+  startDate?: string;
 
   @ApiPropertyOptional({ example: '2027-12-31' })
   @IsOptional()
   @IsDateString()
-  end_date?: string;
+  endDate?: string;
 
   @ApiPropertyOptional({ description: 'Marca el concilio como activo' })
   @IsOptional()

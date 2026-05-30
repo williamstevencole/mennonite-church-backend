@@ -27,6 +27,7 @@ export class MemberDetailResponseDto {
     | null
     | undefined;
   @ApiProperty() @Type(() => Date) joinDate!: Date;
+  @ApiProperty() active!: boolean;
   @ApiPropertyOptional() @Type(() => Date) inactivatedAt!:
     | Date
     | null

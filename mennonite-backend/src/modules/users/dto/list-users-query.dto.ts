@@ -34,4 +34,13 @@ export class ListUsersQueryDto extends PaginationQueryDto {
   @IsBoolean()
   @Transform(toBoolean)
   active?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Si true, incluye registros inactivos',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(toBoolean)
+  includeInactive?: boolean;
 }

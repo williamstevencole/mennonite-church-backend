@@ -21,7 +21,7 @@ export class UpdateUserDto {
   @Transform(trimToUndefined)
   @MinLength(1)
   @MaxLength(60)
-  first_name?: string;
+  firstName?: string;
 
   @ApiPropertyOptional({ example: 'Perez' })
   @IsOptional()
@@ -29,7 +29,7 @@ export class UpdateUserDto {
   @Transform(trimToUndefined)
   @MinLength(1)
   @MaxLength(60)
-  last_name?: string;
+  lastName?: string;
 
   @ApiPropertyOptional({ example: 'usuario@iglesia.org' })
   @IsOptional()

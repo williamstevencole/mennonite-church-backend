@@ -24,6 +24,15 @@ export class FindArticlesQueryDto extends PaginationQueryDto {
   @IsBoolean()
   active?: boolean;
 
+  @ApiPropertyOptional({
+    description: 'Si true, incluye registros inactivos',
+    default: false,
+  })
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  includeInactive?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

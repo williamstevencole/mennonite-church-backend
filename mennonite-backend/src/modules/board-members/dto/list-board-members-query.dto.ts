@@ -24,6 +24,15 @@ export class ListBoardMembersQueryDto extends PaginationQueryDto {
   active?: boolean;
 
   @ApiPropertyOptional({
+    description: 'Si true, incluye registros inactivos',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(toBoolean)
+  includeInactive?: boolean;
+
+  @ApiPropertyOptional({
     description: 'Filtra por rol (id o nombre del rol)',
   })
   @IsOptional()
