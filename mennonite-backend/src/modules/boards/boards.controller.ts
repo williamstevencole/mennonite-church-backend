@@ -25,7 +25,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -100,10 +100,11 @@ export class BoardsController {
   @ApiOkResponse({ type: BoardMemberListItemResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'Concilio no encontrado' })
   findMembers(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Query() query: ListBoardMembersQueryDto,
   ): Promise<BoardMemberListItemResponseDto[]> {
-    return this.boardMembersService.findByBoard(id, query);
+    return this.boardMembersService.findByBoard(user.idChurch, id, query);
   }
 
   @Get(':id')

@@ -60,19 +60,20 @@ export class BoardMembersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
+    idChurch: number,
     dto: CreateBoardMemberDto,
   ): Promise<BoardMemberCreatedResponseDto> {
     const [board, member, role] = await Promise.all([
-      this.prisma.board.findUnique({
-        where: { id: dto.id_board },
+      this.prisma.board.findFirst({
+        where: { id: dto.id_board, idChurch },
         select: { id: true },
       }),
-      this.prisma.member.findUnique({
-        where: { id: dto.id_member },
+      this.prisma.member.findFirst({
+        where: { id: dto.id_member, idChurch },
         select: { id: true, active: true },
       }),
-      this.prisma.memberRoleType.findUnique({
-        where: { id: dto.id_board_role_type },
+      this.prisma.memberRoleType.findFirst({
+        where: { id: dto.id_board_role_type, idChurch },
         select: { id: true, name: true, belongsTo: true, active: true },
       }),
     ]);
@@ -140,11 +141,12 @@ export class BoardMembersService {
   }
 
   async update(
+    idChurch: number,
     id: number,
     dto: UpdateBoardMemberDto,
   ): Promise<BoardMemberDetailResponseDto> {
     const existing = await this.prisma.boardMember.findFirst({
-      where: { id, assignmentType: 'board' },
+      where: { id, assignmentType: 'board', board: { idChurch } },
       select: {
         id: true,
         idBoard: true,
@@ -164,8 +166,8 @@ export class BoardMembersService {
 
     let roleName: string | null = null;
     if (dto.id_board_role_type !== undefined) {
-      const role = await this.prisma.memberRoleType.findUnique({
-        where: { id: dto.id_board_role_type },
+      const role = await this.prisma.memberRoleType.findFirst({
+        where: { id: dto.id_board_role_type, idChurch },
         select: { id: true, name: true, belongsTo: true, active: true },
       });
 
@@ -222,7 +224,7 @@ export class BoardMembersService {
     }
 
     if (Object.keys(data).length === 0) {
-      return this.findOne(id);
+      return this.findOne(idChurch, id);
     }
 
     const updated = await this.prisma.boardMember.update({
@@ -240,9 +242,12 @@ export class BoardMembersService {
     return detail;
   }
 
-  async findOne(id: number): Promise<BoardMemberDetailResponseDto> {
+  async findOne(
+    idChurch: number,
+    id: number,
+  ): Promise<BoardMemberDetailResponseDto> {
     const boardMember = await this.prisma.boardMember.findFirst({
-      where: { id, assignmentType: 'board' },
+      where: { id, assignmentType: 'board', board: { idChurch } },
       include: this.detailInclude(),
     });
 
@@ -256,11 +261,12 @@ export class BoardMembersService {
   }
 
   async findByBoard(
+    idChurch: number,
     boardId: number,
     query: ListBoardMembersQueryDto,
   ): Promise<BoardMemberListItemResponseDto[]> {
-    const board = await this.prisma.board.findUnique({
-      where: { id: boardId },
+    const board = await this.prisma.board.findFirst({
+      where: { id: boardId, idChurch },
       select: { id: true },
     });
 
@@ -297,9 +303,9 @@ export class BoardMembersService {
     return members.map((item) => this.toListItem(item));
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(idChurch: number, id: number): Promise<void> {
     const boardMember = await this.prisma.boardMember.findFirst({
-      where: { id, assignmentType: 'board' },
+      where: { id, assignmentType: 'board', board: { idChurch } },
       select: { id: true, active: true },
     });
 

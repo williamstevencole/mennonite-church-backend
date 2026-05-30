@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { Prisma } from '@prisma/client';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { MemberListItemResponseDto } from './dto/member-list-item.response.dto';

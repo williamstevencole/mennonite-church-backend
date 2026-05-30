@@ -25,6 +25,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -54,9 +56,10 @@ export class MemberRoleTypesController {
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Ya existe un cargo con ese nombre' })
   create(
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateMemberRoleTypeDto,
   ): Promise<MemberRoleTypeResponseDto> {
-    return this.memberRoleTypesService.create(dto);
+    return this.memberRoleTypesService.create(user.idChurch, dto);
   }
 
   @Get()
@@ -67,9 +70,10 @@ export class MemberRoleTypesController {
   })
   @ApiOkResponse({ type: MemberRoleTypesPageResponseDto })
   findAll(
+    @CurrentUser() user: JwtPayload,
     @Query() query: ListMemberRoleTypesQueryDto,
   ): Promise<MemberRoleTypesPageResponseDto> {
-    return this.memberRoleTypesService.findAll(query);
+    return this.memberRoleTypesService.findAll(user.idChurch, query);
   }
 
   @Get(':id')
@@ -78,9 +82,10 @@ export class MemberRoleTypesController {
   @ApiOkResponse({ type: MemberRoleTypeResponseDto })
   @ApiNotFoundResponse({ description: 'Cargo no encontrado' })
   findOne(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<MemberRoleTypeResponseDto> {
-    return this.memberRoleTypesService.findOne(id);
+    return this.memberRoleTypesService.findOne(user.idChurch, id);
   }
 
   @Patch(':id')
@@ -91,10 +96,11 @@ export class MemberRoleTypesController {
   @ApiConflictResponse({ description: 'Ya existe un cargo con ese nombre' })
   @ApiNotFoundResponse({ description: 'Cargo no encontrado' })
   update(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMemberRoleTypeDto,
   ): Promise<MemberRoleTypeResponseDto> {
-    return this.memberRoleTypesService.update(id, dto);
+    return this.memberRoleTypesService.update(user.idChurch, id, dto);
   }
 
   @Delete(':id')
@@ -103,7 +109,10 @@ export class MemberRoleTypesController {
   @ApiOperation({ summary: 'Desactivar (soft delete) un cargo' })
   @ApiNoContentResponse({ description: 'Cargo desactivado' })
   @ApiNotFoundResponse({ description: 'Cargo no encontrado' })
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    await this.memberRoleTypesService.remove(id);
+  async remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<void> {
+    await this.memberRoleTypesService.remove(user.idChurch, id);
   }
 }

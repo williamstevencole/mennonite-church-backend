@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Board, Prisma } from '@prisma/client';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BoardMemberListItemResponseDto } from '../board-members/dto/board-member-list-item.response.dto';
 import { BoardMemberMemberSummaryResponseDto } from '../board-members/dto/board-member-member-summary.response.dto';

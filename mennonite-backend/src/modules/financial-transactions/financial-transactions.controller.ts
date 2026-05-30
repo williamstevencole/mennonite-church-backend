@@ -29,7 +29,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CreateFinancialTransactionDto } from './dto/create-financial-transaction.dto';
 import { FinancialTransactionResponseDto } from './dto/financial-transaction.response.dto';
 import { FinancialTransactionsPageResponseDto } from './dto/financial-transactions-page.response.dto';

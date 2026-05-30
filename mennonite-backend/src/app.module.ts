@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
-import type { StringValue } from 'ms';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SupabaseModule } from './supabase/supabase.module';
 
 import { MembersModule } from './modules/members/members.module';
 import { MemberRoleTypesModule } from './modules/member-role-types/member-role-types.module';
@@ -27,42 +26,12 @@ import { FinancialTransactionsModule } from './modules/financial-transactions/fi
 import { MemberAssignmentsModule } from './modules/member-assignments/member-assignments.module';
 import { CalendarEventsModule } from './modules/calendar-events/calendar-events.module';
 
-const resolveJwtExpiresIn = (value?: string): number | StringValue => {
-  if (!value) {
-    return '1h';
-  }
-
-  const numericValue = Number(value);
-
-  if (Number.isFinite(numericValue) && numericValue > 0) {
-    return numericValue;
-  }
-
-  return value as StringValue;
-};
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    SupabaseModule,
     AuthModule,
-    JwtModule.registerAsync({
-      global: true,
-      useFactory: () => {
-        const secret = process.env.JWT_SECRET;
-
-        if (!secret) {
-          throw new Error('JWT_SECRET is not configured');
-        }
-
-        return {
-          secret,
-          signOptions: {
-            expiresIn: resolveJwtExpiresIn(process.env.JWT_EXPIRES_IN),
-          },
-        };
-      },
-    }),
     MembersModule,
     MemberRoleTypesModule,
     PermissionsModule,

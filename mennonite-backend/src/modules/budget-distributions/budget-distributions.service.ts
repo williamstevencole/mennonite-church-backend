@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateBudgetDistributionDto } from './dto/create-budget-distribution.dto';
-import type { JwtPayload } from 'src/auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.dto';
 import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
 
