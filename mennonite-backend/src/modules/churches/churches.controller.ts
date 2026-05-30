@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -30,7 +31,7 @@ import { ChurchesService } from './churches.service';
 import { ChurchResponseDto } from './dto/church.response.dto';
 import { CreateChurchDto } from './dto/create-church.dto';
 import { UpdateChurchDto } from './dto/update-church.dto';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 @ApiTags('Churches')
 @ApiBearerAuth('JWT-auth')
@@ -45,32 +46,37 @@ export class ChurchesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('churches.create')
   @ApiOperation({ summary: 'Crear una iglesia' })
-  @ApiCreatedResponse({ type: IdResponseDto })
+  @ApiCreatedResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({
     description: 'Ciudad inexistente o payload invalido',
   })
-  create(@Body() dto: CreateChurchDto): Promise<IdResponseDto> {
+  create(@Body() dto: CreateChurchDto): Promise<IdNameResponseDto> {
     return this.service.create(dto);
   }
 
   @Get()
   @Permissions('churches.read')
   @ApiOkResponse({ type: ChurchResponseDto, isArray: true })
-  findAll(): Promise<ChurchResponseDto[]> {
-    return this.service.findAll();
+  findAll(
+    @Query('includeInactive') includeInactive?: string,
+  ): Promise<ChurchResponseDto[]> {
+    return this.service.findAll(includeInactive === 'true');
   }
 
   @Get(':id')
   @Permissions('churches.read')
   @ApiOkResponse({ type: ChurchResponseDto })
   @ApiNotFoundResponse({ description: 'Iglesia no encontrada' })
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<ChurchResponseDto> {
-    return this.service.findOne(id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: string,
+  ): Promise<ChurchResponseDto> {
+    return this.service.findOne(id, includeInactive === 'true');
   }
 
   @Patch(':id')
   @Permissions('churches.update')
-  @ApiOkResponse({ type: IdResponseDto })
+  @ApiOkResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({
     description: 'Ciudad inexistente o payload invalido',
   })
@@ -78,7 +84,7 @@ export class ChurchesController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateChurchDto,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     return this.service.update(id, dto);
   }
 

@@ -38,7 +38,7 @@ import { UserRolesPageResponseDto } from './dto/user-roles-page.response.dto';
 import { SetUserRolePermissionsDto } from './dto/set-user-role-permissions.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UserRolesService } from './user-roles.service';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 @ApiTags('User Roles')
 @ApiBearerAuth('JWT-auth')
@@ -53,7 +53,7 @@ export class UserRolesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('user-roles.create')
   @ApiOperation({ summary: 'Crear un rol (opcionalmente con permisos)' })
-  @ApiCreatedResponse({ type: IdResponseDto })
+  @ApiCreatedResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o permisos inexistentes',
   })
@@ -61,7 +61,7 @@ export class UserRolesController {
   create(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateUserRoleDto,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     return this.service.create(user.idChurch, dto);
   }
 
@@ -84,14 +84,15 @@ export class UserRolesController {
   findOne(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: string,
   ): Promise<UserRoleResponseDto> {
-    return this.service.findOne(user.idChurch, id);
+    return this.service.findOne(user.idChurch, id, includeInactive === 'true');
   }
 
   @Patch(':id')
   @Permissions('user-roles.update')
   @ApiOperation({ summary: 'Actualizar nombre o descripcion de un rol' })
-  @ApiOkResponse({ type: IdResponseDto })
+  @ApiOkResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o permisos inexistentes',
   })
@@ -101,7 +102,7 @@ export class UserRolesController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserRoleDto,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     return this.service.update(user.idChurch, id, dto);
   }
 

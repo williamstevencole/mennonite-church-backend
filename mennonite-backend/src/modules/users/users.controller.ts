@@ -57,7 +57,7 @@ export class UsersController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @Permissions('users.write')
+  @Permissions('users.create')
   @ApiOperation({ summary: 'Crear un usuario con rol inicial' })
   @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o rol inexistente' })
@@ -70,7 +70,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Permissions('users.write')
+  @Permissions('users.update')
   @ApiOperation({ summary: 'Actualizar datos del usuario' })
   @ApiOkResponse({ type: IdResponseDto })
   @ApiNotFoundResponse({ description: 'Usuario no encontrado' })
@@ -84,7 +84,7 @@ export class UsersController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions('users.write')
+  @Permissions('users.delete')
   @ApiOperation({ summary: 'Desactivar usuario (soft delete)' })
   @ApiNoContentResponse({ description: 'Usuario desactivado' })
   @ApiNotFoundResponse({ description: 'Usuario no encontrado' })
@@ -99,7 +99,8 @@ export class UsersController {
   @ApiNotFoundResponse({ description: 'Usuario no encontrado' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: string,
   ): Promise<UserDetailResponseDto> {
-    return this.usersService.findOne(id);
+    return this.usersService.findOne(id, includeInactive === 'true');
   }
 }

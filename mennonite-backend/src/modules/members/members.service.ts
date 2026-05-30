@@ -12,7 +12,7 @@ import { UpdateMemberDto } from './dto/update-member.dto';
 import { MemberListItemResponseDto } from './dto/member-list-item.response.dto';
 import { MemberDetailResponseDto } from './dto/member-detail.response.dto';
 import { MembersPageResponseDto } from './dto/members-page.response.dto';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 import { ListMembersQueryDto } from './dto/list-members-query.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -38,7 +38,7 @@ export class MembersService {
   async create(
     createMemberDto: CreateMemberDto,
     user: JwtPayload,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     const idChurch = await this.resolveChurchId(user);
 
     this.validateDocumentNumber(
@@ -75,9 +75,9 @@ export class MembersService {
         inactivatedAt: createMemberDto.inactivatedAt,
         createdBy: user.sub,
       },
-      select: { id: true },
+      select: { id: true, name: true },
     });
-    return { id: member.id };
+    return { id: member.id, name: member.name };
   }
 
   async findAll(
@@ -92,6 +92,8 @@ export class MembersService {
 
     if (query.active !== undefined) {
       where.active = query.active;
+    } else if (query.includeInactive !== true) {
+      where.active = true;
     }
 
     if (name) {
@@ -124,10 +126,15 @@ export class MembersService {
   async findOne(
     id: number,
     user: JwtPayload,
+    includeInactive = false,
   ): Promise<MemberDetailResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const member = await this.prisma.member.findFirst({
-      where: { id, idChurch },
+      where: {
+        id,
+        idChurch,
+        ...(includeInactive ? {} : { active: true }),
+      },
       include: {
         church: { select: { id: true, name: true } },
         createdByUser: { select: { id: true, email: true } },
@@ -137,9 +144,8 @@ export class MembersService {
         boardMembers: {
           select: {
             id: true,
-            assignmentType: true,
             idBoard: true,
-            idMemberRoleType: true,
+            idBoardRoleType: true,
             startDate: true,
             endDate: true,
             active: true,
@@ -148,9 +154,8 @@ export class MembersService {
         ministryMembers: {
           select: {
             id: true,
-            assignmentType: true,
             idMinistry: true,
-            idMemberRoleType: true,
+            idMinistryRoleType: true,
             startDate: true,
             endDate: true,
             active: true,
@@ -188,6 +193,7 @@ export class MembersService {
       address: m.address ?? null,
       baptismDate: m.baptismDate ?? null,
       joinDate: m.joinDate,
+      active: m.active,
       inactivatedAt: m.inactivatedAt ?? null,
       church: m.church ? { id: m.church.id, name: m.church.name } : null,
       createdBy: m.createdByUser
@@ -203,18 +209,16 @@ export class MembersService {
         : null,
       boardMembers: m.boardMembers.map((b) => ({
         id: b.id,
-        assignmentType: b.assignmentType,
-        idBoard: b.idBoard ?? null,
-        idMemberRoleType: b.idMemberRoleType,
+        idBoard: b.idBoard,
+        idBoardRoleType: b.idBoardRoleType,
         startDate: b.startDate,
         endDate: b.endDate ?? null,
         active: b.active,
       })),
       ministryMembers: m.ministryMembers.map((mm) => ({
         id: mm.id,
-        assignmentType: mm.assignmentType,
-        idMinistry: mm.idMinistry ?? null,
-        idMemberRoleType: mm.idMemberRoleType,
+        idMinistry: mm.idMinistry,
+        idMinistryRoleType: mm.idMinistryRoleType,
         startDate: mm.startDate,
         endDate: mm.endDate ?? null,
         active: mm.active,
@@ -237,7 +241,7 @@ export class MembersService {
     id: number,
     updateMemberDto: UpdateMemberDto,
     user: JwtPayload,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const existing = await this.prisma.member.findFirst({
       where: { id, idChurch },
@@ -291,12 +295,13 @@ export class MembersService {
       inactivatedAt: updateMemberDto.inactivatedAt,
     };
 
-    await this.prisma.member.update({
+    const updated = await this.prisma.member.update({
       where: { id },
       data,
+      select: { id: true, name: true },
     });
 
-    return { id };
+    return { id: updated.id, name: updated.name };
   }
 
   async remove(id: number, user: JwtPayload): Promise<void> {

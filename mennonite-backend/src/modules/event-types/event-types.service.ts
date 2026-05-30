@@ -9,7 +9,7 @@ import { CreateEventTypeDto } from './dto/create-event-type.dto';
 import { EventTypeResponseDto } from './dto/event-type.response.dto';
 import { UpdateEventTypeDto } from './dto/update-event-type.dto';
 import { EventCategory } from './event-category.enum';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 @Injectable()
 export class EventTypesService {
@@ -18,15 +18,15 @@ export class EventTypesService {
   async create(
     idChurch: number,
     dto: CreateEventTypeDto,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     await this.assertUniqueName(idChurch, dto.name);
 
     const created = await this.prisma.eventType.create({
       data: { idChurch, name: dto.name, eventCategory: dto.eventCategory },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
-    return { id: created.id };
+    return { id: created.id, name: created.name };
   }
 
   async findAll(idChurch: number): Promise<EventTypeResponseDto[]> {
@@ -51,7 +51,7 @@ export class EventTypesService {
     idChurch: number,
     id: number,
     dto: UpdateEventTypeDto,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     await this.assertExists(idChurch, id);
 
     if (dto.name) {
@@ -61,10 +61,10 @@ export class EventTypesService {
     const updated = await this.prisma.eventType.update({
       where: { id },
       data: { name: dto.name, eventCategory: dto.eventCategory },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
-    return { id: updated.id };
+    return { id: updated.id, name: updated.name };
   }
 
   async remove(idChurch: number, id: number): Promise<void> {
@@ -98,12 +98,16 @@ export class EventTypesService {
     name: string,
     excludeId?: number,
   ) {
-    const existing = await this.prisma.eventType.findUnique({
-      where: { idChurch_name: { idChurch, name } },
+    const existing = await this.prisma.eventType.findFirst({
+      where: {
+        idChurch,
+        name: { equals: name.trim(), mode: 'insensitive' },
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
       select: { id: true },
     });
 
-    if (existing && existing.id !== excludeId) {
+    if (existing) {
       throw new ConflictException(
         `Ya existe un tipo de evento con el nombre "${name}"`,
       );

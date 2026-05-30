@@ -8,19 +8,19 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { DepartmentResponseDto } from './dto/department.response.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 @Injectable()
 export class DepartmentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateDepartmentDto): Promise<IdResponseDto> {
+  async create(dto: CreateDepartmentDto): Promise<IdNameResponseDto> {
     await this.assertUniqueName(dto.name);
     const created = await this.prisma.department.create({
       data: { name: dto.name },
-      select: { id: true },
+      select: { id: true, name: true },
     });
-    return { id: created.id };
+    return { id: created.id, name: created.name };
   }
 
   async findAll(): Promise<DepartmentResponseDto[]> {
@@ -38,7 +38,10 @@ export class DepartmentsService {
     return this.toResponse(item);
   }
 
-  async update(id: number, dto: UpdateDepartmentDto): Promise<IdResponseDto> {
+  async update(
+    id: number,
+    dto: UpdateDepartmentDto,
+  ): Promise<IdNameResponseDto> {
     await this.assertExists(id);
     if (dto.name) {
       await this.assertUniqueName(dto.name, id);
@@ -46,9 +49,9 @@ export class DepartmentsService {
     const updated = await this.prisma.department.update({
       where: { id },
       data: { name: dto.name },
-      select: { id: true },
+      select: { id: true, name: true },
     });
-    return { id: updated.id };
+    return { id: updated.id, name: updated.name };
   }
 
   async remove(id: number): Promise<void> {
@@ -79,10 +82,13 @@ export class DepartmentsService {
     excludeId?: number,
   ): Promise<void> {
     const existing = await this.prisma.department.findFirst({
-      where: { name },
+      where: {
+        name: { equals: name.trim(), mode: 'insensitive' },
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
       select: { id: true },
     });
-    if (existing && existing.id !== excludeId) {
+    if (existing) {
       throw new ConflictException(
         `Ya existe un departamento con el nombre "${name}"`,
       );

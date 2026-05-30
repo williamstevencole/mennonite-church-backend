@@ -55,6 +55,8 @@ export class UsersService {
 
     if (query.active !== undefined) {
       where.active = query.active;
+    } else if (query.includeInactive !== true) {
+      where.active = true;
     }
 
     if (query.role) {
@@ -92,7 +94,7 @@ export class UsersService {
 
   async create(idChurch: number, dto: CreateUserDto): Promise<IdResponseDto> {
     const role = await this.prisma.userRole.findFirst({
-      where: { id: dto.id_role, idChurch },
+      where: { id: dto.idRole, idChurch },
       select: { id: true, active: true },
     });
 
@@ -103,7 +105,7 @@ export class UsersService {
     }
 
     const member = await this.prisma.member.findFirst({
-      where: { id: dto.id_member, idChurch },
+      where: { id: dto.idMember, idChurch },
       select: { id: true },
     });
 
@@ -125,7 +127,7 @@ export class UsersService {
     }
 
     const existingMemberUser = await this.prisma.user.findUnique({
-      where: { idMember: dto.id_member },
+      where: { idMember: dto.idMember },
       select: { id: true },
     });
 
@@ -133,7 +135,7 @@ export class UsersService {
       throw new ConflictException('El miembro ya tiene un usuario asociado');
     }
 
-    const fullName = this.buildMemberName(dto.first_name, dto.last_name);
+    const fullName = this.buildMemberName(dto.firstName, dto.lastName);
 
     const { data: authData, error: authError } = await this.supabase
       .getAdminClient()
@@ -157,7 +159,7 @@ export class UsersService {
     try {
       const created = await this.prisma.$transaction(async (tx) => {
         await tx.member.update({
-          where: { id: dto.id_member },
+          where: { id: dto.idMember },
           data: { name: fullName },
         });
 
@@ -168,7 +170,7 @@ export class UsersService {
             active: true,
             idChurch,
             idUserRole: role.id,
-            idMember: dto.id_member,
+            idMember: dto.idMember,
           },
           select: { id: true },
         });
@@ -212,11 +214,11 @@ export class UsersService {
     }
 
     const wantsNameUpdate =
-      dto.first_name !== undefined || dto.last_name !== undefined;
+      dto.firstName !== undefined || dto.lastName !== undefined;
 
-    if (wantsNameUpdate && (!dto.first_name || !dto.last_name)) {
+    if (wantsNameUpdate && (!dto.firstName || !dto.lastName)) {
       throw new BadRequestException(
-        'Se requieren first_name y last_name para actualizar el nombre',
+        'Se requieren firstName y lastName para actualizar el nombre',
       );
     }
 
@@ -255,7 +257,7 @@ export class UsersService {
     }
 
     const fullName = wantsNameUpdate
-      ? this.buildMemberName(dto.first_name as string, dto.last_name as string)
+      ? this.buildMemberName(dto.firstName as string, dto.lastName as string)
       : null;
 
     try {
@@ -307,9 +309,15 @@ export class UsersService {
     });
   }
 
-  async findOne(id: number): Promise<UserDetailResponseDto> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+  async findOne(
+    id: number,
+    includeInactive = false,
+  ): Promise<UserDetailResponseDto> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id,
+        ...(includeInactive ? {} : { active: true }),
+      },
       include: this.detailInclude(),
     });
 

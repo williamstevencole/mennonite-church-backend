@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -98,7 +99,8 @@ export class BoardMembersController {
   findOne(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: string,
   ): Promise<BoardMemberDetailResponseDto> {
-    return this.service.findOne(user.idChurch, id);
+    return this.service.findOne(user.idChurch, id, includeInactive === 'true');
   }
 }

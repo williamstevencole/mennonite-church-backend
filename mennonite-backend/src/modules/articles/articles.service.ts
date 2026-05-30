@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -14,7 +15,7 @@ import { ArticleResponseDto } from './dto/article.response.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesPageResponseDto } from './dto/articles-page.response.dto';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { UpdateArticleDto } from './dto/update-article.dto';
@@ -39,8 +40,24 @@ export class ArticlesService {
   async create(
     dto: CreateArticleDto,
     user: JwtPayload,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     const idChurch = await this.getChurchId(user);
+
+    const existing = await this.prisma.article.findUnique({
+      where: {
+        idChurch_code: {
+          idChurch,
+          code: dto.code,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        `Ya existe un articulo con el codigo "${dto.code}"`,
+      );
+    }
 
     const created = await this.prisma.article.create({
       data: {
@@ -53,9 +70,10 @@ export class ArticlesService {
         model: dto.model ?? null,
         createdBy: user.sub,
       },
+      select: { id: true, name: true },
     });
 
-    return { id: created.id };
+    return { id: created.id, name: created.name };
   }
 
   async findAll(
@@ -73,6 +91,8 @@ export class ArticlesService {
 
     if (query.active !== undefined) {
       where.active = query.active;
+    } else if (query.includeInactive !== true) {
+      where.active = true;
     }
 
     if (query.q) {
@@ -100,13 +120,18 @@ export class ArticlesService {
     );
   }
 
-  async findOne(user: JwtPayload, id: number): Promise<ArticleResponseDto> {
+  async findOne(
+    user: JwtPayload,
+    id: number,
+    includeInactive = false,
+  ): Promise<ArticleResponseDto> {
     const idChurch = await this.getChurchId(user);
 
     const article = await this.prisma.article.findFirst({
       where: {
         id,
         idChurch,
+        ...(includeInactive ? {} : { active: true }),
       },
     });
 
@@ -133,7 +158,7 @@ export class ArticlesService {
     id: number,
     dto: UpdateArticleDto,
     user: JwtPayload,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     const idChurch = await this.getChurchId(user);
 
     const existing = await this.prisma.article.findFirst({
@@ -145,6 +170,18 @@ export class ArticlesService {
 
     if (!existing) {
       throw new NotFoundException('Articulo no encontrado');
+    }
+
+    if (dto.code !== undefined && dto.code !== existing.code) {
+      const duplicate = await this.prisma.article.findFirst({
+        where: { idChurch, code: dto.code, NOT: { id } },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          `Ya existe un articulo con el codigo "${dto.code}"`,
+        );
+      }
     }
 
     const updated = await this.prisma.article.update({
@@ -165,9 +202,10 @@ export class ArticlesService {
           model: dto.model,
         }),
       },
+      select: { id: true, name: true },
     });
 
-    return { id: updated.id };
+    return { id: updated.id, name: updated.name };
   }
 
   async remove(id: number, user: JwtPayload): Promise<void> {

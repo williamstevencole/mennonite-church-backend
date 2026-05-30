@@ -18,14 +18,14 @@ import { BoardDetailResponseDto } from './dto/board-detail.response.dto';
 import { BoardListItemResponseDto } from './dto/board-list-item.response.dto';
 import { BoardsPageResponseDto } from './dto/boards-page.response.dto';
 import { CreateBoardDto } from './dto/create-board.dto';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 import { ListBoardsQueryDto } from './dto/list-boards-query.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 
 type BoardMemberListRecord = Prisma.BoardMemberGetPayload<{
   include: {
     member: { select: { id: true; name: true } };
-    memberRoleType: { select: { id: true; name: true } };
+    boardRoleType: { select: { id: true; name: true } };
   };
 }>;
 
@@ -34,7 +34,7 @@ type BoardDetailRecord = Prisma.BoardGetPayload<{
     boardMembers: {
       include: {
         member: { select: { id: true; name: true } };
-        memberRoleType: { select: { id: true; name: true } };
+        boardRoleType: { select: { id: true; name: true } };
       };
     };
   };
@@ -55,6 +55,8 @@ export class BoardsService {
 
     if (query.active !== undefined) {
       where.active = query.active;
+    } else if (query.includeInactive !== true) {
+      where.active = true;
     }
 
     const [total, boards] = await this.prisma.$transaction([
@@ -74,11 +76,14 @@ export class BoardsService {
     );
   }
 
-  async create(dto: CreateBoardDto, user: JwtPayload): Promise<IdResponseDto> {
+  async create(
+    dto: CreateBoardDto,
+    user: JwtPayload,
+  ): Promise<IdNameResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const active = dto.active ?? true;
-    const startDate = new Date(dto.start_date);
-    const endDate = new Date(dto.end_date);
+    const startDate = new Date(dto.startDate);
+    const endDate = new Date(dto.endDate);
 
     if (endDate <= startDate) {
       throw new BadRequestException(
@@ -90,6 +95,8 @@ export class BoardsService {
       await this.assertNoActiveBoard(idChurch);
     }
 
+    await this.assertNameUnique(idChurch, dto.name);
+
     const created = await this.prisma.board.create({
       data: {
         idChurch,
@@ -100,22 +107,29 @@ export class BoardsService {
         active,
         createdBy: user.sub,
       },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
-    return { id: created.id };
+    return { id: created.id, name: created.name };
   }
 
-  async findOne(id: number, user: JwtPayload): Promise<BoardDetailResponseDto> {
+  async findOne(
+    id: number,
+    user: JwtPayload,
+    includeInactive = false,
+  ): Promise<BoardDetailResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const board = await this.prisma.board.findFirst({
-      where: { id, idChurch },
+      where: {
+        id,
+        idChurch,
+        ...(includeInactive ? {} : { active: true }),
+      },
       include: {
         boardMembers: {
-          where: { assignmentType: 'board' },
           include: {
             member: { select: { id: true, name: true } },
-            memberRoleType: { select: { id: true, name: true } },
+            boardRoleType: { select: { id: true, name: true } },
           },
           orderBy: [{ member: { name: 'asc' } }, { id: 'asc' }],
         },
@@ -133,7 +147,7 @@ export class BoardsService {
     id: number,
     dto: UpdateBoardDto,
     user: JwtPayload,
-  ): Promise<IdResponseDto> {
+  ): Promise<IdNameResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const existing = await this.prisma.board.findFirst({
       where: { id, idChurch },
@@ -151,6 +165,10 @@ export class BoardsService {
       throw new NotFoundException(`Concilio con id ${id} no encontrado`);
     }
 
+    if (dto.name !== undefined && dto.name !== existing.name) {
+      await this.assertNameUnique(idChurch, dto.name, id);
+    }
+
     const data: Prisma.BoardUpdateInput = {};
 
     if (dto.name !== undefined) {
@@ -161,12 +179,12 @@ export class BoardsService {
       data.description = dto.description;
     }
 
-    if (dto.start_date !== undefined) {
-      data.startDate = new Date(dto.start_date);
+    if (dto.startDate !== undefined) {
+      data.startDate = new Date(dto.startDate);
     }
 
-    if (dto.end_date !== undefined) {
-      data.endDate = new Date(dto.end_date);
+    if (dto.endDate !== undefined) {
+      data.endDate = new Date(dto.endDate);
     }
 
     if (dto.active !== undefined) {
@@ -174,11 +192,11 @@ export class BoardsService {
     }
 
     const resolvedStartDate =
-      dto.start_date !== undefined
-        ? new Date(dto.start_date)
+      dto.startDate !== undefined
+        ? new Date(dto.startDate)
         : existing.startDate;
     const resolvedEndDate =
-      dto.end_date !== undefined ? new Date(dto.end_date) : existing.endDate;
+      dto.endDate !== undefined ? new Date(dto.endDate) : existing.endDate;
 
     if (resolvedEndDate <= resolvedStartDate) {
       throw new BadRequestException(
@@ -191,16 +209,16 @@ export class BoardsService {
     }
 
     if (Object.keys(data).length === 0) {
-      return { id: existing.id };
+      return { id: existing.id, name: existing.name };
     }
 
     const updated = await this.prisma.board.update({
       where: { id },
       data,
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
-    return { id: updated.id };
+    return { id: updated.id, name: updated.name };
   }
 
   async remove(id: number, user: JwtPayload): Promise<void> {
@@ -220,7 +238,7 @@ export class BoardsService {
         data: { active: false },
       }),
       this.prisma.boardMember.updateMany({
-        where: { idBoard: id, assignmentType: 'board', active: true },
+        where: { idBoard: id, active: true },
         data: { active: false },
       }),
     ]);
@@ -249,11 +267,34 @@ export class BoardsService {
         active: true,
         ...(excludeId ? { NOT: { id: excludeId } } : {}),
       },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     if (activeBoard) {
-      throw new ConflictException('Ya existe un concilio activo');
+      throw new ConflictException(
+        `Ya existe un concilio activo (id=${activeBoard.id}, "${activeBoard.name}"). Finalizalo con DELETE /boards/${activeBoard.id} antes de crear uno nuevo.`,
+      );
+    }
+  }
+
+  private async assertNameUnique(
+    idChurch: number,
+    name: string,
+    excludeId?: number,
+  ): Promise<void> {
+    const existing = await this.prisma.board.findFirst({
+      where: {
+        idChurch,
+        name: { equals: name.trim(), mode: 'insensitive' },
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        `Ya existe un concilio con el nombre "${name}"`,
+      );
     }
   }
 
@@ -287,7 +328,7 @@ export class BoardsService {
     return {
       id: record.id,
       member: this.toMemberSummary(record.member),
-      role: this.toRole(record.memberRoleType),
+      role: this.toRole(record.boardRoleType),
       startDate: record.startDate,
       endDate: record.endDate,
       active: record.active,
@@ -304,7 +345,7 @@ export class BoardsService {
   }
 
   private toRole(
-    role: BoardMemberListRecord['memberRoleType'],
+    role: BoardMemberListRecord['boardRoleType'],
   ): BoardMemberRoleResponseDto {
     return {
       id: role.id,
