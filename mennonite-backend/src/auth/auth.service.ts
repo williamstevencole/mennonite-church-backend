@@ -6,96 +6,166 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { hashPassword } from '../common/utils/password.utils';
-import { isDuplicateEmailError } from '../common/utils/prisma.utils';
 import { PrismaService } from '../prisma/prisma.service';
+import { SupabaseService } from '../supabase/supabase.service';
+import { AuthSessionDto, AuthTokensDto } from './dto/auth-session.dto';
 import { LoginRequestDto } from './dto/login-request.dto';
-import { LoginResponseDto } from './dto/login-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
+import { RefreshRequestDto } from './dto/refresh-request.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
-import { RegisterResponseDto } from './dto/register-response.dto';
-
-const MIN_PASSWORD_LENGTH = 8;
-const DEFAULT_INITIAL_ROLE_NAME =
-  process.env.AUTH_INITIAL_ROLE_NAME?.trim() || 'Administrador';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
+    private readonly supabase: SupabaseService,
   ) {}
 
-  async login(payload: LoginRequestDto): Promise<LoginResponseDto> {
-    const email = payload.email?.trim().toLowerCase();
-    const password = payload.password?.trim();
+  async login(dto: LoginRequestDto): Promise<AuthSessionDto> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .auth.signInWithPassword({ email: dto.email, password: dto.password });
 
-    if (!email || !password) {
+    if (error || !data.session || !data.user) {
       throw new UnauthorizedException('Credenciales invalidas');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        passwordHash: true,
-        active: true,
-        userRole: {
-          select: {
-            id: true,
-            name: true,
-            rolePermissions: {
-              select: {
-                permission: {
-                  select: {
-                    code: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const localUser = await this.findLocalUserBySupabaseUid(data.user.id);
 
-    if (!user || user.passwordHash !== hashPassword(password)) {
-      throw new UnauthorizedException('Credenciales invalidas');
-    }
-
-    if (!user.active) {
+    if (!localUser.active) {
       throw new ForbiddenException('Usuario desactivado');
     }
 
-    if (!user.userRole) {
-      throw new InternalServerErrorException(
-        'El usuario no tiene rol asignado',
+    return {
+      user: this.toMeResponse(localUser),
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresIn: data.session.expires_in,
+    };
+  }
+
+  async register(dto: RegisterRequestDto): Promise<AuthSessionDto> {
+    const role = await this.prisma.userRole.findFirst({
+      where: { id: dto.idUserRole, idChurch: dto.idChurch },
+      select: { id: true, active: true },
+    });
+
+    if (!role?.active) {
+      throw new BadRequestException(
+        'Rol inexistente o no pertenece a la iglesia indicada',
       );
     }
 
-    const permissions = Array.from(
-      new Set(
-        user.userRole.rolePermissions.map(
-          (rolePermission) => rolePermission.permission.code,
-        ),
-      ),
-    );
-
-    const accessToken = await this.jwtService.signAsync({
-      sub: user.id,
-      email: user.email,
-      role: user.userRole.name,
-      permissions,
+    const church = await this.prisma.church.findUnique({
+      where: { id: dto.idChurch },
+      select: { id: true },
     });
 
+    if (!church) {
+      throw new BadRequestException('Iglesia inexistente');
+    }
+
+    const member = await this.prisma.member.findFirst({
+      where: { id: dto.idMember, idChurch: dto.idChurch },
+      select: { id: true },
+    });
+    if (!member) {
+      throw new BadRequestException(
+        'Miembro inexistente o no pertenece a la iglesia indicada',
+      );
+    }
+    const memberHasUser = await this.prisma.user.findUnique({
+      where: { idMember: dto.idMember },
+      select: { id: true },
+    });
+    if (memberHasUser) {
+      throw new ConflictException('El miembro ya tiene un usuario asociado');
+    }
+
+    const emailTaken = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      select: { id: true },
+    });
+
+    if (emailTaken) {
+      throw new ConflictException(
+        'Ya existe un usuario registrado con ese email',
+      );
+    }
+
+    // 1. Create Supabase Auth user
+    const { data: authData, error: authError } = await this.supabase
+      .getAdminClient()
+      .auth.admin.createUser({
+        email: dto.email,
+        password: dto.password,
+        email_confirm: true,
+      });
+
+    if (authError || !authData.user) {
+      if (authError?.message?.includes('already been registered')) {
+        throw new ConflictException(
+          'Ya existe un usuario registrado con ese email',
+        );
+      }
+      throw new BadRequestException(
+        `Error creando usuario en Supabase Auth: ${authError?.message ?? 'desconocido'}`,
+      );
+    }
+
+    const supabaseUid = authData.user.id;
+
+    // 2. Create local user (rollback Supabase if fails)
+    try {
+      await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          supabaseUid,
+          active: true,
+          idChurch: dto.idChurch,
+          idUserRole: dto.idUserRole,
+          idMember: dto.idMember,
+        },
+      });
+    } catch (error) {
+      await this.supabase.getAdminClient().auth.admin.deleteUser(supabaseUid);
+      throw error;
+    }
+
+    // 3. Sign in to obtain tokens
+    const { data: signInData, error: signInError } = await this.supabase
+      .getClient()
+      .auth.signInWithPassword({ email: dto.email, password: dto.password });
+
+    if (signInError || !signInData.session) {
+      throw new InternalServerErrorException(
+        `Usuario creado pero no se pudo iniciar sesion: ${signInError?.message ?? 'desconocido'}`,
+      );
+    }
+
+    const localUser = await this.findLocalUserBySupabaseUid(supabaseUid);
+
     return {
-      access_token: accessToken,
-      user: this.buildMeResponse({
-        id: user.id,
-        email: user.email,
-        userRole: user.userRole,
-      }),
+      user: this.toMeResponse(localUser),
+      accessToken: signInData.session.access_token,
+      refreshToken: signInData.session.refresh_token,
+      expiresIn: signInData.session.expires_in,
+    };
+  }
+
+  async refresh(dto: RefreshRequestDto): Promise<AuthTokensDto> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .auth.refreshSession({ refresh_token: dto.refreshToken });
+
+    if (error || !data.session) {
+      throw new UnauthorizedException('Refresh token invalido o expirado');
+    }
+
+    return {
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresIn: data.session.expires_in,
     };
   }
 
@@ -138,116 +208,61 @@ export class AuthService {
       );
     }
 
-    return this.buildMeResponse({
-      id: user.id,
-      email: user.email,
-      userRole: user.userRole,
-    });
+    return this.toMeResponse(user);
   }
 
-  async register(payload: RegisterRequestDto): Promise<RegisterResponseDto> {
-    const email = payload.email?.trim().toLowerCase();
-    const password = payload.password?.trim();
-
-    if (!email) {
-      throw new BadRequestException('El email es requerido');
-    }
-
-    if (!this.isValidEmail(email)) {
-      throw new BadRequestException('El email no es valido');
-    }
-
-    if (!password || password.length < MIN_PASSWORD_LENGTH) {
-      throw new BadRequestException(
-        'La password debe tener al menos 8 caracteres',
-      );
-    }
-
-    const usersCount = await this.prisma.user.count();
-    if (usersCount > 0) {
-      throw new ConflictException(
-        'La cuenta inicial ya fue creada para esta instancia',
-      );
-    }
-
-    const defaultRole = await this.prisma.userRole.findFirst({
-      where: {
-        name: DEFAULT_INITIAL_ROLE_NAME,
-        active: true,
-      },
+  private async findLocalUserBySupabaseUid(supabaseUid: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseUid },
       select: {
         id: true,
-        name: true,
+        email: true,
+        active: true,
+        userRole: {
+          select: {
+            id: true,
+            name: true,
+            rolePermissions: {
+              select: { permission: { select: { code: true } } },
+            },
+          },
+        },
       },
     });
 
-    if (!defaultRole) {
-      throw new InternalServerErrorException(
-        `No se encontro el rol inicial configurado (${DEFAULT_INITIAL_ROLE_NAME})`,
+    if (!user) {
+      throw new UnauthorizedException(
+        'Usuario autenticado en Supabase pero no encontrado en la base local',
       );
     }
 
-    try {
-      const createdUser = await this.prisma.user.create({
-        data: {
-          email,
-          passwordHash: hashPassword(password),
-          active: true,
-          idUserRole: defaultRole.id,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      return {
-        id: createdUser.id,
-        role: defaultRole,
-      };
-    } catch (error: unknown) {
-      if (isDuplicateEmailError(error)) {
-        throw new ConflictException(
-          'Ya existe un usuario registrado con ese email',
-        );
-      }
-
-      throw error;
-    }
+    return user;
   }
 
-  private buildMeResponse(user: {
+  private toMeResponse(user: {
     id: number;
     email: string;
     userRole: {
       id: number;
       name: string;
-      rolePermissions: Array<{
-        permission: {
-          code: string;
-        };
-      }>;
-    };
+      rolePermissions: { permission: { code: string } }[];
+    } | null;
   }): MeResponseDto {
+    if (!user.userRole) {
+      throw new InternalServerErrorException(
+        'El usuario no tiene rol asignado',
+      );
+    }
+
     const permissions = Array.from(
-      new Set(
-        user.userRole.rolePermissions.map(
-          (rolePermission) => rolePermission.permission.code,
-        ),
-      ),
+      new Set(user.userRole.rolePermissions.map((rp) => rp.permission.code)),
     );
 
     return {
       id: user.id,
       email: user.email,
-      role: {
-        id: user.userRole.id,
-        name: user.userRole.name,
-      },
+      role: { id: user.userRole.id, name: user.userRole.name },
       permissions,
     };
-  }
-
-  private isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 }

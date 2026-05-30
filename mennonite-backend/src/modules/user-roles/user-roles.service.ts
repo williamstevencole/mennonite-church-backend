@@ -24,14 +24,18 @@ type UserRoleWithPermissions = {
 export class UserRolesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateUserRoleDto): Promise<UserRoleResponseDto> {
-    await this.assertUniqueName(dto.name);
+  async create(
+    idChurch: number,
+    dto: CreateUserRoleDto,
+  ): Promise<UserRoleResponseDto> {
+    await this.assertUniqueName(idChurch, dto.name);
     if (dto.permissionIds?.length) {
       await this.assertPermissionsExist(dto.permissionIds);
     }
 
     const created = await this.prisma.userRole.create({
       data: {
+        idChurch,
         name: dto.name,
         description: dto.description,
         rolePermissions: dto.permissionIds?.length
@@ -49,11 +53,12 @@ export class UserRolesService {
   }
 
   async findAll(
+    idChurch: number,
     query: ListUserRolesQueryDto,
   ): Promise<UserRolesPageResponseDto> {
     const page = query.page ?? 1;
     const size = query.size ?? 20;
-    const where = { active: true };
+    const where = { idChurch, active: true };
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.userRole.count({ where }),
@@ -74,9 +79,9 @@ export class UserRolesService {
     };
   }
 
-  async findOne(id: number): Promise<UserRoleResponseDto> {
-    const item = await this.prisma.userRole.findUnique({
-      where: { id },
+  async findOne(idChurch: number, id: number): Promise<UserRoleResponseDto> {
+    const item = await this.prisma.userRole.findFirst({
+      where: { id, idChurch },
       ...this.includePermissions(),
     });
     if (!item) {
@@ -86,12 +91,13 @@ export class UserRolesService {
   }
 
   async update(
+    idChurch: number,
     id: number,
     dto: UpdateUserRoleDto,
   ): Promise<UserRoleResponseDto> {
-    await this.assertExists(id);
+    await this.assertExists(idChurch, id);
     if (dto.name) {
-      await this.assertUniqueName(dto.name, id);
+      await this.assertUniqueName(idChurch, dto.name, id);
     }
     if (dto.permissionIds) {
       await this.assertPermissionsExist(dto.permissionIds);
@@ -125,10 +131,11 @@ export class UserRolesService {
   }
 
   async setPermissions(
+    idChurch: number,
     id: number,
     dto: SetUserRolePermissionsDto,
   ): Promise<UserRoleResponseDto> {
-    await this.assertExists(id);
+    await this.assertExists(idChurch, id);
     if (dto.permissionIds.length) {
       await this.assertPermissionsExist(dto.permissionIds);
     }
@@ -152,8 +159,8 @@ export class UserRolesService {
     return this.toResponse(updated);
   }
 
-  async remove(id: number): Promise<void> {
-    await this.assertExists(id);
+  async remove(idChurch: number, id: number): Promise<void> {
+    await this.assertExists(idChurch, id);
     const usersWithRole = await this.prisma.user.count({
       where: { idUserRole: id, active: true },
     });
@@ -178,9 +185,9 @@ export class UserRolesService {
     } as const;
   }
 
-  private async assertExists(id: number): Promise<void> {
-    const found = await this.prisma.userRole.findUnique({
-      where: { id },
+  private async assertExists(idChurch: number, id: number): Promise<void> {
+    const found = await this.prisma.userRole.findFirst({
+      where: { id, idChurch },
       select: { id: true },
     });
     if (!found) {
@@ -189,11 +196,12 @@ export class UserRolesService {
   }
 
   private async assertUniqueName(
+    idChurch: number,
     name: string,
     excludeId?: number,
   ): Promise<void> {
     const existing = await this.prisma.userRole.findUnique({
-      where: { name },
+      where: { idChurch_name: { idChurch, name } },
       select: { id: true },
     });
     if (existing && existing.id !== excludeId) {

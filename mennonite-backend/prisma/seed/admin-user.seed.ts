@@ -1,5 +1,8 @@
 import { Member, PrismaClient, User } from '@prisma/client';
-import { hashPassword } from '../../src/common/utils/password.utils';
+import type {
+  SupabaseClient,
+  User as SupabaseUser,
+} from '@supabase/supabase-js';
 
 export const ADMIN_SEED_CREDENTIALS = {
   email: 'admin@mennonite.local',
@@ -28,25 +31,114 @@ const DEMO_USERS: readonly SeededUser[] = [
   },
 ];
 
+/**
+ * Creates a user in Supabase Auth and returns the UID.
+ * If the user already exists, deletes and recreates to ensure
+ * a clean seed. Returns the Supabase UID.
+ */
+async function ensureSupabaseAuthUser(
+  supabase: SupabaseClient,
+  email: string,
+  password: string,
+): Promise<string> {
+  // Try to create — if already exists, list+delete+recreate
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (!error && data.user) {
+    return data.user.id;
+  }
+
+  // User might already exist — find and delete, then recreate
+  if (error?.message?.includes('already been registered')) {
+    const { data: listData } = await supabase.auth.admin.listUsers();
+    const existing = (listData.users as SupabaseUser[]).find(
+      (u) => u.email === email,
+    );
+    if (existing) {
+      await supabase.auth.admin.deleteUser(existing.id);
+    }
+    const { data: retryData, error: retryError } =
+      await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+    if (retryError) {
+      throw new Error(
+        `No se pudo crear usuario Supabase Auth "${email}": ${retryError.message}`,
+      );
+    }
+    return retryData.user.id;
+  }
+
+  throw new Error(
+    `No se pudo crear usuario Supabase Auth "${email}": ${error?.message}`,
+  );
+}
+
+const ADMIN_MEMBER_DEFAULTS = {
+  name: 'Administrador Sistema',
+  documentType: 'National ID',
+  documentNumber: 'ADMIN-0000-0000',
+  birthDate: new Date('1970-01-01'),
+  joinDate: new Date('2020-01-01'),
+} as const;
+
 export async function seedAdminUser(
   prisma: PrismaClient,
   idUserRole: number,
-  idChurch?: number,
+  idChurch: number,
+  supabase: SupabaseClient,
 ): Promise<User> {
+  const supabaseUid = await ensureSupabaseAuthUser(
+    supabase,
+    ADMIN_SEED_CREDENTIALS.email,
+    ADMIN_SEED_CREDENTIALS.password,
+  );
+
+  // Ensure admin has a Member row (every user must have one)
+  const adminMember = await prisma.member.upsert({
+    where: {
+      documentType_documentNumber: {
+        documentType: ADMIN_MEMBER_DEFAULTS.documentType,
+        documentNumber: ADMIN_MEMBER_DEFAULTS.documentNumber,
+      },
+    },
+    update: {
+      idChurch,
+      name: ADMIN_MEMBER_DEFAULTS.name,
+      active: true,
+    },
+    create: {
+      idChurch,
+      name: ADMIN_MEMBER_DEFAULTS.name,
+      documentType: ADMIN_MEMBER_DEFAULTS.documentType,
+      documentNumber: ADMIN_MEMBER_DEFAULTS.documentNumber,
+      birthDate: ADMIN_MEMBER_DEFAULTS.birthDate,
+      joinDate: ADMIN_MEMBER_DEFAULTS.joinDate,
+    },
+  });
+
   return await prisma.user.upsert({
     where: { email: ADMIN_SEED_CREDENTIALS.email },
     update: {
       idUserRole,
       idChurch,
+      idMember: adminMember.id,
       active: true,
-      passwordHash: hashPassword(ADMIN_SEED_CREDENTIALS.password),
+      supabaseUid,
     },
     create: {
       email: ADMIN_SEED_CREDENTIALS.email,
-      passwordHash: hashPassword(ADMIN_SEED_CREDENTIALS.password),
       active: true,
       idUserRole,
       idChurch,
+      idMember: adminMember.id,
+      supabaseUid,
     },
   });
 }
@@ -56,6 +148,7 @@ export async function seedMemberUsers(
   idChurch: number,
   membersByName: Map<string, Member>,
   rolesByName: Map<string, { id: number }>,
+  supabase: SupabaseClient,
 ): Promise<User[]> {
   const created: User[] = [];
 
@@ -71,6 +164,12 @@ export async function seedMemberUsers(
       throw new Error(`Seed users: no se encontro el rol "${data.roleName}".`);
     }
 
+    const supabaseUid = await ensureSupabaseAuthUser(
+      supabase,
+      data.email,
+      data.password,
+    );
+
     const user = await prisma.user.upsert({
       where: { email: data.email },
       update: {
@@ -78,15 +177,15 @@ export async function seedMemberUsers(
         idChurch,
         idMember: member.id,
         active: true,
-        passwordHash: hashPassword(data.password),
+        supabaseUid,
       },
       create: {
         email: data.email,
-        passwordHash: hashPassword(data.password),
         active: true,
         idUserRole: role.id,
         idChurch,
         idMember: member.id,
+        supabaseUid,
       },
     });
     created.push(user);
