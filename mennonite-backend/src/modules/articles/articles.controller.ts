@@ -28,7 +28,7 @@ import {
   Patch,
   Delete,
 } from '@nestjs/common';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { ArticleResponseDto } from './dto/article.response.dto';
 import { FindArticlesQueryDto } from './dto/find-articles.query.dto';

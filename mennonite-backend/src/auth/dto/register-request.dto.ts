@@ -1,20 +1,37 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsInt,
+  IsPositive,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class RegisterRequestDto {
-  @ApiProperty({ example: 'usuario@iglesia.org' })
+  @ApiProperty({ example: 'nuevo.usuario@imcsp.org' })
   @IsEmail()
-  @Transform(({ value }): unknown =>
-    typeof value === 'string' ? value.trim() : value,
-  )
   email!: string;
 
   @ApiProperty({ example: 'MiPassword123!' })
   @IsString()
-  @Transform(({ value }): unknown =>
-    typeof value === 'string' ? value.trim() : value,
-  )
   @MinLength(8)
   password!: string;
+
+  @ApiProperty({ example: 1, description: 'ID de la iglesia' })
+  @IsInt()
+  @IsPositive()
+  idChurch!: number;
+
+  @ApiProperty({ example: 2, description: 'ID del rol asignado' })
+  @IsInt()
+  @IsPositive()
+  idUserRole!: number;
+
+  @ApiProperty({
+    example: 5,
+    description: 'ID del miembro asociado (obligatorio)',
+  })
+  @IsInt()
+  @IsPositive()
+  idMember!: number;
 }

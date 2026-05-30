@@ -16,21 +16,26 @@ export class TransactionCategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
+    idChurch: number,
     dto: CreateTransactionCategoryDto,
   ): Promise<TransactionCategoryResponseDto> {
-    await this.assertUnique(dto.name, dto.type);
+    await this.assertUnique(idChurch, dto.name, dto.type);
 
     const created = await this.prisma.transactionCategory.create({
-      data: { name: dto.name, type: dto.type },
+      data: { idChurch, name: dto.name, type: dto.type },
     });
 
     return this.toResponse(created);
   }
 
   async findAll(
+    idChurch: number,
     query: ListTransactionCategoriesQueryDto,
   ): Promise<TransactionCategoryResponseDto[]> {
-    const where: Prisma.TransactionCategoryWhereInput = { active: true };
+    const where: Prisma.TransactionCategoryWhereInput = {
+      idChurch,
+      active: true,
+    };
     if (query.type) {
       where.type = query.type;
     }
@@ -43,9 +48,12 @@ export class TransactionCategoriesService {
     return items.map((item) => this.toResponse(item));
   }
 
-  async findOne(id: number): Promise<TransactionCategoryResponseDto> {
-    const item = await this.prisma.transactionCategory.findUnique({
-      where: { id },
+  async findOne(
+    idChurch: number,
+    id: number,
+  ): Promise<TransactionCategoryResponseDto> {
+    const item = await this.prisma.transactionCategory.findFirst({
+      where: { id, idChurch },
     });
     if (!item) {
       throw new NotFoundException(`Categoria ${id} no encontrada`);
@@ -54,11 +62,12 @@ export class TransactionCategoriesService {
   }
 
   async update(
+    idChurch: number,
     id: number,
     dto: UpdateTransactionCategoryDto,
   ): Promise<TransactionCategoryResponseDto> {
-    const current = await this.prisma.transactionCategory.findUnique({
-      where: { id },
+    const current = await this.prisma.transactionCategory.findFirst({
+      where: { id, idChurch },
     });
 
     if (!current) {
@@ -69,7 +78,7 @@ export class TransactionCategoriesService {
     const nextType = (dto.type ?? current.type) as TransactionCategoryType;
 
     if (dto.name || dto.type) {
-      await this.assertUnique(nextName, nextType, id);
+      await this.assertUnique(idChurch, nextName, nextType, id);
     }
 
     const updated = await this.prisma.transactionCategory.update({
@@ -80,9 +89,9 @@ export class TransactionCategoriesService {
     return this.toResponse(updated);
   }
 
-  async remove(id: number): Promise<void> {
-    const existing = await this.prisma.transactionCategory.findUnique({
-      where: { id },
+  async remove(idChurch: number, id: number): Promise<void> {
+    const existing = await this.prisma.transactionCategory.findFirst({
+      where: { id, idChurch },
       select: { id: true },
     });
 
@@ -107,12 +116,13 @@ export class TransactionCategoriesService {
   }
 
   private async assertUnique(
+    idChurch: number,
     name: string,
     type: TransactionCategoryType,
     excludeId?: number,
   ): Promise<void> {
     const duplicate = await this.prisma.transactionCategory.findUnique({
-      where: { name_type: { name, type } },
+      where: { idChurch_name_type: { idChurch, name, type } },
       select: { id: true },
     });
 

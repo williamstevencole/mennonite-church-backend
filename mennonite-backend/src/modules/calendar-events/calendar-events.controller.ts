@@ -28,7 +28,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CalendarEventsService } from './calendar-events.service';
 import { CalendarEventResponseDto } from './dto/calendar-event.response.dto';
 import { CalendarEventsPageResponseDto } from './dto/calendar-events-page.response.dto';

@@ -14,13 +14,17 @@ const MINISTRY_ROLE_TYPES = [
   { name: 'Colaborador', belongsTo: 'Ministry' },
 ] as const;
 
-export async function seedMemberRoleTypes(prisma: PrismaClient): Promise<void> {
+export async function seedMemberRoleTypes(
+  prisma: PrismaClient,
+  idChurch: number,
+): Promise<void> {
   const allRoleTypes = [...BOARD_ROLE_TYPES, ...MINISTRY_ROLE_TYPES];
 
   await Promise.all(
     allRoleTypes.map(async ({ name, belongsTo }) => {
       const existing = await prisma.memberRoleType.findFirst({
         where: {
+          idChurch,
           name,
           belongsTo,
         },
@@ -36,6 +40,7 @@ export async function seedMemberRoleTypes(prisma: PrismaClient): Promise<void> {
 
       await prisma.memberRoleType.create({
         data: {
+          idChurch,
           name,
           belongsTo,
           active: true,

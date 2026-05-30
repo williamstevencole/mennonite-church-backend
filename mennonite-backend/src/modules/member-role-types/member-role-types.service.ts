@@ -17,10 +17,11 @@ export class MemberRoleTypesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
+    idChurch: number,
     dto: CreateMemberRoleTypeDto,
   ): Promise<MemberRoleTypeResponseDto> {
     const existing = await this.prisma.memberRoleType.findFirst({
-      where: { name: dto.name },
+      where: { idChurch, name: dto.name, belongsTo: dto.belongsTo ?? null },
       select: { id: true },
     });
 
@@ -32,6 +33,7 @@ export class MemberRoleTypesService {
 
     const created = await this.prisma.memberRoleType.create({
       data: {
+        idChurch,
         name: dto.name,
         belongsTo: dto.belongsTo,
       },
@@ -41,11 +43,12 @@ export class MemberRoleTypesService {
   }
 
   async findAll(
+    idChurch: number,
     query: ListMemberRoleTypesQueryDto,
   ): Promise<MemberRoleTypesPageResponseDto> {
     const page = query.page ?? 1;
     const size = query.size ?? 20;
-    const where: Prisma.MemberRoleTypeWhereInput = { active: true };
+    const where: Prisma.MemberRoleTypeWhereInput = { idChurch, active: true };
     if (query.belongsTo) {
       where.belongsTo = query.belongsTo;
     }
@@ -68,9 +71,12 @@ export class MemberRoleTypesService {
     };
   }
 
-  async findOne(id: number): Promise<MemberRoleTypeResponseDto> {
-    const item = await this.prisma.memberRoleType.findUnique({
-      where: { id },
+  async findOne(
+    idChurch: number,
+    id: number,
+  ): Promise<MemberRoleTypeResponseDto> {
+    const item = await this.prisma.memberRoleType.findFirst({
+      where: { id, idChurch },
     });
 
     if (!item) {
@@ -81,14 +87,20 @@ export class MemberRoleTypesService {
   }
 
   async update(
+    idChurch: number,
     id: number,
     dto: UpdateMemberRoleTypeDto,
   ): Promise<MemberRoleTypeResponseDto> {
-    await this.assertExists(id);
+    await this.assertExists(idChurch, id);
 
     if (dto.name) {
       const duplicate = await this.prisma.memberRoleType.findFirst({
-        where: { name: dto.name, NOT: { id } },
+        where: {
+          idChurch,
+          name: dto.name,
+          belongsTo: dto.belongsTo ?? null,
+          NOT: { id },
+        },
         select: { id: true },
       });
 
@@ -110,8 +122,11 @@ export class MemberRoleTypesService {
     return this.toResponse(updated);
   }
 
-  async remove(id: number): Promise<MemberRoleTypeResponseDto> {
-    await this.assertExists(id);
+  async remove(
+    idChurch: number,
+    id: number,
+  ): Promise<MemberRoleTypeResponseDto> {
+    await this.assertExists(idChurch, id);
 
     const archived = await this.prisma.memberRoleType.update({
       where: { id },
@@ -121,9 +136,9 @@ export class MemberRoleTypesService {
     return this.toResponse(archived);
   }
 
-  private async assertExists(id: number): Promise<void> {
-    const existing = await this.prisma.memberRoleType.findUnique({
-      where: { id },
+  private async assertExists(idChurch: number, id: number): Promise<void> {
+    const existing = await this.prisma.memberRoleType.findFirst({
+      where: { id, idChurch },
       select: { id: true },
     });
 

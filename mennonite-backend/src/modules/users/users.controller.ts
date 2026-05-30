@@ -25,6 +25,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -60,8 +62,11 @@ export class UsersController {
   @ApiCreatedResponse({ type: CreateUserResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o rol inexistente' })
   @ApiConflictResponse({ description: 'Email duplicado' })
-  create(@Body() dto: CreateUserDto): Promise<CreateUserResponseDto> {
-    return this.usersService.create(dto);
+  create(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateUserDto,
+  ): Promise<CreateUserResponseDto> {
+    return this.usersService.create(user.idChurch, dto);
   }
 
   @Patch(':id')

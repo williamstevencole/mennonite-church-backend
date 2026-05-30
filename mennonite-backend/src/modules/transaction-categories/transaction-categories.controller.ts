@@ -25,6 +25,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -53,9 +55,10 @@ export class TransactionCategoriesController {
     description: 'Nombre duplicado dentro del mismo tipo',
   })
   create(
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateTransactionCategoryDto,
   ): Promise<TransactionCategoryResponseDto> {
-    return this.service.create(dto);
+    return this.service.create(user.idChurch, dto);
   }
 
   @Get()
@@ -65,9 +68,10 @@ export class TransactionCategoriesController {
   })
   @ApiOkResponse({ type: TransactionCategoryResponseDto, isArray: true })
   findAll(
+    @CurrentUser() user: JwtPayload,
     @Query() query: ListTransactionCategoriesQueryDto,
   ): Promise<TransactionCategoryResponseDto[]> {
-    return this.service.findAll(query);
+    return this.service.findAll(user.idChurch, query);
   }
 
   @Get(':id')
@@ -75,9 +79,10 @@ export class TransactionCategoriesController {
   @ApiOkResponse({ type: TransactionCategoryResponseDto })
   @ApiNotFoundResponse({ description: 'Categoria no encontrada' })
   findOne(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<TransactionCategoryResponseDto> {
-    return this.service.findOne(id);
+    return this.service.findOne(user.idChurch, id);
   }
 
   @Patch(':id')
@@ -89,10 +94,11 @@ export class TransactionCategoriesController {
   })
   @ApiNotFoundResponse({ description: 'Categoria no encontrada' })
   update(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTransactionCategoryDto,
   ): Promise<TransactionCategoryResponseDto> {
-    return this.service.update(id, dto);
+    return this.service.update(user.idChurch, id, dto);
   }
 
   @Delete(':id')
@@ -103,7 +109,10 @@ export class TransactionCategoriesController {
     description: 'Existen transacciones que usan esta categoria',
   })
   @ApiNotFoundResponse({ description: 'Categoria no encontrada' })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    return this.service.remove(id);
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<void> {
+    return this.service.remove(user.idChurch, id);
   }
 }
