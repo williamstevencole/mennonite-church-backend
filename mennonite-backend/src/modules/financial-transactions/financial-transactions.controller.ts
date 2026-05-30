@@ -36,6 +36,7 @@ import { FinancialTransactionsPageResponseDto } from './dto/financial-transactio
 import { ListFinancialTransactionsQueryDto } from './dto/list-financial-transactions-query.dto';
 import { UpdateFinancialTransactionDto } from './dto/update-financial-transaction.dto';
 import { FinancialTransactionsService } from './financial-transactions.service';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Financial Transactions')
 @ApiBearerAuth('JWT-auth')
@@ -50,7 +51,7 @@ export class FinancialTransactionsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Crear transaccion financiera' })
-  @ApiCreatedResponse({ type: FinancialTransactionResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o referencias inexistentes',
   })
@@ -58,7 +59,7 @@ export class FinancialTransactionsController {
   create(
     @Body() dto: CreateFinancialTransactionDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<FinancialTransactionResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.create(dto, user?.sub);
   }
 
@@ -90,7 +91,7 @@ export class FinancialTransactionsController {
   @Patch(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Actualizar transaccion financiera' })
-  @ApiOkResponse({ type: FinancialTransactionResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o referencias inexistentes',
   })
@@ -99,7 +100,7 @@ export class FinancialTransactionsController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateFinancialTransactionDto,
-  ): Promise<FinancialTransactionResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(id, dto);
   }
 

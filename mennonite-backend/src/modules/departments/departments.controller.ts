@@ -31,6 +31,7 @@ import { DepartmentsService } from './departments.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { DepartmentResponseDto } from './dto/department.response.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Departments')
 @ApiBearerAuth('JWT-auth')
@@ -45,10 +46,10 @@ export class DepartmentsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('catalog.departments.manage')
   @ApiOperation({ summary: 'Crear un departamento' })
-  @ApiCreatedResponse({ type: DepartmentResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Nombre duplicado' })
-  create(@Body() dto: CreateDepartmentDto): Promise<DepartmentResponseDto> {
+  create(@Body() dto: CreateDepartmentDto): Promise<IdResponseDto> {
     return this.service.create(dto);
   }
 
@@ -71,14 +72,14 @@ export class DepartmentsController {
 
   @Patch(':id')
   @Permissions('catalog.departments.manage')
-  @ApiOkResponse({ type: DepartmentResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Nombre duplicado' })
   @ApiNotFoundResponse({ description: 'Departamento no encontrado' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateDepartmentDto,
-  ): Promise<DepartmentResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(id, dto);
   }
 

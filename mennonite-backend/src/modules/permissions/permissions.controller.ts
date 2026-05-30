@@ -34,6 +34,7 @@ import { PermissionResponseDto } from './dto/permission.response.dto';
 import { PermissionsPageResponseDto } from './dto/permissions-page.response.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
 import { PermissionsService } from './permissions.service';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Permissions')
 @ApiBearerAuth('JWT-auth')
@@ -48,10 +49,10 @@ export class PermissionsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('user-roles.update')
   @ApiOperation({ summary: 'Crear un permiso nuevo' })
-  @ApiCreatedResponse({ type: PermissionResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Code duplicado' })
-  create(@Body() dto: CreatePermissionDto): Promise<PermissionResponseDto> {
+  create(@Body() dto: CreatePermissionDto): Promise<IdResponseDto> {
     return this.service.create(dto);
   }
 
@@ -79,13 +80,13 @@ export class PermissionsController {
   @Patch(':id')
   @Permissions('user-roles.update')
   @ApiOperation({ summary: 'Actualizar un permiso' })
-  @ApiOkResponse({ type: PermissionResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiNotFoundResponse({ description: 'Permiso no encontrado' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePermissionDto,
-  ): Promise<PermissionResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(id, dto);
   }
 

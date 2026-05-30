@@ -7,20 +7,22 @@ import {
 import { Ministry, Prisma } from '@prisma/client';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { MemberRoleBelongsTo } from '../member-role-types/member-role-belongs-to.enum';
 import { CreateMinistryMemberDto } from './dto/create-ministry-member.dto';
 import { CreateMinistryDto } from './dto/create-ministry.dto';
 import { ListMinistriesQueryDto } from './dto/list-ministries-query.dto';
 import { MinistriesPageResponseDto } from './dto/ministries-page.response.dto';
-import { MinistryCreatedResponseDto } from './dto/ministry-created.response.dto';
 import { MinistryDetailResponseDto } from './dto/ministry-detail.response.dto';
 import { MinistryListItemResponseDto } from './dto/ministry-list-item.response.dto';
-import { MinistryMemberCreatedResponseDto } from './dto/ministry-member-created.response.dto';
 import { MinistryMemberListItemResponseDto } from './dto/ministry-member-list-item.response.dto';
 import { MinistryMemberMemberSummaryResponseDto } from './dto/ministry-member-member-summary.response.dto';
 import { MinistryMemberRoleResponseDto } from './dto/ministry-member-role.response.dto';
-import { MinistryResponseDto } from './dto/ministry.response.dto';
 import { UpdateMinistryDto } from './dto/update-ministry.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 type MinistryMemberListRecord = Prisma.MinistryMemberGetPayload<{
   include: {
@@ -40,11 +42,6 @@ type MinistryDetailRecord = Prisma.MinistryGetPayload<{
   };
 }>;
 
-type MinistryResponseRecord = Pick<
-  Ministry,
-  'id' | 'idChurch' | 'code' | 'name' | 'active'
->;
-
 @Injectable()
 export class MinistriesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -53,7 +50,7 @@ export class MinistriesService {
     query: ListMinistriesQueryDto,
   ): Promise<MinistriesPageResponseDto> {
     const page = query.page ?? 1;
-    const size = query.size ?? 20;
+    const limit = query.limit ?? 20;
     const where: Prisma.MinistryWhereInput = {};
 
     if (query.active !== undefined) {
@@ -65,23 +62,22 @@ export class MinistriesService {
       this.prisma.ministry.findMany({
         where,
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
-        skip: (page - 1) * size,
-        take: size,
+        ...buildPagination(page, limit),
       }),
     ]);
 
-    return {
-      data: ministries.map((ministry) => this.toListItem(ministry)),
+    return toPaginated(
+      ministries.map((ministry) => this.toListItem(ministry)),
       total,
       page,
-      size,
-    };
+      limit,
+    );
   }
 
   async create(
     dto: CreateMinistryDto,
     user: JwtPayload,
-  ): Promise<MinistryCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     const idChurch = await this.resolveChurchId(user);
 
     if (dto.id_leader_member) {
@@ -132,7 +128,7 @@ export class MinistriesService {
     id: number,
     dto: CreateMinistryMemberDto,
     user: JwtPayload,
-  ): Promise<MinistryMemberCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const [ministry, member, role, duplicate] = await Promise.all([
       this.prisma.ministry.findFirst({
@@ -204,7 +200,7 @@ export class MinistriesService {
     id: number,
     dto: UpdateMinistryDto,
     user: JwtPayload,
-  ): Promise<MinistryResponseDto> {
+  ): Promise<IdResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.ministry.findFirst({
@@ -228,20 +224,13 @@ export class MinistriesService {
         data.name = dto.name;
       }
 
-      const updated =
-        Object.keys(data).length > 0
-          ? await tx.ministry.update({
-              where: { id },
-              data,
-              select: {
-                id: true,
-                idChurch: true,
-                code: true,
-                name: true,
-                active: true,
-              },
-            })
-          : existing;
+      if (Object.keys(data).length > 0) {
+        await tx.ministry.update({
+          where: { id },
+          data,
+          select: { id: true },
+        });
+      }
 
       const resolvedName = dto.name ?? existing.name;
 
@@ -260,7 +249,7 @@ export class MinistriesService {
         user.sub,
       );
 
-      return this.toResponse(updated);
+      return { id };
     });
   }
 
@@ -368,16 +357,6 @@ export class MinistriesService {
       members: entity.ministryMembers.map((member) =>
         this.toMinistryMemberListItem(member),
       ),
-    };
-  }
-
-  private toResponse(entity: MinistryResponseRecord): MinistryResponseDto {
-    return {
-      id: entity.id,
-      idChurch: entity.idChurch,
-      code: entity.code,
-      name: entity.name,
-      active: entity.active,
     };
   }
 

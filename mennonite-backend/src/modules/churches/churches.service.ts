@@ -8,12 +8,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ChurchResponseDto } from './dto/church.response.dto';
 import { CreateChurchDto } from './dto/create-church.dto';
 import { UpdateChurchDto } from './dto/update-church.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @Injectable()
 export class ChurchesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateChurchDto): Promise<ChurchResponseDto> {
+  async create(dto: CreateChurchDto): Promise<IdResponseDto> {
     if (dto.idCity !== undefined) {
       await this.assertCity(dto.idCity);
     }
@@ -29,8 +30,9 @@ export class ChurchesService {
         values: dto.values,
         foundationDate: dto.foundationDate,
       },
+      select: { id: true },
     });
-    return this.toResponse(created);
+    return { id: created.id };
   }
 
   async findAll(): Promise<ChurchResponseDto[]> {
@@ -49,7 +51,7 @@ export class ChurchesService {
     return this.toResponse(item);
   }
 
-  async update(id: number, dto: UpdateChurchDto): Promise<ChurchResponseDto> {
+  async update(id: number, dto: UpdateChurchDto): Promise<IdResponseDto> {
     await this.assertExists(id);
     if (dto.idCity !== undefined) {
       await this.assertCity(dto.idCity);
@@ -68,8 +70,12 @@ export class ChurchesService {
       data.city = { connect: { id: dto.idCity } };
     }
 
-    const updated = await this.prisma.church.update({ where: { id }, data });
-    return this.toResponse(updated);
+    const updated = await this.prisma.church.update({
+      where: { id },
+      data,
+      select: { id: true },
+    });
+    return { id: updated.id };
   }
 
   async remove(id: number): Promise<void> {

@@ -10,6 +10,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -49,7 +50,7 @@ export class ArticlesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('inventory.create')
   @ApiOperation({ summary: 'Crear un articulo' })
-  @ApiCreatedResponse({ type: ArticleResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Datos invalidos para crear articulo',
   })
@@ -57,7 +58,7 @@ export class ArticlesController {
   create(
     @Body() dto: CreateArticleDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<ArticleResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.create(dto, user);
   }
 
@@ -90,7 +91,7 @@ export class ArticlesController {
   @HttpCode(HttpStatus.OK)
   @Permissions('inventory.update')
   @ApiOperation({ summary: 'Actualizar articulo' })
-  @ApiOkResponse({ type: ArticleResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiNotFoundResponse({ description: 'Articulo no encontrado' })
   @ApiConflictResponse({
     description: 'Ya existe un articulo con ese codigo',
@@ -99,7 +100,7 @@ export class ArticlesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateArticleDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<ArticleResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(id, dto, user);
   }
 

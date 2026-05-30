@@ -30,6 +30,7 @@ import { ChurchesService } from './churches.service';
 import { ChurchResponseDto } from './dto/church.response.dto';
 import { CreateChurchDto } from './dto/create-church.dto';
 import { UpdateChurchDto } from './dto/update-church.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Churches')
 @ApiBearerAuth('JWT-auth')
@@ -44,11 +45,11 @@ export class ChurchesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('churches.create')
   @ApiOperation({ summary: 'Crear una iglesia' })
-  @ApiCreatedResponse({ type: ChurchResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Ciudad inexistente o payload invalido',
   })
-  create(@Body() dto: CreateChurchDto): Promise<ChurchResponseDto> {
+  create(@Body() dto: CreateChurchDto): Promise<IdResponseDto> {
     return this.service.create(dto);
   }
 
@@ -69,7 +70,7 @@ export class ChurchesController {
 
   @Patch(':id')
   @Permissions('churches.update')
-  @ApiOkResponse({ type: ChurchResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Ciudad inexistente o payload invalido',
   })
@@ -77,7 +78,7 @@ export class ChurchesController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateChurchDto,
-  ): Promise<ChurchResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(id, dto);
   }
 

@@ -35,6 +35,7 @@ import { ListTransactionCategoriesQueryDto } from './dto/list-transaction-catego
 import { TransactionCategoryResponseDto } from './dto/transaction-category.response.dto';
 import { UpdateTransactionCategoryDto } from './dto/update-transaction-category.dto';
 import { TransactionCategoriesService } from './transaction-categories.service';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Transaction Categories')
 @ApiBearerAuth('JWT-auth')
@@ -49,7 +50,7 @@ export class TransactionCategoriesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('catalog.transaction-categories.manage')
   @ApiOperation({ summary: 'Crear categoria de transaccion' })
-  @ApiCreatedResponse({ type: TransactionCategoryResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({
     description: 'Nombre duplicado dentro del mismo tipo',
@@ -57,7 +58,7 @@ export class TransactionCategoriesController {
   create(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateTransactionCategoryDto,
-  ): Promise<TransactionCategoryResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.create(user.idChurch, dto);
   }
 
@@ -87,7 +88,7 @@ export class TransactionCategoriesController {
 
   @Patch(':id')
   @Permissions('catalog.transaction-categories.manage')
-  @ApiOkResponse({ type: TransactionCategoryResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({
     description: 'Nombre duplicado dentro del mismo tipo',
@@ -97,7 +98,7 @@ export class TransactionCategoriesController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTransactionCategoryDto,
-  ): Promise<TransactionCategoryResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(user.idChurch, id, dto);
   }
 

@@ -9,6 +9,7 @@ import { CreateEventTypeDto } from './dto/create-event-type.dto';
 import { EventTypeResponseDto } from './dto/event-type.response.dto';
 import { UpdateEventTypeDto } from './dto/update-event-type.dto';
 import { EventCategory } from './event-category.enum';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @Injectable()
 export class EventTypesService {
@@ -17,14 +18,15 @@ export class EventTypesService {
   async create(
     idChurch: number,
     dto: CreateEventTypeDto,
-  ): Promise<EventTypeResponseDto> {
+  ): Promise<IdResponseDto> {
     await this.assertUniqueName(idChurch, dto.name);
 
     const created = await this.prisma.eventType.create({
       data: { idChurch, name: dto.name, eventCategory: dto.eventCategory },
+      select: { id: true },
     });
 
-    return this.toResponse(created);
+    return { id: created.id };
   }
 
   async findAll(idChurch: number): Promise<EventTypeResponseDto[]> {
@@ -49,7 +51,7 @@ export class EventTypesService {
     idChurch: number,
     id: number,
     dto: UpdateEventTypeDto,
-  ): Promise<EventTypeResponseDto> {
+  ): Promise<IdResponseDto> {
     await this.assertExists(idChurch, id);
 
     if (dto.name) {
@@ -59,9 +61,10 @@ export class EventTypesService {
     const updated = await this.prisma.eventType.update({
       where: { id },
       data: { name: dto.name, eventCategory: dto.eventCategory },
+      select: { id: true },
     });
 
-    return this.toResponse(updated);
+    return { id: updated.id };
   }
 
   async remove(idChurch: number, id: number): Promise<void> {

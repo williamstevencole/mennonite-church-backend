@@ -36,6 +36,7 @@ import { MemberRoleTypeResponseDto } from './dto/member-role-type.response.dto';
 import { MemberRoleTypesPageResponseDto } from './dto/member-role-types-page.response.dto';
 import { UpdateMemberRoleTypeDto } from './dto/update-member-role-type.dto';
 import { MemberRoleTypesService } from './member-role-types.service';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Member Role Types')
 @ApiBearerAuth('JWT-auth')
@@ -52,13 +53,13 @@ export class MemberRoleTypesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('catalog.member-role-types.manage')
   @ApiOperation({ summary: 'Crear un nuevo cargo (ministry o council)' })
-  @ApiCreatedResponse({ type: MemberRoleTypeResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Ya existe un cargo con ese nombre' })
   create(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateMemberRoleTypeDto,
-  ): Promise<MemberRoleTypeResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.memberRoleTypesService.create(user.idChurch, dto);
   }
 
@@ -91,7 +92,7 @@ export class MemberRoleTypesController {
   @Patch(':id')
   @Permissions('catalog.member-role-types.manage')
   @ApiOperation({ summary: 'Actualizar nombre o ambito de un cargo' })
-  @ApiOkResponse({ type: MemberRoleTypeResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Ya existe un cargo con ese nombre' })
   @ApiNotFoundResponse({ description: 'Cargo no encontrado' })
@@ -99,7 +100,7 @@ export class MemberRoleTypesController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMemberRoleTypeDto,
-  ): Promise<MemberRoleTypeResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.memberRoleTypesService.update(user.idChurch, id, dto);
   }
 

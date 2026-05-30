@@ -36,6 +36,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { FindInventoryMovementsQueryDto } from './dto/find-inventory.query.dto';
 import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Inventory Movements')
 @ApiBearerAuth('JWT-auth')
@@ -52,13 +53,13 @@ export class InventoryMovementsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('inventory.create')
   @ApiOperation({ summary: 'Registrar movimiento de inventario' })
-  @ApiCreatedResponse({ description: 'Movimiento creado' })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Cantidad invalida' })
   @ApiConflictResponse({ description: 'Stock insuficiente' })
   create(
     @Body() dto: CreateInventoryMovementDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<IdResponseDto> {
     return this.inventoryMovementsService.create(dto, user);
   }
 
@@ -85,11 +86,12 @@ export class InventoryMovementsController {
 
   @Patch(':id')
   @Permissions('inventory.update')
+  @ApiOkResponse({ type: IdResponseDto })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateInventoryMovementDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<IdResponseDto> {
     return this.inventoryMovementsService.update(id, dto, user);
   }
 

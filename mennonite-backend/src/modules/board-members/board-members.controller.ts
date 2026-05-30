@@ -30,10 +30,10 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { BoardMembersService } from './board-members.service';
-import { BoardMemberCreatedResponseDto } from './dto/board-member-created.response.dto';
 import { BoardMemberDetailResponseDto } from './dto/board-member-detail.response.dto';
 import { CreateBoardMemberDto } from './dto/create-board-member.dto';
 import { UpdateBoardMemberDto } from './dto/update-board-member.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Board Members')
 @ApiBearerAuth('JWT-auth')
@@ -48,20 +48,20 @@ export class BoardMembersController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('assignments.create')
   @ApiOperation({ summary: 'Registrar un integrante de concilio' })
-  @ApiCreatedResponse({ type: BoardMemberCreatedResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
   @ApiConflictResponse({ description: 'Rol unico duplicado en el concilio' })
   create(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateBoardMemberDto,
-  ): Promise<BoardMemberCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.create(user.idChurch, dto);
   }
 
   @Patch(':id')
   @Permissions('assignments.update')
   @ApiOperation({ summary: 'Actualizar rol o fechas de un integrante' })
-  @ApiOkResponse({ type: BoardMemberDetailResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
   @ApiConflictResponse({ description: 'Rol unico duplicado en el concilio' })
   @ApiNotFoundResponse({ description: 'Integrante de concilio no encontrado' })
@@ -69,7 +69,7 @@ export class BoardMembersController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBoardMemberDto,
-  ): Promise<BoardMemberDetailResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(user.idChurch, id, dto);
   }
 

@@ -31,13 +31,12 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { BoardMembersService } from '../board-members/board-members.service';
-import { BoardMemberListItemResponseDto } from '../board-members/dto/board-member-list-item.response.dto';
+import { BoardMembersPageResponseDto } from '../board-members/dto/board-members-page.response.dto';
 import { ListBoardMembersQueryDto } from '../board-members/dto/list-board-members-query.dto';
-import { BoardCreatedResponseDto } from './dto/board-created.response.dto';
 import { BoardDetailResponseDto } from './dto/board-detail.response.dto';
-import { BoardListItemResponseDto } from './dto/board-list-item.response.dto';
-import { BoardResponseDto } from './dto/board.response.dto';
+import { BoardsPageResponseDto } from './dto/boards-page.response.dto';
 import { CreateBoardDto } from './dto/create-board.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { ListBoardsQueryDto } from './dto/list-boards-query.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 import { BoardsService } from './boards.service';
@@ -56,12 +55,12 @@ export class BoardsController {
 
   @Get()
   @Permissions('boards.read')
-  @ApiOperation({ summary: 'Listar concilios de la iglesia' })
-  @ApiOkResponse({ type: BoardListItemResponseDto, isArray: true })
+  @ApiOperation({ summary: 'Listar concilios de la iglesia con paginacion' })
+  @ApiOkResponse({ type: BoardsPageResponseDto })
   findAll(
     @CurrentUser() user: JwtPayload,
     @Query() query: ListBoardsQueryDto,
-  ): Promise<BoardListItemResponseDto[]> {
+  ): Promise<BoardsPageResponseDto> {
     return this.service.findAll(user, query);
   }
 
@@ -69,20 +68,20 @@ export class BoardsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('boards.create')
   @ApiOperation({ summary: 'Crear un nuevo concilio' })
-  @ApiCreatedResponse({ type: BoardCreatedResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Ya existe un concilio activo' })
   create(
     @Body() dto: CreateBoardDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<BoardCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.create(dto, user);
   }
 
   @Patch(':id')
   @Permissions('boards.update')
   @ApiOperation({ summary: 'Actualizar datos de un concilio' })
-  @ApiOkResponse({ type: BoardResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Ya existe un concilio activo' })
   @ApiNotFoundResponse({ description: 'Concilio no encontrado' })
@@ -90,20 +89,20 @@ export class BoardsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBoardDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<BoardResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(id, dto, user);
   }
 
   @Get(':id/members')
   @Permissions('assignments.read')
-  @ApiOperation({ summary: 'Listar integrantes de un concilio' })
-  @ApiOkResponse({ type: BoardMemberListItemResponseDto, isArray: true })
+  @ApiOperation({ summary: 'Listar integrantes de un concilio con paginacion' })
+  @ApiOkResponse({ type: BoardMembersPageResponseDto })
   @ApiNotFoundResponse({ description: 'Concilio no encontrado' })
   findMembers(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Query() query: ListBoardMembersQueryDto,
-  ): Promise<BoardMemberListItemResponseDto[]> {
+  ): Promise<BoardMembersPageResponseDto> {
     return this.boardMembersService.findByBoard(user.idChurch, id, query);
   }
 

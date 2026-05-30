@@ -7,11 +7,15 @@ import {
 import { Prisma } from '@prisma/client';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { MemberRoleBelongsTo } from '../member-role-types/member-role-belongs-to.enum';
 import { CreateMemberAssignmentDto } from './dto/create-member-assignment.dto';
 import { ListMemberAssignmentsQueryDto } from './dto/list-member-assignments-query.dto';
-import { MemberAssignmentCreatedResponseDto } from './dto/member-assignment-created.response.dto';
 import { MemberAssignmentDetailResponseDto } from './dto/member-assignment-detail.response.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { MemberAssignmentListItemResponseDto } from './dto/member-assignment-list-item.response.dto';
 import { MemberAssignmentsPageResponseDto } from './dto/member-assignments-page.response.dto';
 import { UpdateMemberAssignmentDto } from './dto/update-member-assignment.dto';
@@ -76,8 +80,7 @@ export class MemberAssignmentsService {
   ): Promise<MemberAssignmentsPageResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const page = query.page ?? 1;
-    const size = query.size ?? 20;
-    const skip = (page - 1) * size;
+    const limit = query.limit ?? 20;
     const orderBy = [
       { member: { name: 'asc' as const } },
       { id: 'asc' as const },
@@ -99,16 +102,15 @@ export class MemberAssignmentsService {
           where,
           include,
           orderBy,
-          skip,
-          take: size,
+          ...buildPagination(page, limit),
         }),
       ]);
-      return {
-        data: items.map((r) => this.toListItem(r, MemberAssignmentType.Board)),
+      return toPaginated(
+        items.map((r) => this.toListItem(r, MemberAssignmentType.Board)),
         total,
         page,
-        size,
-      };
+        limit,
+      );
     }
 
     const where: Prisma.MinistryMemberWhereInput = {
@@ -123,16 +125,15 @@ export class MemberAssignmentsService {
         where,
         include,
         orderBy,
-        skip,
-        take: size,
+        ...buildPagination(page, limit),
       }),
     ]);
-    return {
-      data: items.map((r) => this.toListItem(r, MemberAssignmentType.Ministry)),
+    return toPaginated(
+      items.map((r) => this.toListItem(r, MemberAssignmentType.Ministry)),
       total,
       page,
-      size,
-    };
+      limit,
+    );
   }
 
   async findOne(
@@ -150,7 +151,7 @@ export class MemberAssignmentsService {
   async create(
     dto: CreateMemberAssignmentDto,
     user: JwtPayload,
-  ): Promise<MemberAssignmentCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const type = dto.assignment_type;
     const config = TYPE_CONFIG[type];
@@ -234,7 +235,7 @@ export class MemberAssignmentsService {
     id: number,
     dto: UpdateMemberAssignmentDto,
     user: JwtPayload,
-  ): Promise<MemberAssignmentDetailResponseDto> {
+  ): Promise<IdResponseDto> {
     if (dto.id_member_role_type === undefined && dto.end_date === undefined) {
       throw new BadRequestException('Nada para actualizar');
     }
@@ -286,7 +287,7 @@ export class MemberAssignmentsService {
       await this.prisma.ministryMember.update({ where: { id }, data });
     }
 
-    return this.findOne(id, user);
+    return { id };
   }
 
   async remove(id: number, user: JwtPayload): Promise<void> {

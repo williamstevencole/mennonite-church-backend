@@ -8,8 +8,12 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { isDuplicateEmailError } from '../../common/utils/prisma.utils';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { CreateUserDto } from './dto/create-user.dto';
-import { CreateUserResponseDto } from './dto/create-user.response.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserDetailResponseDto } from './dto/user-detail.response.dto';
@@ -46,7 +50,7 @@ export class UsersService {
 
   async findAll(query: ListUsersQueryDto): Promise<UsersPageResponseDto> {
     const page = query.page ?? 1;
-    const size = query.size ?? 20;
+    const limit = query.limit ?? 20;
     const where: Prisma.UserWhereInput = {};
 
     if (query.active !== undefined) {
@@ -74,23 +78,19 @@ export class UsersService {
           userRole: { select: { name: true } },
         },
         orderBy: [{ member: { name: 'asc' } }, { email: 'asc' }],
-        skip: (page - 1) * size,
-        take: size,
+        ...buildPagination(page, limit),
       }),
     ]);
 
-    return {
-      data: users.map((user) => this.toListItem(user)),
+    return toPaginated(
+      users.map((user) => this.toListItem(user)),
       total,
       page,
-      size,
-    };
+      limit,
+    );
   }
 
-  async create(
-    idChurch: number,
-    dto: CreateUserDto,
-  ): Promise<CreateUserResponseDto> {
+  async create(idChurch: number, dto: CreateUserDto): Promise<IdResponseDto> {
     const role = await this.prisma.userRole.findFirst({
       where: { id: dto.id_role, idChurch },
       select: { id: true, active: true },
@@ -188,7 +188,7 @@ export class UsersService {
     }
   }
 
-  async update(id: number, dto: UpdateUserDto): Promise<UserDetailResponseDto> {
+  async update(id: number, dto: UpdateUserDto): Promise<IdResponseDto> {
     const existing = await this.prisma.user.findUnique({
       where: { id },
       select: { id: true, email: true, idMember: true },
@@ -251,7 +251,7 @@ export class UsersService {
     }
 
     if (!wantsNameUpdate && Object.keys(data).length === 0) {
-      return this.findOne(id);
+      return { id };
     }
 
     const fullName = wantsNameUpdate
@@ -259,7 +259,7 @@ export class UsersService {
       : null;
 
     try {
-      const updated = await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx) => {
         if (wantsNameUpdate) {
           await tx.member.update({
             where: { id: existing.idMember },
@@ -268,20 +268,15 @@ export class UsersService {
         }
 
         if (Object.keys(data).length > 0) {
-          return tx.user.update({
+          await tx.user.update({
             where: { id },
             data,
-            include: this.detailInclude(),
+            select: { id: true },
           });
         }
-
-        return tx.user.findUniqueOrThrow({
-          where: { id },
-          include: this.detailInclude(),
-        });
       });
 
-      return this.toDetailResponse(updated);
+      return { id };
     } catch (error: unknown) {
       if (isDuplicateEmailError(error)) {
         throw new ConflictException(

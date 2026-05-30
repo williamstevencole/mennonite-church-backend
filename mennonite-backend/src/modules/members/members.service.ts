@@ -11,10 +11,14 @@ import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { MemberListItemResponseDto } from './dto/member-list-item.response.dto';
 import { MemberDetailResponseDto } from './dto/member-detail.response.dto';
-import { MemberCreatedResponseDto } from './dto/member-created.response.dto';
 import { MembersPageResponseDto } from './dto/members-page.response.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { ListMembersQueryDto } from './dto/list-members-query.dto';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { DocumentType } from './doc-type-enum';
 
 type MemberListWithRelations = Prisma.MemberGetPayload<{
@@ -34,7 +38,7 @@ export class MembersService {
   async create(
     createMemberDto: CreateMemberDto,
     user: JwtPayload,
-  ): Promise<MemberCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     const idChurch = await this.resolveChurchId(user);
 
     this.validateDocumentNumber(
@@ -82,7 +86,7 @@ export class MembersService {
   ): Promise<MembersPageResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const page = query.page ?? 1;
-    const size = query.size ?? 20;
+    const limit = query.limit ?? 20;
     const name = query.name?.trim();
     const where: Prisma.MemberWhereInput = { idChurch };
 
@@ -105,17 +109,16 @@ export class MembersService {
           },
         },
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
-        skip: (page - 1) * size,
-        take: size,
+        ...buildPagination(page, limit),
       }),
     ]);
 
-    return {
-      data: members.map((member) => this.toListItem(member)),
+    return toPaginated(
+      members.map((member) => this.toListItem(member)),
       total,
       page,
-      size,
-    };
+      limit,
+    );
   }
 
   async findOne(
@@ -234,7 +237,7 @@ export class MembersService {
     id: number,
     updateMemberDto: UpdateMemberDto,
     user: JwtPayload,
-  ): Promise<MemberDetailResponseDto> {
+  ): Promise<IdResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const existing = await this.prisma.member.findFirst({
       where: { id, idChurch },
@@ -293,7 +296,7 @@ export class MembersService {
       data,
     });
 
-    return this.findOne(id, user);
+    return { id };
   }
 
   async remove(id: number, user: JwtPayload): Promise<void> {

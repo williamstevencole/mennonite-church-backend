@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 
 const trimToUndefined = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() || undefined : value;
@@ -15,7 +16,7 @@ const toBoolean = ({ value }: { value: unknown }): unknown => {
   return value;
 };
 
-export class ListBoardMembersQueryDto {
+export class ListBoardMembersQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filtra por estado activo' })
   @IsOptional()
   @IsBoolean()

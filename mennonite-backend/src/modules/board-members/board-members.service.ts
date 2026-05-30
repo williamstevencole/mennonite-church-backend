@@ -6,10 +6,15 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { MemberRoleBelongsTo } from '../member-role-types/member-role-belongs-to.enum';
-import { BoardMemberCreatedResponseDto } from './dto/board-member-created.response.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { BoardMemberDetailResponseDto } from './dto/board-member-detail.response.dto';
 import { BoardMemberListItemResponseDto } from './dto/board-member-list-item.response.dto';
+import { BoardMembersPageResponseDto } from './dto/board-members-page.response.dto';
 import { ListBoardMembersQueryDto } from './dto/list-board-members-query.dto';
 import { BoardMemberMemberDetailResponseDto } from './dto/board-member-member-detail.response.dto';
 import { BoardMemberMemberSummaryResponseDto } from './dto/board-member-member-summary.response.dto';
@@ -62,7 +67,7 @@ export class BoardMembersService {
   async create(
     idChurch: number,
     dto: CreateBoardMemberDto,
-  ): Promise<BoardMemberCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     const [board, member, role] = await Promise.all([
       this.prisma.board.findFirst({
         where: { id: dto.id_board, idChurch },
@@ -144,7 +149,7 @@ export class BoardMembersService {
     idChurch: number,
     id: number,
     dto: UpdateBoardMemberDto,
-  ): Promise<BoardMemberDetailResponseDto> {
+  ): Promise<IdResponseDto> {
     const existing = await this.prisma.boardMember.findFirst({
       where: { id, assignmentType: 'board', board: { idChurch } },
       select: {
@@ -164,7 +169,6 @@ export class BoardMembersService {
 
     const data: Prisma.BoardMemberUpdateInput = {};
 
-    let roleName: string | null = null;
     if (dto.id_board_role_type !== undefined) {
       const role = await this.prisma.memberRoleType.findFirst({
         where: { id: dto.id_board_role_type, idChurch },
@@ -179,7 +183,6 @@ export class BoardMembersService {
         throw new BadRequestException('El rol no pertenece a concilio');
       }
 
-      roleName = role.name;
       data.memberRoleType = { connect: { id: role.id } };
 
       if (this.isUniqueRole(role.name)) {
@@ -224,22 +227,16 @@ export class BoardMembersService {
     }
 
     if (Object.keys(data).length === 0) {
-      return this.findOne(idChurch, id);
+      return { id: existing.id };
     }
 
     const updated = await this.prisma.boardMember.update({
       where: { id },
       data,
-      include: this.detailInclude(),
+      select: { id: true },
     });
 
-    const detail = this.toDetail(updated);
-
-    if (roleName) {
-      detail.role.name = roleName;
-    }
-
-    return detail;
+    return { id: updated.id };
   }
 
   async findOne(
@@ -264,7 +261,7 @@ export class BoardMembersService {
     idChurch: number,
     boardId: number,
     query: ListBoardMembersQueryDto,
-  ): Promise<BoardMemberListItemResponseDto[]> {
+  ): Promise<BoardMembersPageResponseDto> {
     const board = await this.prisma.board.findFirst({
       where: { id: boardId, idChurch },
       select: { id: true },
@@ -274,6 +271,8 @@ export class BoardMembersService {
       throw new NotFoundException(`Concilio con id ${boardId} no encontrado`);
     }
 
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
     const where: Prisma.BoardMemberWhereInput = {
       idBoard: boardId,
       assignmentType: 'board',
@@ -294,13 +293,22 @@ export class BoardMembersService {
       }
     }
 
-    const members = await this.prisma.boardMember.findMany({
-      where,
-      include: this.listInclude(),
-      orderBy: [{ member: { name: 'asc' } }, { id: 'asc' }],
-    });
+    const [total, members] = await this.prisma.$transaction([
+      this.prisma.boardMember.count({ where }),
+      this.prisma.boardMember.findMany({
+        where,
+        include: this.listInclude(),
+        orderBy: [{ member: { name: 'asc' } }, { id: 'asc' }],
+        ...buildPagination(page, limit),
+      }),
+    ]);
 
-    return members.map((item) => this.toListItem(item));
+    return toPaginated(
+      members.map((item) => this.toListItem(item)),
+      total,
+      page,
+      limit,
+    );
   }
 
   async remove(idChurch: number, id: number): Promise<void> {

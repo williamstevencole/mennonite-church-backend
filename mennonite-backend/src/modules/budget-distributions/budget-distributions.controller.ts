@@ -32,8 +32,9 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { BudgetDistributionsService } from './budget-distributions.service';
-import { BudgetDistributionCreatedResponseDto } from './dto/budget-distribution-created.response.dto';
 import { BudgetDistributionResponseDto } from './dto/budget-distribution.response.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { BudgetDistributionsPageResponseDto } from './dto/budget-distributions-page.response.dto';
 import { CreateBudgetDistributionDto } from './dto/create-budget-distribution.dto';
 import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.dto';
 import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
@@ -55,7 +56,7 @@ export class BudgetDistributionsController {
   @ApiOperation({
     summary: 'Crear una distribución de porcentaje para un ministerio',
   })
-  @ApiCreatedResponse({ type: BudgetDistributionCreatedResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o porcentaje total excede 100%',
   })
@@ -69,21 +70,22 @@ export class BudgetDistributionsController {
   create(
     @Body() dto: CreateBudgetDistributionDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<BudgetDistributionCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.budgetDistributionsService.create(dto, user);
   }
 
   @Get()
   @Permissions('budgets.read')
   @ApiOperation({
-    summary: 'Listar distribuciones de un presupuesto con monto calculado',
+    summary:
+      'Listar distribuciones de un presupuesto con monto calculado y paginacion',
   })
-  @ApiOkResponse({ type: BudgetDistributionResponseDto, isArray: true })
+  @ApiOkResponse({ type: BudgetDistributionsPageResponseDto })
   @ApiNotFoundResponse({ description: 'Presupuesto no encontrado' })
   findAll(
     @Query() query: FindBudgetDistributionsQueryDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<BudgetDistributionResponseDto[]> {
+  ): Promise<BudgetDistributionsPageResponseDto> {
     return this.budgetDistributionsService.findAll(query, user);
   }
 
@@ -102,7 +104,7 @@ export class BudgetDistributionsController {
   @Patch(':id')
   @Permissions('budgets.update')
   @ApiOperation({ summary: 'Actualizar el porcentaje de una distribución' })
-  @ApiOkResponse({ type: BudgetDistributionResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o porcentaje total excede 100%',
   })
@@ -111,7 +113,7 @@ export class BudgetDistributionsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBudgetDistributionDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<BudgetDistributionResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.budgetDistributionsService.update(id, dto, user);
   }
 
