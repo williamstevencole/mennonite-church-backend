@@ -7,14 +7,18 @@ import {
 import { Board, Prisma } from '@prisma/client';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { BoardMemberListItemResponseDto } from '../board-members/dto/board-member-list-item.response.dto';
 import { BoardMemberMemberSummaryResponseDto } from '../board-members/dto/board-member-member-summary.response.dto';
 import { BoardMemberRoleResponseDto } from '../board-members/dto/board-member-role.response.dto';
-import { BoardCreatedResponseDto } from './dto/board-created.response.dto';
 import { BoardDetailResponseDto } from './dto/board-detail.response.dto';
 import { BoardListItemResponseDto } from './dto/board-list-item.response.dto';
-import { BoardResponseDto } from './dto/board.response.dto';
+import { BoardsPageResponseDto } from './dto/boards-page.response.dto';
 import { CreateBoardDto } from './dto/create-board.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { ListBoardsQueryDto } from './dto/list-boards-query.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 
@@ -36,11 +40,6 @@ type BoardDetailRecord = Prisma.BoardGetPayload<{
   };
 }>;
 
-type BoardResponseRecord = Pick<
-  Board,
-  'id' | 'name' | 'description' | 'startDate' | 'endDate' | 'active'
->;
-
 @Injectable()
 export class BoardsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -48,26 +47,34 @@ export class BoardsService {
   async findAll(
     user: JwtPayload,
     query: ListBoardsQueryDto,
-  ): Promise<BoardListItemResponseDto[]> {
+  ): Promise<BoardsPageResponseDto> {
     const idChurch = await this.resolveChurchId(user);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
     const where: Prisma.BoardWhereInput = { idChurch };
 
     if (query.active !== undefined) {
       where.active = query.active;
     }
 
-    const boards = await this.prisma.board.findMany({
-      where,
-      orderBy: [{ startDate: 'desc' }, { id: 'asc' }],
-    });
+    const [total, boards] = await this.prisma.$transaction([
+      this.prisma.board.count({ where }),
+      this.prisma.board.findMany({
+        where,
+        orderBy: [{ startDate: 'desc' }, { id: 'asc' }],
+        ...buildPagination(page, limit),
+      }),
+    ]);
 
-    return boards.map((board) => this.toListItem(board));
+    return toPaginated(
+      boards.map((board) => this.toListItem(board)),
+      total,
+      page,
+      limit,
+    );
   }
 
-  async create(
-    dto: CreateBoardDto,
-    user: JwtPayload,
-  ): Promise<BoardCreatedResponseDto> {
+  async create(dto: CreateBoardDto, user: JwtPayload): Promise<IdResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const active = dto.active ?? true;
     const startDate = new Date(dto.start_date);
@@ -126,7 +133,7 @@ export class BoardsService {
     id: number,
     dto: UpdateBoardDto,
     user: JwtPayload,
-  ): Promise<BoardResponseDto> {
+  ): Promise<IdResponseDto> {
     const idChurch = await this.resolveChurchId(user);
     const existing = await this.prisma.board.findFirst({
       where: { id, idChurch },
@@ -184,15 +191,16 @@ export class BoardsService {
     }
 
     if (Object.keys(data).length === 0) {
-      return this.toResponse(existing);
+      return { id: existing.id };
     }
 
     const updated = await this.prisma.board.update({
       where: { id },
       data,
+      select: { id: true },
     });
 
-    return this.toResponse(updated);
+    return { id: updated.id };
   }
 
   async remove(id: number, user: JwtPayload): Promise<void> {
@@ -270,17 +278,6 @@ export class BoardsService {
       members: entity.boardMembers.map((member) =>
         this.toBoardMemberListItem(member),
       ),
-    };
-  }
-
-  private toResponse(entity: BoardResponseRecord): BoardResponseDto {
-    return {
-      id: entity.id,
-      name: entity.name,
-      description: entity.description ?? null,
-      startDate: entity.startDate,
-      endDate: entity.endDate,
-      active: entity.active,
     };
   }
 

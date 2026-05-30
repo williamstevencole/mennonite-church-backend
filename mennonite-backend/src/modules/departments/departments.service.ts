@@ -8,17 +8,19 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { DepartmentResponseDto } from './dto/department.response.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @Injectable()
 export class DepartmentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateDepartmentDto): Promise<DepartmentResponseDto> {
+  async create(dto: CreateDepartmentDto): Promise<IdResponseDto> {
     await this.assertUniqueName(dto.name);
     const created = await this.prisma.department.create({
       data: { name: dto.name },
+      select: { id: true },
     });
-    return this.toResponse(created);
+    return { id: created.id };
   }
 
   async findAll(): Promise<DepartmentResponseDto[]> {
@@ -36,10 +38,7 @@ export class DepartmentsService {
     return this.toResponse(item);
   }
 
-  async update(
-    id: number,
-    dto: UpdateDepartmentDto,
-  ): Promise<DepartmentResponseDto> {
+  async update(id: number, dto: UpdateDepartmentDto): Promise<IdResponseDto> {
     await this.assertExists(id);
     if (dto.name) {
       await this.assertUniqueName(dto.name, id);
@@ -47,8 +46,9 @@ export class DepartmentsService {
     const updated = await this.prisma.department.update({
       where: { id },
       data: { name: dto.name },
+      select: { id: true },
     });
-    return this.toResponse(updated);
+    return { id: updated.id };
   }
 
   async remove(id: number): Promise<void> {

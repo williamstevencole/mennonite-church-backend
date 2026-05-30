@@ -10,6 +10,7 @@ import { ListTransactionCategoriesQueryDto } from './dto/list-transaction-catego
 import { TransactionCategoryResponseDto } from './dto/transaction-category.response.dto';
 import { UpdateTransactionCategoryDto } from './dto/update-transaction-category.dto';
 import { TransactionCategoryType } from './transaction-category-type.enum';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @Injectable()
 export class TransactionCategoriesService {
@@ -18,14 +19,15 @@ export class TransactionCategoriesService {
   async create(
     idChurch: number,
     dto: CreateTransactionCategoryDto,
-  ): Promise<TransactionCategoryResponseDto> {
+  ): Promise<IdResponseDto> {
     await this.assertUnique(idChurch, dto.name, dto.type);
 
     const created = await this.prisma.transactionCategory.create({
       data: { idChurch, name: dto.name, type: dto.type },
+      select: { id: true },
     });
 
-    return this.toResponse(created);
+    return { id: created.id };
   }
 
   async findAll(
@@ -65,7 +67,7 @@ export class TransactionCategoriesService {
     idChurch: number,
     id: number,
     dto: UpdateTransactionCategoryDto,
-  ): Promise<TransactionCategoryResponseDto> {
+  ): Promise<IdResponseDto> {
     const current = await this.prisma.transactionCategory.findFirst({
       where: { id, idChurch },
     });
@@ -84,9 +86,10 @@ export class TransactionCategoriesService {
     const updated = await this.prisma.transactionCategory.update({
       where: { id },
       data: { name: dto.name, type: dto.type },
+      select: { id: true },
     });
 
-    return this.toResponse(updated);
+    return { id: updated.id };
   }
 
   async remove(idChurch: number, id: number): Promise<void> {

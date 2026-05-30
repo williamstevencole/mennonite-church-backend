@@ -8,6 +8,7 @@ import {
   IsString,
   Min,
 } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 import { MemberAssignmentType } from '../member-assignment-type.enum';
 
 const trimToUndefined = ({ value }: { value: unknown }): unknown =>
@@ -23,21 +24,7 @@ const toBoolean = ({ value }: { value: unknown }): unknown => {
   return value;
 };
 
-export class ListMemberAssignmentsQueryDto {
-  @ApiPropertyOptional({ example: 1, default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @ApiPropertyOptional({ example: 20, default: 20 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  size?: number;
-
+export class ListMemberAssignmentsQueryDto extends PaginationQueryDto {
   @ApiProperty({
     enum: MemberAssignmentType,
     description: 'Tipo de asignacion (board | ministry). Requerido.',

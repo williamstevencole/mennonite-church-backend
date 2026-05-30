@@ -34,12 +34,10 @@ import { CreateMinistryMemberDto } from './dto/create-ministry-member.dto';
 import { CreateMinistryDto } from './dto/create-ministry.dto';
 import { ListMinistriesQueryDto } from './dto/list-ministries-query.dto';
 import { MinistriesPageResponseDto } from './dto/ministries-page.response.dto';
-import { MinistryCreatedResponseDto } from './dto/ministry-created.response.dto';
 import { MinistryDetailResponseDto } from './dto/ministry-detail.response.dto';
-import { MinistryMemberCreatedResponseDto } from './dto/ministry-member-created.response.dto';
-import { MinistryResponseDto } from './dto/ministry.response.dto';
 import { UpdateMinistryDto } from './dto/update-ministry.dto';
 import { MinistriesService } from './ministries.service';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Ministries')
 @ApiBearerAuth('JWT-auth')
@@ -64,7 +62,7 @@ export class MinistriesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('ministries.create')
   @ApiOperation({ summary: 'Crear un ministerio en la iglesia del usuario' })
-  @ApiCreatedResponse({ type: MinistryCreatedResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o lider inexistente',
   })
@@ -72,7 +70,7 @@ export class MinistriesController {
   create(
     @Body() dto: CreateMinistryDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<MinistryCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.ministriesService.create(dto, user);
   }
 
@@ -80,21 +78,21 @@ export class MinistriesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('assignments.create')
   @ApiOperation({ summary: 'Asignar un miembro a un ministerio' })
-  @ApiCreatedResponse({ type: MinistryMemberCreatedResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
   @ApiConflictResponse({ description: 'Miembro ya asignado al ministerio' })
   addMember(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreateMinistryMemberDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<MinistryMemberCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.ministriesService.addMember(id, dto, user);
   }
 
   @Patch(':id')
   @Permissions('ministries.update')
   @ApiOperation({ summary: 'Actualizar datos de un ministerio' })
-  @ApiOkResponse({ type: MinistryResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o lider inexistente',
   })
@@ -103,7 +101,7 @@ export class MinistriesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMinistryDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<MinistryResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.ministriesService.update(id, dto, user);
   }
 

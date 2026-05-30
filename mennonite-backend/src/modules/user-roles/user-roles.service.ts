@@ -5,12 +5,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { CreateUserRoleDto } from './dto/create-user-role.dto';
 import { ListUserRolesQueryDto } from './dto/list-user-roles-query.dto';
 import { UserRoleResponseDto } from './dto/user-role.response.dto';
 import { UserRolesPageResponseDto } from './dto/user-roles-page.response.dto';
 import { SetUserRolePermissionsDto } from './dto/set-user-role-permissions.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 type UserRoleWithPermissions = {
   id: number;
@@ -27,7 +32,7 @@ export class UserRolesService {
   async create(
     idChurch: number,
     dto: CreateUserRoleDto,
-  ): Promise<UserRoleResponseDto> {
+  ): Promise<IdResponseDto> {
     await this.assertUniqueName(idChurch, dto.name);
     if (dto.permissionIds?.length) {
       await this.assertPermissionsExist(dto.permissionIds);
@@ -46,10 +51,10 @@ export class UserRolesService {
             }
           : undefined,
       },
-      ...this.includePermissions(),
+      select: { id: true },
     });
 
-    return this.toResponse(created);
+    return { id: created.id };
   }
 
   async findAll(
@@ -57,7 +62,7 @@ export class UserRolesService {
     query: ListUserRolesQueryDto,
   ): Promise<UserRolesPageResponseDto> {
     const page = query.page ?? 1;
-    const size = query.size ?? 20;
+    const limit = query.limit ?? 20;
     const where = { idChurch, active: true };
 
     const [total, items] = await this.prisma.$transaction([
@@ -65,18 +70,17 @@ export class UserRolesService {
       this.prisma.userRole.findMany({
         where,
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
-        skip: (page - 1) * size,
-        take: size,
+        ...buildPagination(page, limit),
         ...this.includePermissions(),
       }),
     ]);
 
-    return {
-      data: items.map((item) => this.toResponse(item)),
+    return toPaginated(
+      items.map((item) => this.toResponse(item)),
       total,
       page,
-      size,
-    };
+      limit,
+    );
   }
 
   async findOne(idChurch: number, id: number): Promise<UserRoleResponseDto> {
@@ -94,7 +98,7 @@ export class UserRolesService {
     idChurch: number,
     id: number,
     dto: UpdateUserRoleDto,
-  ): Promise<UserRoleResponseDto> {
+  ): Promise<IdResponseDto> {
     await this.assertExists(idChurch, id);
     if (dto.name) {
       await this.assertUniqueName(idChurch, dto.name, id);
@@ -103,7 +107,7 @@ export class UserRolesService {
       await this.assertPermissionsExist(dto.permissionIds);
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       await tx.userRole.update({
         where: { id },
         data: { name: dto.name, description: dto.description },
@@ -120,14 +124,9 @@ export class UserRolesService {
           });
         }
       }
-
-      return tx.userRole.findUniqueOrThrow({
-        where: { id },
-        ...this.includePermissions(),
-      });
     });
 
-    return this.toResponse(updated);
+    return { id };
   }
 
   async setPermissions(

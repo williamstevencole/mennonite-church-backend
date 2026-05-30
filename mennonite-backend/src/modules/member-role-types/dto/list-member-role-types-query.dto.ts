@@ -1,23 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { IsEnum, IsOptional } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 import { MemberRoleBelongsTo } from '../member-role-belongs-to.enum';
 
-export class ListMemberRoleTypesQueryDto {
-  @ApiPropertyOptional({ example: 1, default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @ApiPropertyOptional({ example: 20, default: 20 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  size?: number;
-
+export class ListMemberRoleTypesQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     enum: MemberRoleBelongsTo,
     description: 'Filtra por ambito del cargo (Council o Ministry)',

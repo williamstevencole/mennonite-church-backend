@@ -33,6 +33,7 @@ import { CreateEventTypeDto } from './dto/create-event-type.dto';
 import { EventTypeResponseDto } from './dto/event-type.response.dto';
 import { UpdateEventTypeDto } from './dto/update-event-type.dto';
 import { EventTypesService } from './event-types.service';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Event Types')
 @ApiBearerAuth('JWT-auth')
@@ -47,13 +48,13 @@ export class EventTypesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('catalog.event-types.manage')
   @ApiOperation({ summary: 'Crear un nuevo tipo de evento' })
-  @ApiCreatedResponse({ type: EventTypeResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Nombre duplicado' })
   create(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateEventTypeDto,
-  ): Promise<EventTypeResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.create(user.idChurch, dto);
   }
 
@@ -78,7 +79,7 @@ export class EventTypesController {
 
   @Patch(':id')
   @Permissions('catalog.event-types.manage')
-  @ApiOkResponse({ type: EventTypeResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Nombre duplicado' })
   @ApiNotFoundResponse({ description: 'Tipo de evento no encontrado' })
@@ -86,7 +87,7 @@ export class EventTypesController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEventTypeDto,
-  ): Promise<EventTypeResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(user.idChurch, id, dto);
   }
 

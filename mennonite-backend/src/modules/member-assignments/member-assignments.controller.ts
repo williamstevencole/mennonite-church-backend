@@ -32,11 +32,11 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreateMemberAssignmentDto } from './dto/create-member-assignment.dto';
 import { ListMemberAssignmentsQueryDto } from './dto/list-member-assignments-query.dto';
-import { MemberAssignmentCreatedResponseDto } from './dto/member-assignment-created.response.dto';
 import { MemberAssignmentDetailResponseDto } from './dto/member-assignment-detail.response.dto';
 import { MemberAssignmentsPageResponseDto } from './dto/member-assignments-page.response.dto';
 import { UpdateMemberAssignmentDto } from './dto/update-member-assignment.dto';
 import { MemberAssignmentsService } from './member-assignments.service';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Member Assignments')
 @ApiBearerAuth('JWT-auth')
@@ -64,13 +64,13 @@ export class MemberAssignmentsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('assignments.create')
   @ApiOperation({ summary: 'Asignar un miembro a un ministerio o concilio' })
-  @ApiCreatedResponse({ type: MemberAssignmentCreatedResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
   @ApiConflictResponse({ description: 'Miembro ya asignado al destino' })
   create(
     @Body() dto: CreateMemberAssignmentDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<MemberAssignmentCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.create(dto, user);
   }
 
@@ -92,14 +92,14 @@ export class MemberAssignmentsController {
     summary:
       'Actualizar rol y/o cerrar una asignacion (end_date establece active=false)',
   })
-  @ApiOkResponse({ type: MemberAssignmentDetailResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiNotFoundResponse({ description: 'Asignacion no encontrada' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMemberAssignmentDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<MemberAssignmentDetailResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(id, dto, user);
   }
 

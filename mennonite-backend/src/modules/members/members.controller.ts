@@ -33,8 +33,8 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { MembersService } from './members.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
-import { MemberCreatedResponseDto } from './dto/member-created.response.dto';
 import { MemberDetailResponseDto } from './dto/member-detail.response.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { MembersPageResponseDto } from './dto/members-page.response.dto';
 import { ListMembersQueryDto } from './dto/list-members-query.dto';
 
@@ -62,27 +62,27 @@ export class MembersController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('members.create')
   @ApiOperation({ summary: 'Crear un miembro en la iglesia del usuario' })
-  @ApiCreatedResponse({ type: MemberCreatedResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Formato o payload invalido' })
   @ApiConflictResponse({ description: 'Miembro duplicado' })
   create(
     @Body() createMemberDto: CreateMemberDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<MemberCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.membersService.create(createMemberDto, user);
   }
 
   @Patch(':id')
   @Permissions('members.update')
   @ApiOperation({ summary: 'Actualizar un miembro' })
-  @ApiOkResponse({ type: MemberDetailResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiNotFoundResponse({ description: 'Miembro no encontrado' })
   @ApiConflictResponse({ description: 'Miembro duplicado' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateMemberDto: UpdateMemberDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<MemberDetailResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.membersService.update(id, updateMemberDto, user);
   }
 

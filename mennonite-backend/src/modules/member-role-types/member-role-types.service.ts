@@ -5,12 +5,17 @@ import {
 } from '@nestjs/common';
 import { MemberRoleType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { MemberRoleBelongsTo } from './member-role-belongs-to.enum';
 import { CreateMemberRoleTypeDto } from './dto/create-member-role-type.dto';
 import { ListMemberRoleTypesQueryDto } from './dto/list-member-role-types-query.dto';
 import { MemberRoleTypeResponseDto } from './dto/member-role-type.response.dto';
 import { MemberRoleTypesPageResponseDto } from './dto/member-role-types-page.response.dto';
 import { UpdateMemberRoleTypeDto } from './dto/update-member-role-type.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @Injectable()
 export class MemberRoleTypesService {
@@ -19,7 +24,7 @@ export class MemberRoleTypesService {
   async create(
     idChurch: number,
     dto: CreateMemberRoleTypeDto,
-  ): Promise<MemberRoleTypeResponseDto> {
+  ): Promise<IdResponseDto> {
     const existing = await this.prisma.memberRoleType.findFirst({
       where: { idChurch, name: dto.name, belongsTo: dto.belongsTo ?? null },
       select: { id: true },
@@ -37,9 +42,10 @@ export class MemberRoleTypesService {
         name: dto.name,
         belongsTo: dto.belongsTo,
       },
+      select: { id: true },
     });
 
-    return this.toResponse(created);
+    return { id: created.id };
   }
 
   async findAll(
@@ -47,7 +53,7 @@ export class MemberRoleTypesService {
     query: ListMemberRoleTypesQueryDto,
   ): Promise<MemberRoleTypesPageResponseDto> {
     const page = query.page ?? 1;
-    const size = query.size ?? 20;
+    const limit = query.limit ?? 20;
     const where: Prisma.MemberRoleTypeWhereInput = { idChurch, active: true };
     if (query.belongsTo) {
       where.belongsTo = query.belongsTo;
@@ -58,17 +64,16 @@ export class MemberRoleTypesService {
       this.prisma.memberRoleType.findMany({
         where,
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
-        skip: (page - 1) * size,
-        take: size,
+        ...buildPagination(page, limit),
       }),
     ]);
 
-    return {
-      data: items.map((item) => this.toResponse(item)),
+    return toPaginated(
+      items.map((item) => this.toResponse(item)),
       total,
       page,
-      size,
-    };
+      limit,
+    );
   }
 
   async findOne(
@@ -90,7 +95,7 @@ export class MemberRoleTypesService {
     idChurch: number,
     id: number,
     dto: UpdateMemberRoleTypeDto,
-  ): Promise<MemberRoleTypeResponseDto> {
+  ): Promise<IdResponseDto> {
     await this.assertExists(idChurch, id);
 
     if (dto.name) {
@@ -117,9 +122,10 @@ export class MemberRoleTypesService {
         name: dto.name,
         belongsTo: dto.belongsTo,
       },
+      select: { id: true },
     });
 
-    return this.toResponse(updated);
+    return { id: updated.id };
   }
 
   async remove(

@@ -10,19 +10,21 @@ import { CityResponseDto } from './dto/city.response.dto';
 import { CreateCityDto } from './dto/create-city.dto';
 import { ListCitiesQueryDto } from './dto/list-cities-query.dto';
 import { UpdateCityDto } from './dto/update-city.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @Injectable()
 export class CitiesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateCityDto): Promise<CityResponseDto> {
+  async create(dto: CreateCityDto): Promise<IdResponseDto> {
     await this.assertDepartment(dto.idDepartment);
     await this.assertUnique(dto.name, dto.idDepartment);
 
     const created = await this.prisma.city.create({
       data: { name: dto.name, idDepartment: dto.idDepartment },
+      select: { id: true },
     });
-    return this.toResponse(created);
+    return { id: created.id };
   }
 
   async findAll(query: ListCitiesQueryDto): Promise<CityResponseDto[]> {
@@ -45,7 +47,7 @@ export class CitiesService {
     return this.toResponse(item);
   }
 
-  async update(id: number, dto: UpdateCityDto): Promise<CityResponseDto> {
+  async update(id: number, dto: UpdateCityDto): Promise<IdResponseDto> {
     const current = await this.prisma.city.findUnique({ where: { id } });
     if (!current) {
       throw new NotFoundException(`Ciudad ${id} no encontrada`);
@@ -63,8 +65,9 @@ export class CitiesService {
     const updated = await this.prisma.city.update({
       where: { id },
       data: { name: dto.name, idDepartment: dto.idDepartment },
+      select: { id: true },
     });
-    return this.toResponse(updated);
+    return { id: updated.id };
   }
 
   async remove(id: number): Promise<void> {
