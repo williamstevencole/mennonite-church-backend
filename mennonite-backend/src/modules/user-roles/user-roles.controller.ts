@@ -26,6 +26,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -55,8 +57,11 @@ export class UserRolesController {
     description: 'Payload invalido o permisos inexistentes',
   })
   @ApiConflictResponse({ description: 'Nombre duplicado' })
-  create(@Body() dto: CreateUserRoleDto): Promise<UserRoleResponseDto> {
-    return this.service.create(dto);
+  create(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateUserRoleDto,
+  ): Promise<UserRoleResponseDto> {
+    return this.service.create(user.idChurch, dto);
   }
 
   @Get()
@@ -64,9 +69,10 @@ export class UserRolesController {
   @ApiOperation({ summary: 'Listar roles con paginacion' })
   @ApiOkResponse({ type: UserRolesPageResponseDto })
   findAll(
+    @CurrentUser() user: JwtPayload,
     @Query() query: ListUserRolesQueryDto,
   ): Promise<UserRolesPageResponseDto> {
-    return this.service.findAll(query);
+    return this.service.findAll(user.idChurch, query);
   }
 
   @Get(':id')
@@ -74,8 +80,11 @@ export class UserRolesController {
   @ApiOperation({ summary: 'Obtener un rol por id' })
   @ApiOkResponse({ type: UserRoleResponseDto })
   @ApiNotFoundResponse({ description: 'Rol no encontrado' })
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<UserRoleResponseDto> {
-    return this.service.findOne(id);
+  findOne(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<UserRoleResponseDto> {
+    return this.service.findOne(user.idChurch, id);
   }
 
   @Patch(':id')
@@ -88,10 +97,11 @@ export class UserRolesController {
   @ApiConflictResponse({ description: 'Nombre duplicado' })
   @ApiNotFoundResponse({ description: 'Rol no encontrado' })
   update(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserRoleDto,
   ): Promise<UserRoleResponseDto> {
-    return this.service.update(id, dto);
+    return this.service.update(user.idChurch, id, dto);
   }
 
   @Put(':id/permissions')
@@ -103,10 +113,11 @@ export class UserRolesController {
   @ApiBadRequestResponse({ description: 'Permisos inexistentes' })
   @ApiNotFoundResponse({ description: 'Rol no encontrado' })
   setPermissions(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: SetUserRolePermissionsDto,
   ): Promise<UserRoleResponseDto> {
-    return this.service.setPermissions(id, dto);
+    return this.service.setPermissions(user.idChurch, id, dto);
   }
 
   @Delete(':id')
@@ -116,7 +127,10 @@ export class UserRolesController {
   @ApiNoContentResponse({ description: 'Rol dado de baja' })
   @ApiConflictResponse({ description: 'Hay usuarios con este rol' })
   @ApiNotFoundResponse({ description: 'Rol no encontrado' })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    return this.service.remove(id);
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<void> {
+    return this.service.remove(user.idChurch, id);
   }
 }

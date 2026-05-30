@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Ministry, Prisma } from '@prisma/client';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MemberRoleBelongsTo } from '../member-role-types/member-role-belongs-to.enum';
 import { CreateMinistryMemberDto } from './dto/create-ministry-member.dto';

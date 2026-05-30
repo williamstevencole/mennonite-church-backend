@@ -11,13 +11,16 @@ const EVENT_TYPES = [
   { name: 'Venta Pro Fondos', eventCategory: 'fundraising' },
 ] as const;
 
-export async function seedEventTypes(prisma: PrismaClient): Promise<void> {
+export async function seedEventTypes(
+  prisma: PrismaClient,
+  idChurch: number,
+): Promise<void> {
   await Promise.all(
     EVENT_TYPES.map(({ name, eventCategory }) =>
       prisma.eventType.upsert({
-        where: { name },
+        where: { idChurch_name: { idChurch, name } },
         update: { eventCategory },
-        create: { name, eventCategory },
+        create: { idChurch, name, eventCategory },
       }),
     ),
   );

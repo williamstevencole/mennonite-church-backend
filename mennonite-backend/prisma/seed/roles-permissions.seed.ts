@@ -261,19 +261,23 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
 };
 
-export async function seedRolesAndPermissions(prisma: PrismaClient): Promise<{
+export async function seedRolesAndPermissions(
+  prisma: PrismaClient,
+  idChurch: number,
+): Promise<{
   rolesByName: Map<string, UserRole>;
   permissionsByCode: Map<string, Permission>;
 }> {
   const roles = await Promise.all(
     BASIC_ROLES.map(({ name, description }) =>
       prisma.userRole.upsert({
-        where: { name },
+        where: { idChurch_name: { idChurch, name } },
         update: {
           description,
           active: true,
         },
         create: {
+          idChurch,
           name,
           description,
           active: true,

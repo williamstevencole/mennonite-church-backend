@@ -7,7 +7,7 @@ import {
 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import {
   CreateInventoryMovementDto,
   InventoryMovementType,

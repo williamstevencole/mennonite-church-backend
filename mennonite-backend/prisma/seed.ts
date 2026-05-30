@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { createClient } from '@supabase/supabase-js';
 import {
   seedAdminUser,
   seedMemberUsers,
@@ -28,7 +29,25 @@ import { seedTransactionCategories } from './seed/transaction-categories.seed';
 
 const prisma = new PrismaClient();
 
+function createSupabaseAdmin() {
+  const url = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !serviceRoleKey) {
+    throw new Error(
+      'SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY son requeridos para el seed.\n' +
+        'Agrega SUPABASE_SERVICE_ROLE_KEY en tu .env (Supabase Dashboard > Settings > API > service_role).',
+    );
+  }
+
+  return createClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 async function main(): Promise<void> {
+  const supabase = createSupabaseAdmin();
+
   // 1. Geografia
   const departmentsByName = await seedDepartments(prisma);
   const citiesByName = await seedCities(prisma, departmentsByName);
@@ -37,12 +56,12 @@ async function main(): Promise<void> {
   const church = await seedChurch(prisma, citiesByName);
 
   // 3. Catalogos base
-  await seedTransactionCategories(prisma);
-  await seedMemberRoleTypes(prisma);
-  await seedEventTypes(prisma);
+  await seedTransactionCategories(prisma, church.id);
+  await seedMemberRoleTypes(prisma, church.id);
+  await seedEventTypes(prisma, church.id);
 
   // 4. Roles + permisos
-  const { rolesByName } = await seedRolesAndPermissions(prisma);
+  const { rolesByName } = await seedRolesAndPermissions(prisma, church.id);
   const adminRole = rolesByName.get('Administrador');
   if (!adminRole) {
     throw new Error('No se encontro el rol Administrador durante el seed.');
@@ -54,12 +73,18 @@ async function main(): Promise<void> {
   const board = await seedBoards(prisma, church.id);
 
   // 6. Usuarios (admin + usuarios ligados a miembros)
-  const adminUser = await seedAdminUser(prisma, adminRole.id, church.id);
-  const memberUsers = await seedMemberUsers(
+  const adminUser = await seedAdminUser(
+    prisma,
+    adminRole.id,
+    church.id,
+    supabase,
+  );
+  await seedMemberUsers(
     prisma,
     church.id,
     membersByName,
     rolesByName,
+    supabase,
   );
 
   // 7. Eventos
@@ -128,9 +153,10 @@ async function main(): Promise<void> {
   console.log(
     `Inventario: articulos=${inventory.articles}, movimientos=${inventory.movements}`,
   );
-  console.log(`Admin user: ${ADMIN_SEED_CREDENTIALS.email}`);
-  console.log(`Admin password: ${ADMIN_SEED_CREDENTIALS.password}`);
-  console.log(`Usuarios ligados a miembros: ${memberUsers.length}`);
+  console.log(`\nUsuarios creados en Supabase Auth:`);
+  console.log(
+    `  Admin: ${ADMIN_SEED_CREDENTIALS.email} / ${ADMIN_SEED_CREDENTIALS.password}`,
+  );
   for (const cred of MEMBER_USER_SEED_CREDENTIALS) {
     console.log(`  - ${cred.email} / ${cred.password}`);
   }
