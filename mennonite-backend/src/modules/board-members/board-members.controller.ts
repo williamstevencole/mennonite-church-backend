@@ -24,6 +24,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -50,9 +52,10 @@ export class BoardMembersController {
   @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
   @ApiConflictResponse({ description: 'Rol unico duplicado en el concilio' })
   create(
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateBoardMemberDto,
   ): Promise<BoardMemberCreatedResponseDto> {
-    return this.service.create(dto);
+    return this.service.create(user.idChurch, dto);
   }
 
   @Patch(':id')
@@ -63,10 +66,11 @@ export class BoardMembersController {
   @ApiConflictResponse({ description: 'Rol unico duplicado en el concilio' })
   @ApiNotFoundResponse({ description: 'Integrante de concilio no encontrado' })
   update(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBoardMemberDto,
   ): Promise<BoardMemberDetailResponseDto> {
-    return this.service.update(id, dto);
+    return this.service.update(user.idChurch, id, dto);
   }
 
   @Delete(':id')
@@ -77,8 +81,11 @@ export class BoardMembersController {
   @ApiNotFoundResponse({
     description: 'Integrante de concilio no encontrado',
   })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    return this.service.remove(id);
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<void> {
+    return this.service.remove(user.idChurch, id);
   }
 
   @Get(':id')
@@ -89,8 +96,9 @@ export class BoardMembersController {
     description: 'Integrante de concilio no encontrado',
   })
   findOne(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<BoardMemberDetailResponseDto> {
-    return this.service.findOne(id);
+    return this.service.findOne(user.idChurch, id);
   }
 }

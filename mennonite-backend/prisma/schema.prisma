@@ -5,8 +5,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model AuditLog {
@@ -74,57 +75,72 @@ model Church {
   financialReports     FinancialReport[]
   periodClosures       PeriodClosure[]
   budgets              Budget[]
+  eventTypes            EventType[]
+  memberRoleTypes       MemberRoleType[]
+  transactionCategories TransactionCategory[]
+  userRoles             UserRole[]
 
   @@map("church")
 }
 
 model EventType {
   id            Int     @id @default(autoincrement())
-  name          String  @unique @db.VarChar(80) // Culto, Escuela Dominical, Retiro, Viaje, etc.
+  idChurch      Int     @map("id_church")
+  name          String  @db.VarChar(80) // Culto, Escuela Dominical, Retiro, Viaje, etc.
   eventCategory String? @map("event_category") @db.VarChar(50) // CHECK ('calendar_event','trip','fundraising')
 
+  church Church  @relation(fields: [idChurch], references: [id])
   events Event[]
 
+  @@unique([idChurch, name])
   @@map("event_type")
 }
 
 model TransactionCategory {
-  id     Int     @id @default(autoincrement())
-  name   String  @db.VarChar(80)
-  type   String  @db.VarChar(10) // CHECK ('income','expense')
-  active Boolean @default(true) // Soft-delete
+  id       Int     @id @default(autoincrement())
+  idChurch Int     @map("id_church")
+  name     String  @db.VarChar(80)
+  type     String  @db.VarChar(10) // CHECK ('income','expense')
+  active   Boolean @default(true) // Soft-delete
 
+  church                Church                 @relation(fields: [idChurch], references: [id])
   financialTransactions FinancialTransaction[]
   budgetCategories      BudgetCategory[]
 
-  @@unique([name, type])
+  @@unique([idChurch, name, type])
   @@map("transaction_category")
 }
 
 model MemberRoleType {
   id        Int     @id @default(autoincrement())
+  idChurch  Int     @map("id_church")
   name      String  @db.VarChar(80)
   belongsTo String? @map("belongs_to") @db.VarChar(30) // CHECK ('Council','Ministry')
   active    Boolean @default(true) // Soft-delete
 
+  church          Church           @relation(fields: [idChurch], references: [id])
   boardMembers    BoardMember[]
   ministryMembers MinistryMember[]
 
+  @@unique([idChurch, name, belongsTo])
   @@map("member_role_type")
 }
 
 model UserRole {
   id          Int       @id @default(autoincrement())
-  name        String    @unique @db.VarChar(80)
+  idChurch    Int       @map("id_church")
+  name        String    @db.VarChar(80)
   description String?
   active      Boolean   @default(true) // Soft-delete
   createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy   Int?      @map("created_by")
 
+  church          Church           @relation(fields: [idChurch], references: [id])
   createdByUser   User?            @relation("UserRoleCreatedBy", fields: [createdBy], references: [id])
   users           User[]
   rolePermissions RolePermission[]
 
+  @@unique([idChurch, name])
   @@map("user_role")
 }
 
@@ -153,16 +169,16 @@ model RolePermission {
 
 model User {
   id           Int       @id @default(autoincrement())
-  idChurch     Int?      @map("id_church")
-  idMember     Int?      @unique @map("id_member")
+  idChurch     Int       @map("id_church")
+  idMember     Int       @unique @map("id_member")
+  supabaseUid  String?   @unique @map("supabase_uid") @db.Uuid
   email        String    @unique @db.VarChar(100)
-  passwordHash String    @map("password_hash") @db.VarChar(255)
   active       Boolean   @default(true) // Soft-delete
   idUserRole   Int?      @map("id_user_role")
   createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy    Int?      @map("created_by")
 
-  church        Church?  @relation("UserChurch", fields: [idChurch], references: [id])
+  church        Church   @relation("UserChurch", fields: [idChurch], references: [id])
   member        Member?  @relation("UserMember", fields: [idMember], references: [id])
   userRole      UserRole? @relation(fields: [idUserRole], references: [id])
   createdByUser User?    @relation("UserCreatedBy", fields: [createdBy], references: [id])

@@ -21,6 +21,7 @@ const EXPENSE_CATEGORIES = [
 
 export async function seedTransactionCategories(
   prisma: PrismaClient,
+  idChurch: number,
 ): Promise<void> {
   const incomeRows = INCOME_CATEGORIES.map((name) => ({
     name,
@@ -36,7 +37,8 @@ export async function seedTransactionCategories(
     categories.map(({ name, type }) =>
       prisma.transactionCategory.upsert({
         where: {
-          name_type: {
+          idChurch_name_type: {
+            idChurch,
             name,
             type,
           },
@@ -45,6 +47,7 @@ export async function seedTransactionCategories(
           active: true,
         },
         create: {
+          idChurch,
           name,
           type,
           active: true,

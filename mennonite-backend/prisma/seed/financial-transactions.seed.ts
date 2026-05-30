@@ -90,7 +90,11 @@ export async function seedFinancialTransactions(
   for (const data of DEMO_TRANSACTIONS) {
     const category = await prisma.transactionCategory.findUnique({
       where: {
-        name_type: { name: data.categoryName, type: data.categoryType },
+        idChurch_name_type: {
+          idChurch,
+          name: data.categoryName,
+          type: data.categoryType,
+        },
       },
     });
     if (!category) {
