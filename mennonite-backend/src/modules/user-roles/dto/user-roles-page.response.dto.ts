@@ -1,10 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 import { UserRoleResponseDto } from './user-role.response.dto';
 
-export class UserRolesPageResponseDto {
+export class UserRolesPageResponseDto extends PaginatedResponseDto<UserRoleResponseDto> {
   @ApiProperty({ type: [UserRoleResponseDto] })
-  data!: UserRoleResponseDto[];
-  @ApiProperty() total!: number;
-  @ApiProperty() page!: number;
-  @ApiProperty() size!: number;
+  declare data: UserRoleResponseDto[];
 }

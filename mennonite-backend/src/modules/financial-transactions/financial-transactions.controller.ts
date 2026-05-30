@@ -29,13 +29,14 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CreateFinancialTransactionDto } from './dto/create-financial-transaction.dto';
 import { FinancialTransactionResponseDto } from './dto/financial-transaction.response.dto';
 import { FinancialTransactionsPageResponseDto } from './dto/financial-transactions-page.response.dto';
 import { ListFinancialTransactionsQueryDto } from './dto/list-financial-transactions-query.dto';
 import { UpdateFinancialTransactionDto } from './dto/update-financial-transaction.dto';
 import { FinancialTransactionsService } from './financial-transactions.service';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Financial Transactions')
 @ApiBearerAuth('JWT-auth')
@@ -50,7 +51,7 @@ export class FinancialTransactionsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Crear transaccion financiera' })
-  @ApiCreatedResponse({ type: FinancialTransactionResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o referencias inexistentes',
   })
@@ -58,7 +59,7 @@ export class FinancialTransactionsController {
   create(
     @Body() dto: CreateFinancialTransactionDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<FinancialTransactionResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.create(dto, user?.sub);
   }
 
@@ -90,7 +91,7 @@ export class FinancialTransactionsController {
   @Patch(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Actualizar transaccion financiera' })
-  @ApiOkResponse({ type: FinancialTransactionResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o referencias inexistentes',
   })
@@ -99,7 +100,7 @@ export class FinancialTransactionsController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateFinancialTransactionDto,
-  ): Promise<FinancialTransactionResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(id, dto);
   }
 

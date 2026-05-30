@@ -10,19 +10,21 @@ import { CityResponseDto } from './dto/city.response.dto';
 import { CreateCityDto } from './dto/create-city.dto';
 import { ListCitiesQueryDto } from './dto/list-cities-query.dto';
 import { UpdateCityDto } from './dto/update-city.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 @Injectable()
 export class CitiesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateCityDto): Promise<CityResponseDto> {
+  async create(dto: CreateCityDto): Promise<IdNameResponseDto> {
     await this.assertDepartment(dto.idDepartment);
     await this.assertUnique(dto.name, dto.idDepartment);
 
     const created = await this.prisma.city.create({
       data: { name: dto.name, idDepartment: dto.idDepartment },
+      select: { id: true, name: true },
     });
-    return this.toResponse(created);
+    return { id: created.id, name: created.name };
   }
 
   async findAll(query: ListCitiesQueryDto): Promise<CityResponseDto[]> {
@@ -45,7 +47,7 @@ export class CitiesService {
     return this.toResponse(item);
   }
 
-  async update(id: number, dto: UpdateCityDto): Promise<CityResponseDto> {
+  async update(id: number, dto: UpdateCityDto): Promise<IdNameResponseDto> {
     const current = await this.prisma.city.findUnique({ where: { id } });
     if (!current) {
       throw new NotFoundException(`Ciudad ${id} no encontrada`);
@@ -63,8 +65,9 @@ export class CitiesService {
     const updated = await this.prisma.city.update({
       where: { id },
       data: { name: dto.name, idDepartment: dto.idDepartment },
+      select: { id: true, name: true },
     });
-    return this.toResponse(updated);
+    return { id: updated.id, name: updated.name };
   }
 
   async remove(id: number): Promise<void> {
@@ -104,10 +107,14 @@ export class CitiesService {
     excludeId?: number,
   ): Promise<void> {
     const dup = await this.prisma.city.findFirst({
-      where: { name, idDepartment },
+      where: {
+        idDepartment,
+        name: { equals: name.trim(), mode: 'insensitive' },
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
       select: { id: true },
     });
-    if (dup && dup.id !== excludeId) {
+    if (dup) {
       throw new ConflictException(
         `Ya existe la ciudad "${name}" en este departamento`,
       );

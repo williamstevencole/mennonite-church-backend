@@ -8,15 +8,15 @@ export class UpdateBoardMemberDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  id_board_role_type?: number;
+  idBoardRoleType?: number;
 
   @ApiPropertyOptional({ example: '2026-01-01' })
   @IsOptional()
   @IsDateString()
-  start_date?: string;
+  startDate?: string;
 
   @ApiPropertyOptional({ example: '2026-12-31' })
   @IsOptional()
   @IsDateString()
-  end_date?: string;
+  endDate?: string;
 }

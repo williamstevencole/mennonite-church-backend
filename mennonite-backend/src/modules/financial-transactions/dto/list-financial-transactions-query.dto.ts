@@ -1,24 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 import { TransactionCategoryType } from '../../transaction-categories/transaction-category-type.enum';
 
-export class ListFinancialTransactionsQueryDto {
-  @ApiPropertyOptional({ example: 1, default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @ApiPropertyOptional({ example: 20, default: 20, maximum: 100 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  size?: number;
-
+export class ListFinancialTransactionsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     enum: TransactionCategoryType,
     description: 'Filtra por tipo de categoria (income | expense)',

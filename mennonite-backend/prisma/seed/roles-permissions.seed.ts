@@ -172,14 +172,24 @@ const BASE_PERMISSIONS = [
     description: 'Crear, editar o eliminar categorias financieras',
   },
 
-  // Catalogos: tipos de rol de miembro
+  // Catalogos: tipos de rol por ministerio
   {
-    code: 'catalog.member-role-types.read',
-    description: 'Ver los tipos de rol que un miembro puede tener',
+    code: 'catalog.ministry-role-types.read',
+    description: 'Ver los tipos de rol disponibles por ministerio',
   },
   {
-    code: 'catalog.member-role-types.manage',
-    description: 'Crear, editar o eliminar tipos de rol de miembro',
+    code: 'catalog.ministry-role-types.manage',
+    description: 'Crear, editar o eliminar tipos de rol por ministerio',
+  },
+
+  // Catalogos: tipos de rol por concilio
+  {
+    code: 'catalog.board-role-types.read',
+    description: 'Ver los tipos de rol disponibles por concilio',
+  },
+  {
+    code: 'catalog.board-role-types.manage',
+    description: 'Crear, editar o eliminar tipos de rol por concilio',
   },
 
   // Iglesias (CRUD completo a nivel administrativo)
@@ -236,7 +246,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.read',
     'catalog.event-types.read',
     'catalog.transaction-categories.read',
-    'catalog.member-role-types.read',
+    'catalog.ministry-role-types.read',
+    'catalog.board-role-types.read',
     'churches.read',
     'audit.read',
   ],
@@ -261,19 +272,23 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
 };
 
-export async function seedRolesAndPermissions(prisma: PrismaClient): Promise<{
+export async function seedRolesAndPermissions(
+  prisma: PrismaClient,
+  idChurch: number,
+): Promise<{
   rolesByName: Map<string, UserRole>;
   permissionsByCode: Map<string, Permission>;
 }> {
   const roles = await Promise.all(
     BASIC_ROLES.map(({ name, description }) =>
       prisma.userRole.upsert({
-        where: { name },
+        where: { idChurch_name: { idChurch, name } },
         update: {
           description,
           active: true,
         },
         create: {
+          idChurch,
           name,
           description,
           active: true,

@@ -9,30 +9,38 @@ import { CreateEventTypeDto } from './dto/create-event-type.dto';
 import { EventTypeResponseDto } from './dto/event-type.response.dto';
 import { UpdateEventTypeDto } from './dto/update-event-type.dto';
 import { EventCategory } from './event-category.enum';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 @Injectable()
 export class EventTypesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateEventTypeDto): Promise<EventTypeResponseDto> {
-    await this.assertUniqueName(dto.name);
+  async create(
+    idChurch: number,
+    dto: CreateEventTypeDto,
+  ): Promise<IdNameResponseDto> {
+    await this.assertUniqueName(idChurch, dto.name);
 
     const created = await this.prisma.eventType.create({
-      data: { name: dto.name, eventCategory: dto.eventCategory },
+      data: { idChurch, name: dto.name, eventCategory: dto.eventCategory },
+      select: { id: true, name: true },
     });
 
-    return this.toResponse(created);
+    return { id: created.id, name: created.name };
   }
 
-  async findAll(): Promise<EventTypeResponseDto[]> {
+  async findAll(idChurch: number): Promise<EventTypeResponseDto[]> {
     const items = await this.prisma.eventType.findMany({
+      where: { idChurch },
       orderBy: { name: 'asc' },
     });
     return items.map((item) => this.toResponse(item));
   }
 
-  async findOne(id: number): Promise<EventTypeResponseDto> {
-    const item = await this.prisma.eventType.findUnique({ where: { id } });
+  async findOne(idChurch: number, id: number): Promise<EventTypeResponseDto> {
+    const item = await this.prisma.eventType.findFirst({
+      where: { id, idChurch },
+    });
     if (!item) {
       throw new NotFoundException(`Tipo de evento ${id} no encontrado`);
     }
@@ -40,25 +48,27 @@ export class EventTypesService {
   }
 
   async update(
+    idChurch: number,
     id: number,
     dto: UpdateEventTypeDto,
-  ): Promise<EventTypeResponseDto> {
-    await this.assertExists(id);
+  ): Promise<IdNameResponseDto> {
+    await this.assertExists(idChurch, id);
 
     if (dto.name) {
-      await this.assertUniqueName(dto.name, id);
+      await this.assertUniqueName(idChurch, dto.name, id);
     }
 
     const updated = await this.prisma.eventType.update({
       where: { id },
       data: { name: dto.name, eventCategory: dto.eventCategory },
+      select: { id: true, name: true },
     });
 
-    return this.toResponse(updated);
+    return { id: updated.id, name: updated.name };
   }
 
-  async remove(id: number): Promise<void> {
-    await this.assertExists(id);
+  async remove(idChurch: number, id: number): Promise<void> {
+    await this.assertExists(idChurch, id);
 
     const usageCount = await this.prisma.event.count({
       where: { idEventType: id },
@@ -73,9 +83,9 @@ export class EventTypesService {
     await this.prisma.eventType.delete({ where: { id } });
   }
 
-  private async assertExists(id: number): Promise<void> {
-    const existing = await this.prisma.eventType.findUnique({
-      where: { id },
+  private async assertExists(idChurch: number, id: number): Promise<void> {
+    const existing = await this.prisma.eventType.findFirst({
+      where: { id, idChurch },
       select: { id: true },
     });
     if (!existing) {
@@ -83,13 +93,21 @@ export class EventTypesService {
     }
   }
 
-  private async assertUniqueName(name: string, excludeId?: number) {
-    const existing = await this.prisma.eventType.findUnique({
-      where: { name },
+  private async assertUniqueName(
+    idChurch: number,
+    name: string,
+    excludeId?: number,
+  ) {
+    const existing = await this.prisma.eventType.findFirst({
+      where: {
+        idChurch,
+        name: { equals: name.trim(), mode: 'insensitive' },
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
       select: { id: true },
     });
 
-    if (existing && existing.id !== excludeId) {
+    if (existing) {
       throw new ConflictException(
         `Ya existe un tipo de evento con el nombre "${name}"`,
       );

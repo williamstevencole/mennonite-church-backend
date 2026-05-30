@@ -25,7 +25,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -33,8 +33,8 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { MembersService } from './members.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
-import { MemberCreatedResponseDto } from './dto/member-created.response.dto';
 import { MemberDetailResponseDto } from './dto/member-detail.response.dto';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 import { MembersPageResponseDto } from './dto/members-page.response.dto';
 import { ListMembersQueryDto } from './dto/list-members-query.dto';
 
@@ -62,27 +62,27 @@ export class MembersController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('members.create')
   @ApiOperation({ summary: 'Crear un miembro en la iglesia del usuario' })
-  @ApiCreatedResponse({ type: MemberCreatedResponseDto })
+  @ApiCreatedResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({ description: 'Formato o payload invalido' })
   @ApiConflictResponse({ description: 'Miembro duplicado' })
   create(
     @Body() createMemberDto: CreateMemberDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<MemberCreatedResponseDto> {
+  ): Promise<IdNameResponseDto> {
     return this.membersService.create(createMemberDto, user);
   }
 
   @Patch(':id')
   @Permissions('members.update')
   @ApiOperation({ summary: 'Actualizar un miembro' })
-  @ApiOkResponse({ type: MemberDetailResponseDto })
+  @ApiOkResponse({ type: IdNameResponseDto })
   @ApiNotFoundResponse({ description: 'Miembro no encontrado' })
   @ApiConflictResponse({ description: 'Miembro duplicado' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateMemberDto: UpdateMemberDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<MemberDetailResponseDto> {
+  ): Promise<IdNameResponseDto> {
     return this.membersService.update(id, updateMemberDto, user);
   }
 
@@ -107,7 +107,8 @@ export class MembersController {
   findOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
+    @Query('includeInactive') includeInactive?: string,
   ): Promise<MemberDetailResponseDto> {
-    return this.membersService.findOne(id, user);
+    return this.membersService.findOne(id, user, includeInactive === 'true');
   }
 }

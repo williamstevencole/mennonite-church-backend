@@ -25,16 +25,18 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreateUserDto } from './dto/create-user.dto';
-import { CreateUserResponseDto } from './dto/create-user.response.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserDetailResponseDto } from './dto/user-detail.response.dto';
 import { UsersPageResponseDto } from './dto/users-page.response.dto';
 import { UsersService } from './users.service';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT-auth')
@@ -55,31 +57,34 @@ export class UsersController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @Permissions('users.write')
+  @Permissions('users.create')
   @ApiOperation({ summary: 'Crear un usuario con rol inicial' })
-  @ApiCreatedResponse({ type: CreateUserResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o rol inexistente' })
   @ApiConflictResponse({ description: 'Email duplicado' })
-  create(@Body() dto: CreateUserDto): Promise<CreateUserResponseDto> {
-    return this.usersService.create(dto);
+  create(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateUserDto,
+  ): Promise<IdResponseDto> {
+    return this.usersService.create(user.idChurch, dto);
   }
 
   @Patch(':id')
-  @Permissions('users.write')
+  @Permissions('users.update')
   @ApiOperation({ summary: 'Actualizar datos del usuario' })
-  @ApiOkResponse({ type: UserDetailResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiNotFoundResponse({ description: 'Usuario no encontrado' })
   @ApiConflictResponse({ description: 'Email duplicado' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
-  ): Promise<UserDetailResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.usersService.update(id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions('users.write')
+  @Permissions('users.delete')
   @ApiOperation({ summary: 'Desactivar usuario (soft delete)' })
   @ApiNoContentResponse({ description: 'Usuario desactivado' })
   @ApiNotFoundResponse({ description: 'Usuario no encontrado' })
@@ -94,7 +99,8 @@ export class UsersController {
   @ApiNotFoundResponse({ description: 'Usuario no encontrado' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: string,
   ): Promise<UserDetailResponseDto> {
-    return this.usersService.findOne(id);
+    return this.usersService.findOne(id, includeInactive === 'true');
   }
 }

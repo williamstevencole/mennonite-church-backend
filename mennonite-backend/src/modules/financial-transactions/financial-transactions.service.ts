@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import { FinancialTransaction, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { TransactionCategoryType } from '../transaction-categories/transaction-category-type.enum';
 import {
   CreateFinancialTransactionDto,
@@ -16,6 +20,7 @@ import { FinancialTransactionResponseDto } from './dto/financial-transaction.res
 import { FinancialTransactionsPageResponseDto } from './dto/financial-transactions-page.response.dto';
 import { ListFinancialTransactionsQueryDto } from './dto/list-financial-transactions-query.dto';
 import { UpdateFinancialTransactionDto } from './dto/update-financial-transaction.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 type FinancialTransactionWithCategory = FinancialTransaction & {
   category?: { type: string } | null;
@@ -28,7 +33,7 @@ export class FinancialTransactionsService {
   async create(
     dto: CreateFinancialTransactionDto,
     createdBy?: number,
-  ): Promise<FinancialTransactionResponseDto> {
+  ): Promise<IdResponseDto> {
     await this.assertChurchExists(dto.idChurch);
     await this.assertCategoryExists(dto.idCategory);
     if (dto.idEvent !== undefined) await this.assertEventExists(dto.idEvent);
@@ -53,17 +58,17 @@ export class FinancialTransactionsService {
         idMinistry: dto.idMinistry,
         createdBy,
       },
-      include: { category: { select: { type: true } } },
+      select: { id: true },
     });
 
-    return this.toResponse(created);
+    return { id: created.id };
   }
 
   async findAll(
     query: ListFinancialTransactionsQueryDto,
   ): Promise<FinancialTransactionsPageResponseDto> {
     const page = query.page ?? 1;
-    const size = query.size ?? 20;
+    const limit = query.limit ?? 20;
     const where: Prisma.FinancialTransactionWhereInput = {};
 
     if (query.idChurch !== undefined) where.idChurch = query.idChurch;
@@ -92,18 +97,17 @@ export class FinancialTransactionsService {
       this.prisma.financialTransaction.findMany({
         where,
         orderBy: [{ transactionDate: 'desc' }, { id: 'desc' }],
-        skip: (page - 1) * size,
-        take: size,
+        ...buildPagination(page, limit),
         include: { category: { select: { type: true } } },
       }),
     ]);
 
-    return {
-      data: items.map((item) => this.toResponse(item)),
+    return toPaginated(
+      items.map((item) => this.toResponse(item)),
       total,
       page,
-      size,
-    };
+      limit,
+    );
   }
 
   async findOne(id: number): Promise<FinancialTransactionResponseDto> {
@@ -120,7 +124,7 @@ export class FinancialTransactionsService {
   async update(
     id: number,
     dto: UpdateFinancialTransactionDto,
-  ): Promise<FinancialTransactionResponseDto> {
+  ): Promise<IdResponseDto> {
     const current = await this.prisma.financialTransaction.findUnique({
       where: { id },
     });
@@ -170,10 +174,10 @@ export class FinancialTransactionsService {
         idEvent: dto.idEvent,
         idMinistry: dto.idMinistry,
       },
-      include: { category: { select: { type: true } } },
+      select: { id: true },
     });
 
-    return this.toResponse(updated);
+    return { id: updated.id };
   }
 
   async remove(id: number): Promise<void> {

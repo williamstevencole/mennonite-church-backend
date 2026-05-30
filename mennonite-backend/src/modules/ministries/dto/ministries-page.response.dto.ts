@@ -1,10 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 import { MinistryListItemResponseDto } from './ministry-list-item.response.dto';
 
-export class MinistriesPageResponseDto {
+export class MinistriesPageResponseDto extends PaginatedResponseDto<MinistryListItemResponseDto> {
   @ApiProperty({ type: [MinistryListItemResponseDto] })
-  data!: MinistryListItemResponseDto[];
-  @ApiProperty() total!: number;
-  @ApiProperty() page!: number;
-  @ApiProperty() size!: number;
+  declare data: MinistryListItemResponseDto[];
 }

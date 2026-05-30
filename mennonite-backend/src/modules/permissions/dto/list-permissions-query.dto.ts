@@ -1,19 +1,25 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsOptional } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 
-export class ListPermissionsQueryDto {
-  @ApiPropertyOptional({ example: 1, default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
+const toBoolean = ({ value }: { value: unknown }): unknown => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+  return value;
+};
 
-  @ApiPropertyOptional({ example: 20, default: 20 })
+export class ListPermissionsQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    description: 'Si true, incluye registros inactivos',
+    default: false,
+  })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  size?: number;
+  @Transform(toBoolean)
+  @IsBoolean()
+  includeInactive?: boolean;
 }

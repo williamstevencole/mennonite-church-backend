@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsDateString, IsEnum, IsInt, IsOptional } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 
 export enum InventoryMovementType {
   Inbound = 'Inbound',
@@ -12,7 +13,7 @@ const toNumber = ({ value }: { value: unknown }): unknown => {
   return isNaN(num) ? value : num;
 };
 
-export class FindInventoryMovementsQueryDto {
+export class FindInventoryMovementsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: InventoryMovementType })
   @IsOptional()
   @IsEnum(InventoryMovementType)

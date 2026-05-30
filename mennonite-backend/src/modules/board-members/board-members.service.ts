@@ -6,10 +6,14 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { MemberRoleBelongsTo } from '../member-role-types/member-role-belongs-to.enum';
-import { BoardMemberCreatedResponseDto } from './dto/board-member-created.response.dto';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { BoardMemberDetailResponseDto } from './dto/board-member-detail.response.dto';
 import { BoardMemberListItemResponseDto } from './dto/board-member-list-item.response.dto';
+import { BoardMembersPageResponseDto } from './dto/board-members-page.response.dto';
 import { ListBoardMembersQueryDto } from './dto/list-board-members-query.dto';
 import { BoardMemberMemberDetailResponseDto } from './dto/board-member-member-detail.response.dto';
 import { BoardMemberMemberSummaryResponseDto } from './dto/board-member-member-summary.response.dto';
@@ -29,7 +33,7 @@ const UNIQUE_BOARD_ROLE_NAMES = new Set([
 type BoardMemberListRecord = Prisma.BoardMemberGetPayload<{
   include: {
     member: { select: { id: true; name: true } };
-    memberRoleType: { select: { id: true; name: true } };
+    boardRoleType: { select: { id: true; name: true } };
   };
 }>;
 
@@ -51,7 +55,7 @@ type BoardMemberDetailRecord = Prisma.BoardMemberGetPayload<{
         active: true;
       };
     };
-    memberRoleType: { select: { id: true; name: true } };
+    boardRoleType: { select: { id: true; name: true } };
   };
 }>;
 
@@ -60,20 +64,21 @@ export class BoardMembersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
+    idChurch: number,
     dto: CreateBoardMemberDto,
-  ): Promise<BoardMemberCreatedResponseDto> {
+  ): Promise<IdResponseDto> {
     const [board, member, role] = await Promise.all([
-      this.prisma.board.findUnique({
-        where: { id: dto.id_board },
+      this.prisma.board.findFirst({
+        where: { id: dto.idBoard, idChurch },
         select: { id: true },
       }),
-      this.prisma.member.findUnique({
-        where: { id: dto.id_member },
+      this.prisma.member.findFirst({
+        where: { id: dto.idMember, idChurch },
         select: { id: true, active: true },
       }),
-      this.prisma.memberRoleType.findUnique({
-        where: { id: dto.id_board_role_type },
-        select: { id: true, name: true, belongsTo: true, active: true },
+      this.prisma.boardRoleType.findFirst({
+        where: { id: dto.idBoardRoleType, idBoard: dto.idBoard },
+        select: { id: true, name: true, active: true },
       }),
     ]);
 
@@ -93,16 +98,11 @@ export class BoardMembersService {
       throw new BadRequestException('Rol de concilio inexistente');
     }
 
-    if (role.belongsTo !== MemberRoleBelongsTo.Council) {
-      throw new BadRequestException('El rol no pertenece a concilio');
-    }
-
     if (this.isUniqueRole(role.name)) {
       const duplicate = await this.prisma.boardMember.findFirst({
         where: {
-          idBoard: dto.id_board,
-          assignmentType: 'board',
-          idMemberRoleType: role.id,
+          idBoard: dto.idBoard,
+          idBoardRoleType: role.id,
           active: true,
         },
         select: { id: true },
@@ -115,8 +115,8 @@ export class BoardMembersService {
       }
     }
 
-    const startDate = new Date(dto.start_date);
-    const endDate = dto.end_date ? new Date(dto.end_date) : null;
+    const startDate = new Date(dto.startDate);
+    const endDate = dto.endDate ? new Date(dto.endDate) : null;
     if (endDate && endDate < startDate) {
       throw new BadRequestException(
         'La fecha de fin no puede ser anterior a la fecha de inicio',
@@ -125,10 +125,9 @@ export class BoardMembersService {
 
     const created = await this.prisma.boardMember.create({
       data: {
-        idBoard: dto.id_board,
-        idMember: dto.id_member,
-        idMemberRoleType: dto.id_board_role_type,
-        assignmentType: 'board',
+        idBoard: dto.idBoard,
+        idMember: dto.idMember,
+        idBoardRoleType: dto.idBoardRoleType,
         startDate,
         endDate,
         active: true,
@@ -140,15 +139,16 @@ export class BoardMembersService {
   }
 
   async update(
+    idChurch: number,
     id: number,
     dto: UpdateBoardMemberDto,
-  ): Promise<BoardMemberDetailResponseDto> {
+  ): Promise<IdResponseDto> {
     const existing = await this.prisma.boardMember.findFirst({
-      where: { id, assignmentType: 'board' },
+      where: { id, board: { idChurch } },
       select: {
         id: true,
         idBoard: true,
-        idMemberRoleType: true,
+        idBoardRoleType: true,
         startDate: true,
         endDate: true,
       },
@@ -162,30 +162,23 @@ export class BoardMembersService {
 
     const data: Prisma.BoardMemberUpdateInput = {};
 
-    let roleName: string | null = null;
-    if (dto.id_board_role_type !== undefined) {
-      const role = await this.prisma.memberRoleType.findUnique({
-        where: { id: dto.id_board_role_type },
-        select: { id: true, name: true, belongsTo: true, active: true },
+    if (dto.idBoardRoleType !== undefined) {
+      const role = await this.prisma.boardRoleType.findFirst({
+        where: { id: dto.idBoardRoleType, idBoard: existing.idBoard },
+        select: { id: true, name: true, active: true },
       });
 
       if (!role || !role.active) {
         throw new BadRequestException('Rol de concilio inexistente');
       }
 
-      if (role.belongsTo !== MemberRoleBelongsTo.Council) {
-        throw new BadRequestException('El rol no pertenece a concilio');
-      }
-
-      roleName = role.name;
-      data.memberRoleType = { connect: { id: role.id } };
+      data.boardRoleType = { connect: { id: role.id } };
 
       if (this.isUniqueRole(role.name)) {
         const duplicate = await this.prisma.boardMember.findFirst({
           where: {
             idBoard: existing.idBoard,
-            assignmentType: 'board',
-            idMemberRoleType: role.id,
+            idBoardRoleType: role.id,
             active: true,
             NOT: { id },
           },
@@ -200,20 +193,20 @@ export class BoardMembersService {
       }
     }
 
-    if (dto.start_date !== undefined) {
-      data.startDate = new Date(dto.start_date);
+    if (dto.startDate !== undefined) {
+      data.startDate = new Date(dto.startDate);
     }
 
-    if (dto.end_date !== undefined) {
-      data.endDate = new Date(dto.end_date);
+    if (dto.endDate !== undefined) {
+      data.endDate = new Date(dto.endDate);
     }
 
     const resolvedStartDate =
-      dto.start_date !== undefined
-        ? new Date(dto.start_date)
+      dto.startDate !== undefined
+        ? new Date(dto.startDate)
         : existing.startDate;
     const resolvedEndDate =
-      dto.end_date !== undefined ? new Date(dto.end_date) : existing.endDate;
+      dto.endDate !== undefined ? new Date(dto.endDate) : existing.endDate;
 
     if (resolvedEndDate && resolvedEndDate < resolvedStartDate) {
       throw new BadRequestException(
@@ -222,27 +215,29 @@ export class BoardMembersService {
     }
 
     if (Object.keys(data).length === 0) {
-      return this.findOne(id);
+      return { id: existing.id };
     }
 
     const updated = await this.prisma.boardMember.update({
       where: { id },
       data,
-      include: this.detailInclude(),
+      select: { id: true },
     });
 
-    const detail = this.toDetail(updated);
-
-    if (roleName) {
-      detail.role.name = roleName;
-    }
-
-    return detail;
+    return { id: updated.id };
   }
 
-  async findOne(id: number): Promise<BoardMemberDetailResponseDto> {
+  async findOne(
+    idChurch: number,
+    id: number,
+    includeInactive = false,
+  ): Promise<BoardMemberDetailResponseDto> {
     const boardMember = await this.prisma.boardMember.findFirst({
-      where: { id, assignmentType: 'board' },
+      where: {
+        id,
+        board: { idChurch },
+        ...(includeInactive ? {} : { active: true }),
+      },
       include: this.detailInclude(),
     });
 
@@ -256,11 +251,12 @@ export class BoardMembersService {
   }
 
   async findByBoard(
+    idChurch: number,
     boardId: number,
     query: ListBoardMembersQueryDto,
-  ): Promise<BoardMemberListItemResponseDto[]> {
-    const board = await this.prisma.board.findUnique({
-      where: { id: boardId },
+  ): Promise<BoardMembersPageResponseDto> {
+    const board = await this.prisma.board.findFirst({
+      where: { id: boardId, idChurch },
       select: { id: true },
     });
 
@@ -268,38 +264,50 @@ export class BoardMembersService {
       throw new NotFoundException(`Concilio con id ${boardId} no encontrado`);
     }
 
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
     const where: Prisma.BoardMemberWhereInput = {
       idBoard: boardId,
-      assignmentType: 'board',
     };
 
     if (query.active !== undefined) {
       where.active = query.active;
+    } else if (query.includeInactive !== true) {
+      where.active = true;
     }
 
     if (query.role) {
       const role = query.role.trim();
       if (/^\d+$/.test(role)) {
-        where.idMemberRoleType = Number(role);
+        where.idBoardRoleType = Number(role);
       } else {
-        where.memberRoleType = {
+        where.boardRoleType = {
           name: { equals: role, mode: 'insensitive' },
         };
       }
     }
 
-    const members = await this.prisma.boardMember.findMany({
-      where,
-      include: this.listInclude(),
-      orderBy: [{ member: { name: 'asc' } }, { id: 'asc' }],
-    });
+    const [total, members] = await this.prisma.$transaction([
+      this.prisma.boardMember.count({ where }),
+      this.prisma.boardMember.findMany({
+        where,
+        include: this.listInclude(),
+        orderBy: [{ member: { name: 'asc' } }, { id: 'asc' }],
+        ...buildPagination(page, limit),
+      }),
+    ]);
 
-    return members.map((item) => this.toListItem(item));
+    return toPaginated(
+      members.map((item) => this.toListItem(item)),
+      total,
+      page,
+      limit,
+    );
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(idChurch: number, id: number): Promise<void> {
     const boardMember = await this.prisma.boardMember.findFirst({
-      where: { id, assignmentType: 'board' },
+      where: { id, board: { idChurch } },
       select: { id: true, active: true },
     });
 
@@ -322,7 +330,7 @@ export class BoardMembersService {
   private listInclude() {
     return {
       member: { select: { id: true, name: true } },
-      memberRoleType: { select: { id: true, name: true } },
+      boardRoleType: { select: { id: true, name: true } },
     };
   }
 
@@ -344,7 +352,7 @@ export class BoardMembersService {
           active: true,
         },
       },
-      memberRoleType: { select: { id: true, name: true } },
+      boardRoleType: { select: { id: true, name: true } },
     };
   }
 
@@ -354,7 +362,7 @@ export class BoardMembersService {
     return {
       id: record.id,
       member: this.toMemberSummary(record.member),
-      role: this.toRole(record.memberRoleType),
+      role: this.toRole(record.boardRoleType),
       startDate: record.startDate,
       endDate: record.endDate,
       active: record.active,
@@ -367,7 +375,7 @@ export class BoardMembersService {
     return {
       id: record.id,
       member: this.toMemberDetail(record.member),
-      role: this.toRole(record.memberRoleType),
+      role: this.toRole(record.boardRoleType),
       startDate: record.startDate,
       endDate: record.endDate,
       active: record.active,
@@ -375,7 +383,7 @@ export class BoardMembersService {
   }
 
   private toRole(
-    role: BoardMemberDetailRecord['memberRoleType'],
+    role: BoardMemberDetailRecord['boardRoleType'],
   ): BoardMemberRoleResponseDto {
     return {
       id: role.id,

@@ -1,19 +1,19 @@
 import { Budget, Ministry, PrismaClient } from '@prisma/client';
 
 const DEMO_DISTRIBUTIONS: Record<string, number> = {
-  ALABANZA: 20,
-  JOVENES: 20,
-  NINOS: 15,
-  DAMAS: 10,
-  CABALLEROS: 10,
-  EVANGELISMO: 15,
-  SERVIDORES: 10,
+  'Ministerio de Alabanza': 20,
+  'Ministerio de Jovenes': 20,
+  'Ministerio de Ninos': 15,
+  'Ministerio de Damas': 10,
+  'Ministerio de Caballeros': 10,
+  'Ministerio de Evangelismo': 15,
+  'Ministerio de Servidores': 10,
 };
 
 export async function seedBudgetDistributions(
   prisma: PrismaClient,
   budget: Budget,
-  ministriesByCode: Map<string, Ministry>,
+  ministriesByName: Map<string, Ministry>,
 ): Promise<number> {
   const total = Object.values(DEMO_DISTRIBUTIONS).reduce((a, b) => a + b, 0);
   if (total !== 100) {
@@ -23,11 +23,11 @@ export async function seedBudgetDistributions(
   }
 
   let count = 0;
-  for (const [code, percentage] of Object.entries(DEMO_DISTRIBUTIONS)) {
-    const ministry = ministriesByCode.get(code);
+  for (const [name, percentage] of Object.entries(DEMO_DISTRIBUTIONS)) {
+    const ministry = ministriesByName.get(name);
     if (!ministry) {
       throw new Error(
-        `Seed budget distributions: no se encontro el ministerio "${code}".`,
+        `Seed budget distributions: no se encontro el ministerio "${name}".`,
       );
     }
 

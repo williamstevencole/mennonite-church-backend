@@ -5,8 +5,13 @@ import {
 } from '@nestjs/common';
 import { Event, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { CalendarEventResponseDto } from './dto/calendar-event.response.dto';
 import { CalendarEventsPageResponseDto } from './dto/calendar-events-page.response.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import {
   CreateCalendarEventDto,
   DayOfWeek,
@@ -23,7 +28,7 @@ export class CalendarEventsService {
   async create(
     dto: CreateCalendarEventDto,
     createdBy?: number,
-  ): Promise<CalendarEventResponseDto> {
+  ): Promise<IdResponseDto> {
     this.assertDateRange(dto.startDatetime, dto.endDatetime);
     const isRecurrent = dto.isRecurrent ?? false;
     this.assertRecurrence(isRecurrent, dto.frequency, dto.dayOfWeek);
@@ -57,16 +62,17 @@ export class CalendarEventsService {
         status: dto.status ?? EventStatus.Planned,
         createdBy,
       },
+      select: { id: true },
     });
 
-    return this.toResponse(created);
+    return { id: created.id };
   }
 
   async findAll(
     query: ListCalendarEventsQueryDto,
   ): Promise<CalendarEventsPageResponseDto> {
     const page = query.page ?? 1;
-    const size = query.size ?? 20;
+    const limit = query.limit ?? 20;
     const where: Prisma.EventWhereInput = {};
 
     if (query.idChurch !== undefined) where.idChurch = query.idChurch;
@@ -86,17 +92,16 @@ export class CalendarEventsService {
       this.prisma.event.findMany({
         where,
         orderBy: [{ startDatetime: 'asc' }, { id: 'asc' }],
-        skip: (page - 1) * size,
-        take: size,
+        ...buildPagination(page, limit),
       }),
     ]);
 
-    return {
-      data: items.map((item) => this.toResponse(item)),
+    return toPaginated(
+      items.map((item) => this.toResponse(item)),
       total,
       page,
-      size,
-    };
+      limit,
+    );
   }
 
   async findOne(id: number): Promise<CalendarEventResponseDto> {
@@ -110,7 +115,7 @@ export class CalendarEventsService {
   async update(
     id: number,
     dto: UpdateCalendarEventDto,
-  ): Promise<CalendarEventResponseDto> {
+  ): Promise<IdResponseDto> {
     const current = await this.prisma.event.findUnique({ where: { id } });
     if (!current) {
       throw new NotFoundException(`Evento ${id} no encontrado`);
@@ -176,9 +181,10 @@ export class CalendarEventsService {
         endDatetime: dto.endDatetime ? nextEnd : undefined,
         status: dto.status,
       },
+      select: { id: true },
     });
 
-    return this.toResponse(updated);
+    return { id: updated.id };
   }
 
   async remove(id: number): Promise<void> {

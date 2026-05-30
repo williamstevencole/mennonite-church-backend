@@ -20,9 +20,8 @@ export class MemberLinkedUserRelationResponseDto {
 
 export class BoardMemberRelationResponseDto {
   @ApiProperty() id!: number;
-  @ApiProperty() assignmentType!: string;
-  @ApiPropertyOptional({ nullable: true }) idBoard!: number | null;
-  @ApiProperty() idMemberRoleType!: number;
+  @ApiProperty() idBoard!: number;
+  @ApiProperty() idBoardRoleType!: number;
   @ApiProperty() @Type(() => Date) startDate!: Date;
   @ApiPropertyOptional({ nullable: true })
   @Type(() => Date)
@@ -32,9 +31,8 @@ export class BoardMemberRelationResponseDto {
 
 export class MinistryMemberRelationResponseDto {
   @ApiProperty() id!: number;
-  @ApiProperty() assignmentType!: string;
-  @ApiPropertyOptional({ nullable: true }) idMinistry!: number | null;
-  @ApiProperty() idMemberRoleType!: number;
+  @ApiProperty() idMinistry!: number;
+  @ApiProperty() idMinistryRoleType!: number;
   @ApiProperty() @Type(() => Date) startDate!: Date;
   @ApiPropertyOptional({ nullable: true })
   @Type(() => Date)

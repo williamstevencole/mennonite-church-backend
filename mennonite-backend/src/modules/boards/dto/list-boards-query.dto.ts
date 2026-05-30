@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 
 const toBoolean = ({ value }: { value: unknown }): unknown => {
   if (typeof value === 'boolean') return value;
@@ -12,10 +13,19 @@ const toBoolean = ({ value }: { value: unknown }): unknown => {
   return value;
 };
 
-export class ListBoardsQueryDto {
+export class ListBoardsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filtra por estado activo' })
   @IsOptional()
   @IsBoolean()
   @Transform(toBoolean)
   active?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Si true, incluye registros inactivos',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(toBoolean)
+  includeInactive?: boolean;
 }

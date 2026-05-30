@@ -5,9 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { CreateBudgetDistributionDto } from './dto/create-budget-distribution.dto';
-import type { JwtPayload } from 'src/auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.dto';
+import { BudgetDistributionsPageResponseDto } from './dto/budget-distributions-page.response.dto';
 import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
 
 @Injectable()
@@ -93,8 +98,13 @@ export class BudgetDistributionsService {
     };
   }
 
-  async findAll(query: FindBudgetDistributionsQueryDto, user: JwtPayload) {
+  async findAll(
+    query: FindBudgetDistributionsQueryDto,
+    user: JwtPayload,
+  ): Promise<BudgetDistributionsPageResponseDto> {
     const idChurch = await this.getChurchId(user);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
 
     const budget = await this.prisma.budget.findFirst({
       where: {
@@ -119,21 +129,26 @@ export class BudgetDistributionsService {
       0,
     );
 
-    const distributions = await this.prisma.budgetDistribution.findMany({
-      where: {
-        idBudget: query.budgetId,
-      },
-      include: {
-        ministry: {
-          select: {
-            id: true,
-            name: true,
+    const where = { idBudget: query.budgetId };
+
+    const [total, distributions] = await this.prisma.$transaction([
+      this.prisma.budgetDistribution.count({ where }),
+      this.prisma.budgetDistribution.findMany({
+        where,
+        include: {
+          ministry: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-      },
-    });
+        orderBy: { id: 'asc' },
+        ...buildPagination(page, limit),
+      }),
+    ]);
 
-    return distributions.map((distribution) => {
+    const data = distributions.map((distribution) => {
       const percentage = Number(distribution.percentage);
 
       return {
@@ -143,6 +158,8 @@ export class BudgetDistributionsService {
         allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
       };
     });
+
+    return toPaginated(data, total, page, limit);
   }
 
   async findOne(id: number, user: JwtPayload) {
@@ -242,33 +259,10 @@ export class BudgetDistributionsService {
       data: {
         percentage: dto.percentage ?? distribution.percentage,
       },
-      include: {
-        ministry: true,
-        budget: {
-          include: {
-            budgetCategories: {
-              select: {
-                annualAmount: true,
-              },
-            },
-          },
-        },
-      },
+      select: { id: true },
     });
 
-    const totalBudget = updated.budget.budgetCategories.reduce(
-      (sum, c) => sum + Number(c.annualAmount),
-      0,
-    );
-
-    const percentage = Number(updated.percentage);
-
-    return {
-      id: updated.id,
-      ministry: updated.ministry,
-      percentage,
-      allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
-    };
+    return { id: updated.id };
   }
 
   async remove(id: number, user: JwtPayload) {

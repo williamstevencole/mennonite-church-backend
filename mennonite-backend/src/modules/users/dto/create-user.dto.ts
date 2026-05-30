@@ -21,14 +21,14 @@ export class CreateUserDto {
   @Transform(trim)
   @MinLength(1)
   @MaxLength(60)
-  first_name!: string;
+  firstName!: string;
 
   @ApiProperty({ example: 'Perez' })
   @IsString()
   @Transform(trim)
   @MinLength(1)
   @MaxLength(60)
-  last_name!: string;
+  lastName!: string;
 
   @ApiProperty({ example: 'usuario@iglesia.org' })
   @IsEmail()
@@ -45,11 +45,11 @@ export class CreateUserDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  id_member!: number;
+  idMember!: number;
 
   @ApiProperty({ example: 1 })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  id_role!: number;
+  idRole!: number;
 }

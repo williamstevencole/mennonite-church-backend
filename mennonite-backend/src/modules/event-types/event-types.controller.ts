@@ -24,6 +24,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -31,6 +33,7 @@ import { CreateEventTypeDto } from './dto/create-event-type.dto';
 import { EventTypeResponseDto } from './dto/event-type.response.dto';
 import { UpdateEventTypeDto } from './dto/update-event-type.dto';
 import { EventTypesService } from './event-types.service';
+import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
 @ApiTags('Event Types')
 @ApiBearerAuth('JWT-auth')
@@ -45,19 +48,22 @@ export class EventTypesController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('catalog.event-types.manage')
   @ApiOperation({ summary: 'Crear un nuevo tipo de evento' })
-  @ApiCreatedResponse({ type: EventTypeResponseDto })
+  @ApiCreatedResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Nombre duplicado' })
-  create(@Body() dto: CreateEventTypeDto): Promise<EventTypeResponseDto> {
-    return this.service.create(dto);
+  create(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateEventTypeDto,
+  ): Promise<IdNameResponseDto> {
+    return this.service.create(user.idChurch, dto);
   }
 
   @Get()
   @Permissions('catalog.event-types.read')
   @ApiOperation({ summary: 'Listar tipos de evento' })
   @ApiOkResponse({ type: EventTypeResponseDto, isArray: true })
-  findAll(): Promise<EventTypeResponseDto[]> {
-    return this.service.findAll();
+  findAll(@CurrentUser() user: JwtPayload): Promise<EventTypeResponseDto[]> {
+    return this.service.findAll(user.idChurch);
   }
 
   @Get(':id')
@@ -65,22 +71,24 @@ export class EventTypesController {
   @ApiOkResponse({ type: EventTypeResponseDto })
   @ApiNotFoundResponse({ description: 'Tipo de evento no encontrado' })
   findOne(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<EventTypeResponseDto> {
-    return this.service.findOne(id);
+    return this.service.findOne(user.idChurch, id);
   }
 
   @Patch(':id')
   @Permissions('catalog.event-types.manage')
-  @ApiOkResponse({ type: EventTypeResponseDto })
+  @ApiOkResponse({ type: IdNameResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido' })
   @ApiConflictResponse({ description: 'Nombre duplicado' })
   @ApiNotFoundResponse({ description: 'Tipo de evento no encontrado' })
   update(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEventTypeDto,
-  ): Promise<EventTypeResponseDto> {
-    return this.service.update(id, dto);
+  ): Promise<IdNameResponseDto> {
+    return this.service.update(user.idChurch, id, dto);
   }
 
   @Delete(':id')
@@ -91,7 +99,10 @@ export class EventTypesController {
     description: 'Existen eventos que usan este tipo',
   })
   @ApiNotFoundResponse({ description: 'Tipo de evento no encontrado' })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    return this.service.remove(id);
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<void> {
+    return this.service.remove(user.idChurch, id);
   }
 }

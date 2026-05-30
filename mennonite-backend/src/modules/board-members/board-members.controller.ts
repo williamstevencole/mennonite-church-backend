@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -24,14 +25,16 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { BoardMembersService } from './board-members.service';
-import { BoardMemberCreatedResponseDto } from './dto/board-member-created.response.dto';
 import { BoardMemberDetailResponseDto } from './dto/board-member-detail.response.dto';
 import { CreateBoardMemberDto } from './dto/create-board-member.dto';
 import { UpdateBoardMemberDto } from './dto/update-board-member.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Board Members')
 @ApiBearerAuth('JWT-auth')
@@ -46,27 +49,29 @@ export class BoardMembersController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('assignments.create')
   @ApiOperation({ summary: 'Registrar un integrante de concilio' })
-  @ApiCreatedResponse({ type: BoardMemberCreatedResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
   @ApiConflictResponse({ description: 'Rol unico duplicado en el concilio' })
   create(
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateBoardMemberDto,
-  ): Promise<BoardMemberCreatedResponseDto> {
-    return this.service.create(dto);
+  ): Promise<IdResponseDto> {
+    return this.service.create(user.idChurch, dto);
   }
 
   @Patch(':id')
   @Permissions('assignments.update')
   @ApiOperation({ summary: 'Actualizar rol o fechas de un integrante' })
-  @ApiOkResponse({ type: BoardMemberDetailResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
   @ApiConflictResponse({ description: 'Rol unico duplicado en el concilio' })
   @ApiNotFoundResponse({ description: 'Integrante de concilio no encontrado' })
   update(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBoardMemberDto,
-  ): Promise<BoardMemberDetailResponseDto> {
-    return this.service.update(id, dto);
+  ): Promise<IdResponseDto> {
+    return this.service.update(user.idChurch, id, dto);
   }
 
   @Delete(':id')
@@ -77,8 +82,11 @@ export class BoardMembersController {
   @ApiNotFoundResponse({
     description: 'Integrante de concilio no encontrado',
   })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    return this.service.remove(id);
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<void> {
+    return this.service.remove(user.idChurch, id);
   }
 
   @Get(':id')
@@ -89,8 +97,10 @@ export class BoardMembersController {
     description: 'Integrante de concilio no encontrado',
   })
   findOne(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: string,
   ): Promise<BoardMemberDetailResponseDto> {
-    return this.service.findOne(id);
+    return this.service.findOne(user.idChurch, id, includeInactive === 'true');
   }
 }

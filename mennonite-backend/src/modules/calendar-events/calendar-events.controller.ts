@@ -28,13 +28,14 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CalendarEventsService } from './calendar-events.service';
 import { CalendarEventResponseDto } from './dto/calendar-event.response.dto';
 import { CalendarEventsPageResponseDto } from './dto/calendar-events-page.response.dto';
 import { CreateCalendarEventDto } from './dto/create-calendar-event.dto';
 import { ListCalendarEventsQueryDto } from './dto/list-calendar-events-query.dto';
 import { UpdateCalendarEventDto } from './dto/update-calendar-event.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 @ApiTags('Calendar Events')
 @ApiBearerAuth('JWT-auth')
@@ -49,14 +50,14 @@ export class CalendarEventsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('events.create')
   @ApiOperation({ summary: 'Crear evento de calendario' })
-  @ApiCreatedResponse({ type: CalendarEventResponseDto })
+  @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o referencias inexistentes',
   })
   create(
     @Body() dto: CreateCalendarEventDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<CalendarEventResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.create(dto, user?.sub);
   }
 
@@ -88,7 +89,7 @@ export class CalendarEventsController {
   @Patch(':id')
   @Permissions('events.update')
   @ApiOperation({ summary: 'Actualizar evento del calendario' })
-  @ApiOkResponse({ type: CalendarEventResponseDto })
+  @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
     description: 'Payload invalido o referencias inexistentes',
   })
@@ -96,7 +97,7 @@ export class CalendarEventsController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCalendarEventDto,
-  ): Promise<CalendarEventResponseDto> {
+  ): Promise<IdResponseDto> {
     return this.service.update(id, dto);
   }
 

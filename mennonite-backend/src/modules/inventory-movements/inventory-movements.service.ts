@@ -7,13 +7,18 @@ import {
 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
+import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import {
   CreateInventoryMovementDto,
   InventoryMovementType,
 } from './dto/create-inventory-movement.dto';
 import { FindInventoryMovementsQueryDto } from './dto/find-inventory.query.dto';
 import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 const userPublicSelect = {
   id: true,
@@ -24,7 +29,10 @@ const userPublicSelect = {
 export class InventoryMovementsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateInventoryMovementDto, user: JwtPayload) {
+  async create(
+    dto: CreateInventoryMovementDto,
+    user: JwtPayload,
+  ): Promise<IdResponseDto> {
     const idChurch = await this.getChurchId(user);
 
     const qty = Number(dto.quantity);
@@ -63,21 +71,10 @@ export class InventoryMovementsService {
           quantity: qty,
           notes: dto.notes ?? null,
         },
-        include: {
-          article: true,
-          user: { select: userPublicSelect },
-        },
+        select: { id: true },
       });
 
-      return {
-        id: movement.id,
-        type: movement.type,
-        quantity: Number(movement.quantity),
-        documentNumber: movement.documentNumber,
-        datetime: movement.datetime,
-        article: movement.article,
-        user: movement.user,
-      };
+      return { id: movement.id };
     });
   }
 
@@ -128,6 +125,8 @@ export class InventoryMovementsService {
 
   async findAll(user: JwtPayload, query: FindInventoryMovementsQueryDto) {
     const idChurch = await this.getChurchId(user);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
 
     const where: Prisma.InventoryMovementWhereInput = {
       idChurch,
@@ -148,16 +147,22 @@ export class InventoryMovementsService {
       };
     }
 
-    return this.prisma.inventoryMovement.findMany({
-      where,
-      orderBy: {
-        datetime: 'desc',
-      },
-      include: {
-        article: true,
-        user: { select: userPublicSelect },
-      },
-    });
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.inventoryMovement.count({ where }),
+      this.prisma.inventoryMovement.findMany({
+        where,
+        orderBy: {
+          datetime: 'desc',
+        },
+        include: {
+          article: true,
+          user: { select: userPublicSelect },
+        },
+        ...buildPagination(page, limit),
+      }),
+    ]);
+
+    return toPaginated(items, total, page, limit);
   }
 
   async findOne(id: number, user: JwtPayload) {
@@ -204,7 +209,11 @@ export class InventoryMovementsService {
     };
   }
 
-  async update(id: number, dto: UpdateInventoryMovementDto, user: JwtPayload) {
+  async update(
+    id: number,
+    dto: UpdateInventoryMovementDto,
+    user: JwtPayload,
+  ): Promise<IdResponseDto> {
     const idChurch = await this.getChurchId(user);
 
     const movement = await this.prisma.inventoryMovement.findFirst({
@@ -228,18 +237,17 @@ export class InventoryMovementsService {
       );
     }
 
-    return this.prisma.inventoryMovement.update({
+    const updated = await this.prisma.inventoryMovement.update({
       where: { id },
       data: {
         documentNumber: dto.documentNumber ?? movement.documentNumber,
         notes: dto.notes ?? movement.notes,
         datetime: dto.datetime ? new Date(dto.datetime) : movement.datetime,
       },
-      include: {
-        article: true,
-        user: { select: userPublicSelect },
-      },
+      select: { id: true },
     });
+
+    return { id: updated.id };
   }
 
   async remove(id: number, user: JwtPayload) {

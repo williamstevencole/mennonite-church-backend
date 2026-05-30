@@ -12,8 +12,8 @@ export async function seedBoardMembers(
   board: Board,
   membersByName: Map<string, Member>,
 ): Promise<number> {
-  const roleTypes = await prisma.memberRoleType.findMany({
-    where: { belongsTo: 'Council' },
+  const roleTypes = await prisma.boardRoleType.findMany({
+    where: { idBoard: board.id },
   });
   const roleTypesByName = new Map(roleTypes.map((r) => [r.name, r]));
 
@@ -36,15 +36,14 @@ export async function seedBoardMembers(
       where: {
         idMember: member.id,
         idBoard: board.id,
-        idMemberRoleType: roleType.id,
+        idBoardRoleType: roleType.id,
       },
     });
 
     const payload = {
       idMember: member.id,
-      assignmentType: 'board',
       idBoard: board.id,
-      idMemberRoleType: roleType.id,
+      idBoardRoleType: roleType.id,
       startDate: board.startDate,
       endDate: board.endDate,
       active: true,

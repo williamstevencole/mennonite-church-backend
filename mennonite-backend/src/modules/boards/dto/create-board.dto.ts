@@ -1,15 +1,22 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
   IsOptional,
   IsString,
   MaxLength,
+  MinLength,
 } from 'class-validator';
+
+const trim = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.trim() : value;
 
 export class CreateBoardDto {
   @ApiProperty({ example: 'Junta Directiva 2026-2027' })
   @IsString()
+  @Transform(trim)
+  @MinLength(1)
   @MaxLength(100)
   name!: string;
 
@@ -20,11 +27,11 @@ export class CreateBoardDto {
 
   @ApiProperty({ example: '2026-01-01' })
   @IsDateString()
-  start_date!: string;
+  startDate!: string;
 
   @ApiProperty({ example: '2027-12-31' })
   @IsDateString()
-  end_date!: string;
+  endDate!: string;
 
   @ApiPropertyOptional({ description: 'Marca el concilio como activo' })
   @IsOptional()

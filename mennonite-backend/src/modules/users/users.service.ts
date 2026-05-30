@@ -6,10 +6,14 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { hashPassword } from '../../common/utils/password.utils';
+import { SupabaseService } from '../../supabase/supabase.service';
 import { isDuplicateEmailError } from '../../common/utils/prisma.utils';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { CreateUserDto } from './dto/create-user.dto';
-import { CreateUserResponseDto } from './dto/create-user.response.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserDetailResponseDto } from './dto/user-detail.response.dto';
@@ -39,15 +43,20 @@ type UserWithDetailRelations = Prisma.UserGetPayload<{
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly supabase: SupabaseService,
+  ) {}
 
   async findAll(query: ListUsersQueryDto): Promise<UsersPageResponseDto> {
     const page = query.page ?? 1;
-    const size = query.size ?? 20;
+    const limit = query.limit ?? 20;
     const where: Prisma.UserWhereInput = {};
 
     if (query.active !== undefined) {
       where.active = query.active;
+    } else if (query.includeInactive !== true) {
+      where.active = true;
     }
 
     if (query.role) {
@@ -71,36 +80,39 @@ export class UsersService {
           userRole: { select: { name: true } },
         },
         orderBy: [{ member: { name: 'asc' } }, { email: 'asc' }],
-        skip: (page - 1) * size,
-        take: size,
+        ...buildPagination(page, limit),
       }),
     ]);
 
-    return {
-      data: users.map((user) => this.toListItem(user)),
+    return toPaginated(
+      users.map((user) => this.toListItem(user)),
       total,
       page,
-      size,
-    };
+      limit,
+    );
   }
 
-  async create(dto: CreateUserDto): Promise<CreateUserResponseDto> {
-    const role = await this.prisma.userRole.findUnique({
-      where: { id: dto.id_role },
+  async create(idChurch: number, dto: CreateUserDto): Promise<IdResponseDto> {
+    const role = await this.prisma.userRole.findFirst({
+      where: { id: dto.idRole, idChurch },
       select: { id: true, active: true },
     });
 
     if (!role?.active) {
-      throw new BadRequestException('Rol inexistente');
+      throw new BadRequestException(
+        'Rol inexistente o no pertenece a tu iglesia',
+      );
     }
 
-    const member = await this.prisma.member.findUnique({
-      where: { id: dto.id_member },
+    const member = await this.prisma.member.findFirst({
+      where: { id: dto.idMember, idChurch },
       select: { id: true },
     });
 
     if (!member) {
-      throw new BadRequestException('Miembro inexistente');
+      throw new BadRequestException(
+        'Miembro inexistente o no pertenece a tu iglesia',
+      );
     }
 
     const existing = await this.prisma.user.findUnique({
@@ -115,7 +127,7 @@ export class UsersService {
     }
 
     const existingMemberUser = await this.prisma.user.findUnique({
-      where: { idMember: dto.id_member },
+      where: { idMember: dto.idMember },
       select: { id: true },
     });
 
@@ -123,22 +135,42 @@ export class UsersService {
       throw new ConflictException('El miembro ya tiene un usuario asociado');
     }
 
-    const fullName = this.buildMemberName(dto.first_name, dto.last_name);
+    const fullName = this.buildMemberName(dto.firstName, dto.lastName);
+
+    const { data: authData, error: authError } = await this.supabase
+      .getAdminClient()
+      .auth.admin.createUser({
+        email: dto.email,
+        password: dto.password,
+        email_confirm: true,
+      });
+
+    if (authError) {
+      if (authError.message?.includes('already been registered')) {
+        throw new ConflictException(
+          'Ya existe un usuario registrado con ese email',
+        );
+      }
+      throw new BadRequestException(
+        `Error creando usuario en Supabase Auth: ${authError.message}`,
+      );
+    }
 
     try {
       const created = await this.prisma.$transaction(async (tx) => {
         await tx.member.update({
-          where: { id: dto.id_member },
+          where: { id: dto.idMember },
           data: { name: fullName },
         });
 
         return tx.user.create({
           data: {
             email: dto.email,
-            passwordHash: hashPassword(dto.password),
+            supabaseUid: authData.user.id,
             active: true,
+            idChurch,
             idUserRole: role.id,
-            idMember: dto.id_member,
+            idMember: dto.idMember,
           },
           select: { id: true },
         });
@@ -146,6 +178,9 @@ export class UsersService {
 
       return { id: created.id };
     } catch (error: unknown) {
+      await this.supabase
+        .getAdminClient()
+        .auth.admin.deleteUser(authData.user.id);
       if (isDuplicateEmailError(error)) {
         throw new ConflictException(
           'Ya existe un usuario registrado con ese email',
@@ -155,7 +190,7 @@ export class UsersService {
     }
   }
 
-  async update(id: number, dto: UpdateUserDto): Promise<UserDetailResponseDto> {
+  async update(id: number, dto: UpdateUserDto): Promise<IdResponseDto> {
     const existing = await this.prisma.user.findUnique({
       where: { id },
       select: { id: true, email: true, idMember: true },
@@ -179,11 +214,11 @@ export class UsersService {
     }
 
     const wantsNameUpdate =
-      dto.first_name !== undefined || dto.last_name !== undefined;
+      dto.firstName !== undefined || dto.lastName !== undefined;
 
-    if (wantsNameUpdate && (!dto.first_name || !dto.last_name)) {
+    if (wantsNameUpdate && (!dto.firstName || !dto.lastName)) {
       throw new BadRequestException(
-        'Se requieren first_name y last_name para actualizar el nombre',
+        'Se requieren firstName y lastName para actualizar el nombre',
       );
     }
 
@@ -197,42 +232,53 @@ export class UsersService {
     if (dto.email !== undefined) {
       data.email = dto.email;
     }
+
     if (dto.password !== undefined) {
-      data.passwordHash = hashPassword(dto.password);
+      const localUser = await this.prisma.user.findUnique({
+        where: { id },
+        select: { supabaseUid: true },
+      });
+      if (localUser?.supabaseUid) {
+        const { error: updateErr } = await this.supabase
+          .getAdminClient()
+          .auth.admin.updateUserById(localUser.supabaseUid, {
+            password: dto.password,
+          });
+        if (updateErr) {
+          throw new BadRequestException(
+            `Error actualizando password: ${updateErr.message}`,
+          );
+        }
+      }
     }
 
     if (!wantsNameUpdate && Object.keys(data).length === 0) {
-      return this.findOne(id);
+      return { id };
     }
 
     const fullName = wantsNameUpdate
-      ? this.buildMemberName(dto.first_name as string, dto.last_name as string)
+      ? this.buildMemberName(dto.firstName as string, dto.lastName as string)
       : null;
 
     try {
-      const updated = await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx) => {
         if (wantsNameUpdate) {
           await tx.member.update({
-            where: { id: existing.idMember! },
+            where: { id: existing.idMember },
             data: { name: fullName! },
           });
         }
 
         if (Object.keys(data).length > 0) {
-          return tx.user.update({
+          await tx.user.update({
             where: { id },
             data,
-            include: this.detailInclude(),
+            select: { id: true },
           });
         }
-
-        return tx.user.findUniqueOrThrow({
-          where: { id },
-          include: this.detailInclude(),
-        });
       });
 
-      return this.toDetailResponse(updated);
+      return { id };
     } catch (error: unknown) {
       if (isDuplicateEmailError(error)) {
         throw new ConflictException(
@@ -263,9 +309,15 @@ export class UsersService {
     });
   }
 
-  async findOne(id: number): Promise<UserDetailResponseDto> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+  async findOne(
+    id: number,
+    includeInactive = false,
+  ): Promise<UserDetailResponseDto> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id,
+        ...(includeInactive ? {} : { active: true }),
+      },
       include: this.detailInclude(),
     });
 
