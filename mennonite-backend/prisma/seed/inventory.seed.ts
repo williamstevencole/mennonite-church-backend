@@ -12,7 +12,7 @@ type ArticleSeed = {
 
 const DEMO_ARTICLES: ArticleSeed[] = [
   {
-    code: 'SILLA-001',
+    code: 'silla-001',
     name: 'Silla plegable',
     description: 'Silla plegable para uso en eventos y cultos.',
     brand: 'Generico',
@@ -21,7 +21,7 @@ const DEMO_ARTICLES: ArticleSeed[] = [
     initialQuantity: 50,
   },
   {
-    code: 'MIC-001',
+    code: 'mic-001',
     name: 'Microfono inalambrico',
     description: 'Microfono inalambrico para predicacion y alabanza.',
     brand: 'Shure',

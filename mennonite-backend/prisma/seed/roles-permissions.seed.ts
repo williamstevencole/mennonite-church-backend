@@ -172,14 +172,24 @@ const BASE_PERMISSIONS = [
     description: 'Crear, editar o eliminar categorias financieras',
   },
 
-  // Catalogos: tipos de rol de miembro
+  // Catalogos: tipos de rol por ministerio
   {
-    code: 'catalog.member-role-types.read',
-    description: 'Ver los tipos de rol que un miembro puede tener',
+    code: 'catalog.ministry-role-types.read',
+    description: 'Ver los tipos de rol disponibles por ministerio',
   },
   {
-    code: 'catalog.member-role-types.manage',
-    description: 'Crear, editar o eliminar tipos de rol de miembro',
+    code: 'catalog.ministry-role-types.manage',
+    description: 'Crear, editar o eliminar tipos de rol por ministerio',
+  },
+
+  // Catalogos: tipos de rol por concilio
+  {
+    code: 'catalog.board-role-types.read',
+    description: 'Ver los tipos de rol disponibles por concilio',
+  },
+  {
+    code: 'catalog.board-role-types.manage',
+    description: 'Crear, editar o eliminar tipos de rol por concilio',
   },
 
   // Iglesias (CRUD completo a nivel administrativo)
@@ -236,7 +246,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.read',
     'catalog.event-types.read',
     'catalog.transaction-categories.read',
-    'catalog.member-role-types.read',
+    'catalog.ministry-role-types.read',
+    'catalog.board-role-types.read',
     'churches.read',
     'audit.read',
   ],
