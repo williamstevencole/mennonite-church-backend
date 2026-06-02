@@ -28,6 +28,7 @@ import { FinancialTransactionsModule } from './modules/financial-transactions/fi
 import { CalendarEventsModule } from './modules/calendar-events/calendar-events.module';
 import { PeriodClosuresModule } from './modules/period-closures/period-closures.module';
 import { FinancialReportsModule } from './modules/financial-reports/financial-reports.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { FinancialReportsModule } from './modules/financial-reports/financial-re
     CalendarEventsModule,
     PeriodClosuresModule,
     FinancialReportsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
