@@ -26,6 +26,7 @@ import { MinistryMembersModule } from './modules/ministry-members/ministry-membe
 import { BoardsModule } from './modules/boards/boards.module';
 import { FinancialTransactionsModule } from './modules/financial-transactions/financial-transactions.module';
 import { CalendarEventsModule } from './modules/calendar-events/calendar-events.module';
+import { PeriodClosuresModule } from './modules/period-closures/period-closures.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { CalendarEventsModule } from './modules/calendar-events/calendar-events.
     BoardsModule,
     FinancialTransactionsModule,
     CalendarEventsModule,
+    PeriodClosuresModule,
   ],
   controllers: [AppController],
   providers: [AppService],

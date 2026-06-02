@@ -151,6 +151,33 @@ const BASE_PERMISSIONS = [
     code: 'period-closures.create',
     description: 'Realizar el cierre de un periodo (mes o ano)',
   },
+  {
+    code: 'period-closures.update',
+    description: 'Corregir saldos de un cierre de periodo',
+  },
+  {
+    code: 'period-closures.delete',
+    description: 'Eliminar un cierre de periodo registrado',
+  },
+
+  // Reportes financieros formales (financial_report)
+  {
+    code: 'financial-reports.read',
+    description: 'Ver los reportes financieros formales por ministerio',
+  },
+  {
+    code: 'financial-reports.create',
+    description: 'Crear nuevos reportes financieros formales',
+  },
+  {
+    code: 'financial-reports.update',
+    description:
+      'Editar o transicionar el estado de un reporte (Draft/Presented)',
+  },
+  {
+    code: 'financial-reports.delete',
+    description: 'Eliminar un reporte que no esté Aprobado',
+  },
 
   // Catalogos: tipos de evento
   {
@@ -267,6 +294,12 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.create',
     'period-closures.read',
     'period-closures.create',
+    'period-closures.update',
+    'period-closures.delete',
+    'financial-reports.read',
+    'financial-reports.create',
+    'financial-reports.update',
+    'financial-reports.delete',
     'catalog.transaction-categories.read',
     'catalog.transaction-categories.manage',
   ],
