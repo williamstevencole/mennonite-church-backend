@@ -27,6 +27,7 @@ import { BoardsModule } from './modules/boards/boards.module';
 import { FinancialTransactionsModule } from './modules/financial-transactions/financial-transactions.module';
 import { CalendarEventsModule } from './modules/calendar-events/calendar-events.module';
 import { PeriodClosuresModule } from './modules/period-closures/period-closures.module';
+import { FinancialReportsModule } from './modules/financial-reports/financial-reports.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { PeriodClosuresModule } from './modules/period-closures/period-closures.
     FinancialTransactionsModule,
     CalendarEventsModule,
     PeriodClosuresModule,
+    FinancialReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
