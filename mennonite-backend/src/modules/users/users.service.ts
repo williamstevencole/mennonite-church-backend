@@ -12,6 +12,7 @@ import {
   buildPagination,
   toPaginated,
 } from '../../common/pagination/paginate.util';
+import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
@@ -287,6 +288,39 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  async assignRole(
+    idChurch: number,
+    id: number,
+    dto: AssignUserRoleDto,
+  ): Promise<IdResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Usuario ${id} no encontrado`);
+    }
+
+    const role = await this.prisma.userRole.findFirst({
+      where: { id: dto.idRole, idChurch, active: true },
+      select: { id: true },
+    });
+
+    if (!role) {
+      throw new BadRequestException(
+        'Rol inexistente o no pertenece a tu iglesia',
+      );
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { idUserRole: role.id },
+    });
+
+    return { id };
   }
 
   async remove(id: number): Promise<void> {
