@@ -21,6 +21,7 @@ import { EventTypesModule } from './modules/event-types/event-types.module';
 import { ArticlesModule } from './modules/articles/articles.module';
 import { InventoryMovementsModule } from './modules/inventory-movements/inventory-movements.module';
 import { BudgetDistributionsModule } from './modules/budget-distributions/budget-distributions.module';
+import { BudgetCategoriesModule } from './modules/budget-categories/budget-categories.module';
 import { BoardMembersModule } from './modules/board-members/board-members.module';
 import { MinistryMembersModule } from './modules/ministry-members/ministry-members.module';
 import { BoardsModule } from './modules/boards/boards.module';
@@ -51,6 +52,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     ArticlesModule,
     InventoryMovementsModule,
     BudgetDistributionsModule,
+    BudgetCategoriesModule,
     BoardMembersModule,
     MinistryMembersModule,
     BoardsModule,
