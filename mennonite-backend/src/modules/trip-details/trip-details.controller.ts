@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
   Post,
   Query,
   UseGuards,
@@ -14,6 +16,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -29,6 +32,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { TripDetailsService } from './trip-details.service';
 import { CreateTripDetailDto } from './dto/create-trip-detail.dto';
 import { TripDetailListResponseDto } from './dto/trip-detail-list-response.dto';
+import { TripDetailResponseDto } from './dto/trip-detail-response.dto';
 import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
 
@@ -68,5 +72,17 @@ export class TripDetailsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<IdResponseDto> {
     return this.service.create(dto, user);
+  }
+
+  @Get(':id')
+  @Permissions('events.read')
+  @ApiOperation({ summary: 'Obtener detalle de un trip detail' })
+  @ApiOkResponse({ type: TripDetailResponseDto })
+  @ApiNotFoundResponse({ description: 'Trip detail no encontrado' })
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<TripDetailResponseDto> {
+    return this.service.findOne(id, user);
   }
 }

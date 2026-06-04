@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTripDetailDto } from './dto/create-trip-detail.dto';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
@@ -10,6 +14,16 @@ import {
 } from '../../common/pagination/paginate.util';
 
 import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
+import { TripDetailResponseDto } from './dto/trip-detail-response.dto';
+import { ApiProperty } from '@nestjs/swagger';
+import { PaginatedResponseDto } from '../../common/pagination/paginated-response.dto';
+
+export class TripDetailListResponseDto extends PaginatedResponseDto<TripDetailResponseDto> {
+  @ApiProperty({
+    type: [TripDetailResponseDto],
+  })
+  data!: TripDetailResponseDto[];
+}
 
 @Injectable()
 export class TripDetailsService {
@@ -104,5 +118,39 @@ export class TripDetailsService {
     }));
 
     return toPaginated(mapped, total, query.page ?? 1, query.limit ?? 20);
+  }
+
+  async findOne(id: number, user: JwtPayload): Promise<TripDetailResponseDto> {
+    const tripDetail = await this.prisma.tripDetail.findFirst({
+      where: {
+        id,
+        event: {
+          idChurch: user.idChurch,
+        },
+      },
+      select: {
+        id: true,
+        origin: true,
+        destination: true,
+        notes: true,
+        event: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
+
+    if (!tripDetail) {
+      throw new NotFoundException('Trip detail no encontrado');
+    }
+
+    return {
+      id: tripDetail.id,
+      origin: tripDetail.origin,
+      destination: tripDetail.destination,
+      notes: tripDetail.notes,
+      eventTitle: tripDetail.event.title,
+    };
   }
 }
