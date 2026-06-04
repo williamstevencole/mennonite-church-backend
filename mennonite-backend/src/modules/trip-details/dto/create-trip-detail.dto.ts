@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsInt, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateTripDetailDto {
   @Transform(({ value }) => Number(value))
@@ -16,6 +16,7 @@ export class CreateTripDetailDto {
   @MaxLength(200)
   destination!: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(200)
   notes?: string;

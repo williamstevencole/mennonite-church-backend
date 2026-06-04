@@ -1,6 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsInt,
+  IsOptional,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 export class UpdateBoardMemberDto {
   @ApiPropertyOptional({ example: 1, description: 'Id del rol del concilio' })
@@ -15,8 +21,14 @@ export class UpdateBoardMemberDto {
   @IsDateString()
   startDate?: string;
 
-  @ApiPropertyOptional({ example: '2026-12-31' })
+  @ApiPropertyOptional({
+    example: '2026-12-31',
+    nullable: true,
+    description:
+      'Enviar null para limpiar la fecha (miembro vuelve a "en funciones")',
+  })
+  @ValidateIf((o: UpdateBoardMemberDto) => o.endDate !== null)
   @IsOptional()
   @IsDateString()
-  endDate?: string;
+  endDate?: string | null;
 }

@@ -20,6 +20,8 @@ import {
   toPaginated,
 } from '../../common/pagination/paginate.util';
 import { DocumentType } from './doc-type-enum';
+import { MembersBirthdaysPageResponseDto } from './dto/members-birthdays-page.response.dto';
+import { MembersBirthdaysQueryDto } from './dto/member-birthdays-query.dto';
 
 type MemberListWithRelations = Prisma.MemberGetPayload<{
   include: {
@@ -407,5 +409,64 @@ export class MembersService {
     }
 
     throw new BadRequestException('Tipo de documento no soportado');
+  }
+  async findBirthdays(
+    query: MembersBirthdaysQueryDto,
+    user: JwtPayload,
+  ): Promise<MembersBirthdaysPageResponseDto> {
+    const idChurch = await this.resolveChurchId(user);
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const month = query.month ?? new Date().getMonth() + 1;
+
+    const now = new Date();
+    const todayUTC = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+    );
+    const msPerDay = 1000 * 60 * 60 * 24;
+
+    const members = await this.prisma.member.findMany({
+      where: {
+        idChurch,
+        active: true,
+        birthDate: { not: undefined },
+      },
+      select: {
+        id: true,
+        name: true,
+        birthDate: true,
+      },
+    });
+
+    const enriched = members
+      .filter((m) => new Date(m.birthDate).getUTCMonth() + 1 === month)
+      .map((m) => {
+        const bd = new Date(m.birthDate);
+        const bdMonth = bd.getUTCMonth();
+        const bdDay = bd.getUTCDate();
+        let nextUTC = Date.UTC(now.getUTCFullYear(), bdMonth, bdDay);
+        if (nextUTC < todayUTC) {
+          nextUTC = Date.UTC(now.getUTCFullYear() + 1, bdMonth, bdDay);
+        }
+        const daysUntilNextBirthday = Math.round(
+          (nextUTC - todayUTC) / msPerDay,
+        );
+        return {
+          id: m.id,
+          name: m.name,
+          birthDate: m.birthDate,
+          dayOfMonth: bdDay,
+          daysUntilNextBirthday,
+        };
+      })
+      .sort((a, b) => a.daysUntilNextBirthday - b.daysUntilNextBirthday);
+
+    const total = enriched.length;
+    const sliced = enriched.slice((page - 1) * limit, page * limit);
+
+    return toPaginated(sliced, total, page, limit);
   }
 }

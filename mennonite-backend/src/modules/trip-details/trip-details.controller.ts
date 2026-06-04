@@ -1,34 +1,123 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { TripDetailsService } from './trip-details.service';
-import { CreateTripDetailDto } from './dto/create-trip-detail.dto';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
-import { IdResponseDto } from '../../common/dto/id-response.dto';
 import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+
+import { TripDetailsService } from './trip-details.service';
+import { CreateTripDetailDto } from './dto/create-trip-detail.dto';
+import { TripDetailListResponseDto } from './dto/trip-detail-list-response.dto';
+import { TripDetailResponseDto } from './dto/trip-detail-response.dto';
+import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { UpdateTripDetailDto } from './dto/update-trip-detail.dto';
+
 @ApiTags('Trip Details')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth('JWT-auth')
 @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
 @ApiForbiddenResponse({ description: 'Faltan permisos requeridos' })
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('trip-details')
 export class TripDetailsController {
   constructor(private readonly service: TripDetailsService) {}
 
+  @Get()
+  @Permissions('events.read')
+  @ApiOperation({ summary: 'Listar trip details con paginación' })
+  @ApiOkResponse({ type: TripDetailListResponseDto })
+  findAll(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: PaginationQueryDto,
+  ): Promise<TripDetailListResponseDto> {
+    return this.service.findAll(user, query);
+  }
+
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   @Permissions('events.create')
+  @ApiOperation({ summary: 'Crear trip detail para un evento tipo trip' })
+  @ApiCreatedResponse({ type: IdResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Evento inválido o no es tipo trip',
+  })
+  @ApiConflictResponse({
+    description: 'El evento ya tiene trip details',
+  })
   create(
     @Body() dto: CreateTripDetailDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<IdResponseDto> {
     return this.service.create(dto, user);
+  }
+
+  @Get(':id')
+  @Permissions('events.read')
+  @ApiOperation({ summary: 'Obtener detalle de un trip detail' })
+  @ApiOkResponse({ type: TripDetailResponseDto })
+  @ApiNotFoundResponse({ description: 'Trip detail no encontrado' })
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<TripDetailResponseDto> {
+    return this.service.findOne(id, user);
+  }
+
+  @Patch(':id')
+  @Permissions('events.update')
+  @ApiOperation({ summary: 'Actualizar trip detail' })
+  @ApiOkResponse({ type: IdResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Datos inválidos o evento no es tipo trip',
+  })
+  @ApiNotFoundResponse({
+    description: 'Trip detail no encontrado',
+  })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTripDetailDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<IdResponseDto> {
+    return this.service.update(id, dto, user);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Permissions('events.delete')
+  @ApiOperation({ summary: 'Eliminar trip detail' })
+  @ApiNoContentResponse({ description: 'Trip detail eliminado correctamente' })
+  @ApiNotFoundResponse({ description: 'Trip detail no encontrado' })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.service.remove(id, user);
   }
 }

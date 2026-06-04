@@ -37,6 +37,8 @@ import { MemberDetailResponseDto } from './dto/member-detail.response.dto';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 import { MembersPageResponseDto } from './dto/members-page.response.dto';
 import { ListMembersQueryDto } from './dto/list-members-query.dto';
+import { MembersBirthdaysPageResponseDto } from './dto/members-birthdays-page.response.dto';
+import { MembersBirthdaysQueryDto } from './dto/member-birthdays-query.dto';
 
 @ApiTags('Members')
 @ApiBearerAuth('JWT-auth')
@@ -97,6 +99,17 @@ export class MembersController {
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.membersService.remove(id, user);
+  }
+
+  @Get('birthdays')
+  @Permissions('members.read')
+  @ApiOperation({ summary: 'Obtener cumpleaños de miembros por mes' })
+  @ApiOkResponse({ type: MembersBirthdaysPageResponseDto })
+  findBirthdays(
+    @Query() query: MembersBirthdaysQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<MembersBirthdaysPageResponseDto> {
+    return this.membersService.findBirthdays(query, user);
   }
 
   @Get(':id')

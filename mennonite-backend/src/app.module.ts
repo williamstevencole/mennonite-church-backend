@@ -31,6 +31,8 @@ import { CalendarEventsModule } from './modules/calendar-events/calendar-events.
 import { PeriodClosuresModule } from './modules/period-closures/period-closures.module';
 import { FinancialReportsModule } from './modules/financial-reports/financial-reports.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { TripDetailsModule } from './modules/trip-details/trip-details.module';
+import { PastorsModule } from './modules/pastors/pastors.module';
 import { MemberEventsModule } from './modules/member-events/member-events.module';
 import { EventResponsibleMembersModule } from './modules/event-responsible-members/event-responsible-members.module';
 import { FundraisingDetailsModule } from './modules/fundraising-details/fundraising-details.module';
@@ -66,6 +68,8 @@ import { FundraisingDetailsModule } from './modules/fundraising-details/fundrais
     PeriodClosuresModule,
     FinancialReportsModule,
     ReportsModule,
+    TripDetailsModule,
+    PastorsModule,
     MemberEventsModule,
     EventResponsibleMembersModule,
     FundraisingDetailsModule,
