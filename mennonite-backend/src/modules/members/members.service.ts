@@ -20,6 +20,8 @@ import {
   toPaginated,
 } from '../../common/pagination/paginate.util';
 import { DocumentType } from './doc-type-enum';
+import { MembersBirthdaysPageResponseDto } from './dto/members-birthdays-page.response.dto';
+import { MembersBirthdaysQueryDto } from './dto/member-birthdays-query.dto';
 
 type MemberListWithRelations = Prisma.MemberGetPayload<{
   include: {
@@ -407,5 +409,47 @@ export class MembersService {
     }
 
     throw new BadRequestException('Tipo de documento no soportado');
+  }
+  async findBirthdays(
+    query: MembersBirthdaysQueryDto,
+    user: JwtPayload,
+  ): Promise<MembersBirthdaysPageResponseDto> {
+    const idChurch = await this.resolveChurchId(user);
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const month = query.month ?? new Date().getMonth() + 1;
+
+    const where: Prisma.MemberWhereInput = {
+      idChurch,
+      active: true,
+    };
+
+    const members = await this.prisma.member.findMany({
+      where: {
+        ...where,
+        birthDate: { not: undefined },
+      },
+      orderBy: [{ birthDate: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        birthDate: true,
+      },
+    });
+
+    const filtered = members
+      .filter((m) => {
+        const d = new Date(m.birthDate);
+        return d.getMonth() + 1 === month;
+      })
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        birthDate: m.birthDate,
+        dayOfMonth: new Date(m.birthDate).getDate(),
+      }));
+
+    return toPaginated(filtered, filtered.length, page, limit);
   }
 }
