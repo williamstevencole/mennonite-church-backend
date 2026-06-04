@@ -15,8 +15,7 @@ export class CreateMemberEventDto {
   @Min(1)
   idMember!: number;
 
-  @ApiProperty({ example: true, description: 'atendio el evento' })
-  @Type(() => Boolean)
+  @ApiProperty({ example: true, description: 'Asistio al evento' })
   @IsBoolean()
   attended!: boolean;
 

@@ -29,8 +29,8 @@ import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { MemberEventService } from './member-event.service';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { MemberEventsService } from './member-events.service';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { CreateMemberEventDto } from './dto/create-member-event.dto';
 import { UpdateMemberEventDto } from './dto/update-member-event.dto';
@@ -38,84 +38,80 @@ import { ListMemberEventsQueryDto } from './dto/list-member-events-query.dto';
 import { MemberEventsPageResponseDto } from './dto/member-events-page.response.dto';
 import { MemberEventDetailResponseDto } from './dto/member-events-detail.response.dto';
 
-@ApiTags('Member Event')
+@ApiTags('Member Events')
 @ApiBearerAuth('JWT-auth')
 @ApiUnauthorizedResponse({ description: 'JWT invalido, requerido o vencido' })
 @ApiForbiddenResponse({ description: 'Faltan permisos requeridos' })
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@Controller('member-event')
-export class MemberEventController {
-  constructor(private readonly memberEventService: MemberEventService) {}
+@Controller('member-events')
+export class MemberEventsController {
+  constructor(private readonly memberEventsService: MemberEventsService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @Permissions('assignments.create')
-  @ApiOperation({ summary: 'Asignar un evento a un miembro' })
+  @Permissions('events.attendance.create')
+  @ApiOperation({ summary: 'Registrar asistencia de un miembro a un evento' })
   @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
-  @ApiConflictResponse({ description: 'evento ya asignado al miembro' })
+  @ApiConflictResponse({
+    description: 'El miembro ya tiene asistencia registrada en este evento',
+  })
   create(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateMemberEventDto,
   ): Promise<IdResponseDto> {
-    return this.memberEventService.create(user, dto);
+    return this.memberEventsService.create(user, dto);
   }
 
   @Get()
-  @Permissions('assignments.read')
+  @Permissions('events.attendance.read')
   @ApiOperation({
-    summary: 'Listar integrantes de ministerios con filtros y paginacion',
+    summary: 'Listar asistencias a eventos con filtros y paginacion',
   })
   @ApiOkResponse({ type: MemberEventsPageResponseDto })
   findAll(
     @CurrentUser() user: JwtPayload,
     @Query() query: ListMemberEventsQueryDto,
   ): Promise<MemberEventsPageResponseDto> {
-    return this.memberEventService.findAll(user, query);
+    return this.memberEventsService.findAll(user, query);
   }
 
   @Get(':id')
-  @Permissions('assignments.read')
-  @ApiOperation({ summary: 'Obtener detalle de un integrante de evento' })
+  @Permissions('events.attendance.read')
+  @ApiOperation({ summary: 'Obtener detalle de una asistencia' })
   @ApiOkResponse({ type: MemberEventDetailResponseDto })
-  @ApiNotFoundResponse({
-    description: 'Integrante de evento no encontrado',
-  })
+  @ApiNotFoundResponse({ description: 'Registro de asistencia no encontrado' })
   findOne(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<MemberEventDetailResponseDto> {
-    return this.memberEventService.findOne(user, id);
+    return this.memberEventsService.findOne(user, id);
   }
 
   @Patch(':id')
-  @Permissions('assignments.update')
-  @ApiOperation({ summary: 'Actualizar rol o fechas de un integrante' })
+  @Permissions('events.attendance.update')
+  @ApiOperation({ summary: 'Actualizar una asistencia (attended / notes)' })
   @ApiOkResponse({ type: IdResponseDto })
-  @ApiBadRequestResponse({ description: 'Payload invalido o FK inexistente' })
-  @ApiNotFoundResponse({
-    description: 'Integrante de evento no encontrado',
-  })
+  @ApiBadRequestResponse({ description: 'Payload invalido' })
+  @ApiNotFoundResponse({ description: 'Registro de asistencia no encontrado' })
   update(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMemberEventDto,
   ): Promise<IdResponseDto> {
-    return this.memberEventService.update(user, id, dto);
+    return this.memberEventsService.update(user, id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions('assignments.delete')
-  @ApiOperation({ summary: 'Retirar integrante de un evento' })
-  @ApiNoContentResponse({ description: 'Integrante de evento retirado' })
-  @ApiNotFoundResponse({
-    description: 'Integrante de evento no encontrado',
-  })
+  @Permissions('events.attendance.delete')
+  @ApiOperation({ summary: 'Eliminar un registro de asistencia' })
+  @ApiNoContentResponse({ description: 'Asistencia eliminada' })
+  @ApiNotFoundResponse({ description: 'Registro de asistencia no encontrado' })
   remove(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {
-    return this.memberEventService.remove(user, id);
+    return this.memberEventsService.remove(user, id);
   }
 }

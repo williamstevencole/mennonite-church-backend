@@ -30,7 +30,7 @@ import { CalendarEventsModule } from './modules/calendar-events/calendar-events.
 import { PeriodClosuresModule } from './modules/period-closures/period-closures.module';
 import { FinancialReportsModule } from './modules/financial-reports/financial-reports.module';
 import { ReportsModule } from './modules/reports/reports.module';
-import { MemberEventModule } from './modules/member-event/member-event.module';
+import { MemberEventsModule } from './modules/member-events/member-events.module';
 
 @Module({
   imports: [
@@ -62,7 +62,7 @@ import { MemberEventModule } from './modules/member-event/member-event.module';
     PeriodClosuresModule,
     FinancialReportsModule,
     ReportsModule,
-    MemberEventModule,
+    MemberEventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

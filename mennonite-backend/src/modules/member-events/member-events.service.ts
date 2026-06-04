@@ -4,18 +4,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   buildPagination,
   toPaginated,
 } from '../../common/pagination/paginate.util';
-import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { CreateMemberEventDto } from './dto/create-member-event.dto';
 import { UpdateMemberEventDto } from './dto/update-member-event.dto';
-import { IdResponseDto } from 'src/common/dto/id-response.dto';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
-import { MemberEventsPageResponseDto } from './dto/member-events-page.response.dto';
 import { ListMemberEventsQueryDto } from './dto/list-member-events-query.dto';
+import { MemberEventsPageResponseDto } from './dto/member-events-page.response.dto';
 import { MemberEventListItemResponseDto } from './dto/member-event-list-item.response.dto';
 import { MemberEventEventSummaryResponseDto } from './dto/member-event-event-summary.response.dto';
 import { MemberEventMemberSummaryResponseDto } from './dto/member-event-member-summary.response.dto';
@@ -29,7 +29,7 @@ type MemberEventRecord = Prisma.MemberEventGetPayload<{
 }>;
 
 @Injectable()
-export class MemberEventService {
+export class MemberEventsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
@@ -45,7 +45,7 @@ export class MemberEventService {
       }),
       this.prisma.member.findFirst({
         where: { id: dto.idMember, idChurch },
-        select: { id: true, active: true },
+        select: { id: true },
       }),
       this.prisma.memberEvent.findFirst({
         where: {
@@ -64,12 +64,10 @@ export class MemberEventService {
       throw new BadRequestException('Miembro inexistente');
     }
 
-    if (!member.active) {
-      throw new BadRequestException('El miembro esta inactivo');
-    }
-
     if (duplicate) {
-      throw new ConflictException('El miembro ya esta asignado en este evento');
+      throw new ConflictException(
+        'El miembro ya tiene asistencia registrada en este evento',
+      );
     }
 
     const created = await this.prisma.memberEvent.create({
@@ -104,7 +102,7 @@ export class MemberEventService {
       where.idMember = query.idMember;
     }
 
-    const [total, members] = await this.prisma.$transaction([
+    const [total, attendances] = await this.prisma.$transaction([
       this.prisma.memberEvent.count({ where }),
       this.prisma.memberEvent.findMany({
         where,
@@ -115,7 +113,7 @@ export class MemberEventService {
     ]);
 
     return toPaginated(
-      members.map((item) => this.toListItem(item)),
+      attendances.map((item) => this.toListItem(item)),
       total,
       page,
       limit,
@@ -129,14 +127,14 @@ export class MemberEventService {
     const record = await this.prisma.memberEvent.findFirst({
       where: {
         id,
-        member: { idChurch: user.idChurch },
+        event: { idChurch: user.idChurch },
       },
       include: this.include(),
     });
 
     if (!record) {
       throw new NotFoundException(
-        `Integrante de evento con id ${id} no encontrado`,
+        `Registro de asistencia con id ${id} no encontrado`,
       );
     }
 
@@ -150,20 +148,15 @@ export class MemberEventService {
   ): Promise<IdResponseDto> {
     const existing = await this.prisma.memberEvent.findFirst({
       where: { id, event: { idChurch: user.idChurch } },
-      select: {
-        id: true,
-        idMember: true,
-        idEvent: true,
-        attended: true,
-        notes: true,
-      },
+      select: { id: true },
     });
 
     if (!existing) {
       throw new NotFoundException(
-        `Integrante de ministerio con id ${id} no encontrado`,
+        `Registro de asistencia con id ${id} no encontrado`,
       );
     }
+
     const data: Prisma.MemberEventUpdateInput = {};
 
     if (dto.attended !== undefined) {
@@ -198,7 +191,7 @@ export class MemberEventService {
 
     if (!record) {
       throw new NotFoundException(
-        `Integrante de evento con id ${id} no encontrado`,
+        `Registro de asistencia con id ${id} no encontrado`,
       );
     }
 
