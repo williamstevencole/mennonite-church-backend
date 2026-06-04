@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -30,6 +31,8 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { DepartmentsService } from './departments.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { DepartmentResponseDto } from './dto/department.response.dto';
+import { DepartmentsPageResponseDto } from './dto/departments-page.response.dto';
+import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
@@ -55,9 +58,12 @@ export class DepartmentsController {
 
   @Get()
   @Permissions('catalog.departments.read')
-  @ApiOkResponse({ type: DepartmentResponseDto, isArray: true })
-  findAll(): Promise<DepartmentResponseDto[]> {
-    return this.service.findAll();
+  @ApiOperation({ summary: 'Listar departamentos con paginacion' })
+  @ApiOkResponse({ type: DepartmentsPageResponseDto })
+  findAll(
+    @Query() query: ListDepartmentsQueryDto,
+  ): Promise<DepartmentsPageResponseDto> {
+    return this.service.findAll(query);
   }
 
   @Get(':id')

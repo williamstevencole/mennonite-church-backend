@@ -29,7 +29,9 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { ChurchesService } from './churches.service';
 import { ChurchResponseDto } from './dto/church.response.dto';
+import { ChurchesPageResponseDto } from './dto/churches-page.response.dto';
 import { CreateChurchDto } from './dto/create-church.dto';
+import { ListChurchesQueryDto } from './dto/list-churches-query.dto';
 import { UpdateChurchDto } from './dto/update-church.dto';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
@@ -56,11 +58,12 @@ export class ChurchesController {
 
   @Get()
   @Permissions('churches.read')
-  @ApiOkResponse({ type: ChurchResponseDto, isArray: true })
+  @ApiOperation({ summary: 'Listar iglesias con paginacion' })
+  @ApiOkResponse({ type: ChurchesPageResponseDto })
   findAll(
-    @Query('includeInactive') includeInactive?: string,
-  ): Promise<ChurchResponseDto[]> {
-    return this.service.findAll(includeInactive === 'true');
+    @Query() query: ListChurchesQueryDto,
+  ): Promise<ChurchesPageResponseDto> {
+    return this.service.findAll(query);
   }
 
   @Get(':id')

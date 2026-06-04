@@ -22,6 +22,7 @@ import { ArticlesModule } from './modules/articles/articles.module';
 import { InventoryMovementsModule } from './modules/inventory-movements/inventory-movements.module';
 import { BudgetDistributionsModule } from './modules/budget-distributions/budget-distributions.module';
 import { BudgetCategoriesModule } from './modules/budget-categories/budget-categories.module';
+import { BudgetsModule } from './modules/budgets/budgets.module';
 import { BoardMembersModule } from './modules/board-members/board-members.module';
 import { MinistryMembersModule } from './modules/ministry-members/ministry-members.module';
 import { BoardsModule } from './modules/boards/boards.module';
@@ -31,6 +32,8 @@ import { PeriodClosuresModule } from './modules/period-closures/period-closures.
 import { FinancialReportsModule } from './modules/financial-reports/financial-reports.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { MemberEventsModule } from './modules/member-events/member-events.module';
+import { EventResponsibleMembersModule } from './modules/event-responsible-members/event-responsible-members.module';
+import { FundraisingDetailsModule } from './modules/fundraising-details/fundraising-details.module';
 
 @Module({
   imports: [
@@ -52,6 +55,7 @@ import { MemberEventsModule } from './modules/member-events/member-events.module
     EventTypesModule,
     ArticlesModule,
     InventoryMovementsModule,
+    BudgetsModule,
     BudgetDistributionsModule,
     BudgetCategoriesModule,
     BoardMembersModule,
@@ -63,6 +67,8 @@ import { MemberEventsModule } from './modules/member-events/member-events.module
     FinancialReportsModule,
     ReportsModule,
     MemberEventsModule,
+    EventResponsibleMembersModule,
+    FundraisingDetailsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

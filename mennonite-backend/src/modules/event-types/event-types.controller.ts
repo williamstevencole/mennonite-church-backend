@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -31,6 +32,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreateEventTypeDto } from './dto/create-event-type.dto';
 import { EventTypeResponseDto } from './dto/event-type.response.dto';
+import { EventTypesPageResponseDto } from './dto/event-types-page.response.dto';
+import { ListEventTypesQueryDto } from './dto/list-event-types-query.dto';
 import { UpdateEventTypeDto } from './dto/update-event-type.dto';
 import { EventTypesService } from './event-types.service';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
@@ -60,10 +63,13 @@ export class EventTypesController {
 
   @Get()
   @Permissions('catalog.event-types.read')
-  @ApiOperation({ summary: 'Listar tipos de evento' })
-  @ApiOkResponse({ type: EventTypeResponseDto, isArray: true })
-  findAll(@CurrentUser() user: JwtPayload): Promise<EventTypeResponseDto[]> {
-    return this.service.findAll(user.idChurch);
+  @ApiOperation({ summary: 'Listar tipos de evento con paginacion' })
+  @ApiOkResponse({ type: EventTypesPageResponseDto })
+  findAll(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ListEventTypesQueryDto,
+  ): Promise<EventTypesPageResponseDto> {
+    return this.service.findAll(user.idChurch, query);
   }
 
   @Get(':id')

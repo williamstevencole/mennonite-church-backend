@@ -5,8 +5,13 @@ import {
 } from '@nestjs/common';
 import { Prisma, TransactionCategory } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { CreateTransactionCategoryDto } from './dto/create-transaction-category.dto';
 import { ListTransactionCategoriesQueryDto } from './dto/list-transaction-categories-query.dto';
+import { TransactionCategoriesPageResponseDto } from './dto/transaction-categories-page.response.dto';
 import { TransactionCategoryResponseDto } from './dto/transaction-category.response.dto';
 import { UpdateTransactionCategoryDto } from './dto/update-transaction-category.dto';
 import { TransactionCategoryType } from './transaction-category-type.enum';
@@ -33,7 +38,9 @@ export class TransactionCategoriesService {
   async findAll(
     idChurch: number,
     query: ListTransactionCategoriesQueryDto,
-  ): Promise<TransactionCategoryResponseDto[]> {
+  ): Promise<TransactionCategoriesPageResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
     const where: Prisma.TransactionCategoryWhereInput = { idChurch };
     if (query.includeInactive !== true) {
       where.active = true;
@@ -42,12 +49,21 @@ export class TransactionCategoriesService {
       where.type = query.type;
     }
 
-    const items = await this.prisma.transactionCategory.findMany({
-      where,
-      orderBy: [{ type: 'asc' }, { name: 'asc' }],
-    });
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.transactionCategory.count({ where }),
+      this.prisma.transactionCategory.findMany({
+        where,
+        orderBy: [{ type: 'asc' }, { name: 'asc' }],
+        ...buildPagination(page, limit),
+      }),
+    ]);
 
-    return items.map((item) => this.toResponse(item));
+    return toPaginated(
+      items.map((item) => this.toResponse(item)),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findOne(

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class MemberEventEventSummaryResponseDto {
+export class EventResponsibleMemberEventSummaryResponseDto {
   @ApiProperty() id!: number;
   @ApiProperty() title!: string;
 }

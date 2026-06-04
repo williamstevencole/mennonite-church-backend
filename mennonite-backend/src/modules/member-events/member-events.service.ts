@@ -237,6 +237,6 @@ export class MemberEventsService {
   private toEventSummary(
     event: MemberEventRecord['event'],
   ): MemberEventEventSummaryResponseDto {
-    return { id: event.id, name: event.title };
+    return { id: event.id, title: event.title };
   }
 }

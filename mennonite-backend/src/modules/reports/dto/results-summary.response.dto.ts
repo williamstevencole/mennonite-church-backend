@@ -41,10 +41,44 @@ export class ResultsSummaryRowDto {
   variacionPresupPct!: number;
 }
 
+export class NextYearBudgetRowDto {
+  @ApiProperty({ example: 'Diezmos y Ofrendas' })
+  categoria!: string;
+
+  @ApiProperty({
+    enum: ['income', 'expense', 'total_income', 'total_expense', 'net_result'],
+    example: 'income',
+  })
+  tipo!: 'income' | 'expense' | 'total_income' | 'total_expense' | 'net_result';
+
+  @ApiProperty({ example: 95000, description: 'Monto presupuestado del año' })
+  montoPresupuesto!: number;
+}
+
+export class NextYearBudgetSectionDto {
+  @ApiProperty({ example: 2026, description: 'Año del presupuesto (year + 1)' })
+  year!: number;
+
+  @ApiProperty({
+    example: true,
+    description: 'False si todavía no hay presupuesto cargado para year+1',
+  })
+  hasBudget!: boolean;
+
+  @ApiProperty({ type: [NextYearBudgetRowDto] })
+  rows!: NextYearBudgetRowDto[];
+}
+
 export class ResultsSummaryResponseDto {
   @ApiProperty({ example: 2025 })
   year!: number;
 
   @ApiProperty({ type: [ResultsSummaryRowDto] })
   rows!: ResultsSummaryRowDto[];
+
+  @ApiProperty({
+    type: NextYearBudgetSectionDto,
+    description: 'Presupuesto proyectado del año siguiente',
+  })
+  nextYearBudget!: NextYearBudgetSectionDto;
 }

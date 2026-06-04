@@ -5,8 +5,14 @@ import {
 } from '@nestjs/common';
 import { Department } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { DepartmentResponseDto } from './dto/department.response.dto';
+import { DepartmentsPageResponseDto } from './dto/departments-page.response.dto';
+import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
@@ -23,11 +29,26 @@ export class DepartmentsService {
     return { id: created.id, name: created.name };
   }
 
-  async findAll(): Promise<DepartmentResponseDto[]> {
-    const items = await this.prisma.department.findMany({
-      orderBy: { name: 'asc' },
-    });
-    return items.map((item) => this.toResponse(item));
+  async findAll(
+    query: ListDepartmentsQueryDto,
+  ): Promise<DepartmentsPageResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.department.count(),
+      this.prisma.department.findMany({
+        orderBy: { name: 'asc' },
+        ...buildPagination(page, limit),
+      }),
+    ]);
+
+    return toPaginated(
+      items.map((item) => this.toResponse(item)),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findOne(id: number): Promise<DepartmentResponseDto> {

@@ -29,6 +29,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CitiesService } from './cities.service';
+import { CitiesPageResponseDto } from './dto/cities-page.response.dto';
 import { CityResponseDto } from './dto/city.response.dto';
 import { CreateCityDto } from './dto/create-city.dto';
 import { ListCitiesQueryDto } from './dto/list-cities-query.dto';
@@ -59,8 +60,9 @@ export class CitiesController {
 
   @Get()
   @Permissions('catalog.cities.read')
-  @ApiOkResponse({ type: CityResponseDto, isArray: true })
-  findAll(@Query() query: ListCitiesQueryDto): Promise<CityResponseDto[]> {
+  @ApiOperation({ summary: 'Listar ciudades con paginacion' })
+  @ApiOkResponse({ type: CitiesPageResponseDto })
+  findAll(@Query() query: ListCitiesQueryDto): Promise<CitiesPageResponseDto> {
     return this.service.findAll(query);
   }
 

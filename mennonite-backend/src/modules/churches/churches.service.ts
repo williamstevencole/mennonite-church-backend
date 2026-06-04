@@ -6,8 +6,14 @@ import {
 } from '@nestjs/common';
 import { Church, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { ChurchResponseDto } from './dto/church.response.dto';
+import { ChurchesPageResponseDto } from './dto/churches-page.response.dto';
 import { CreateChurchDto } from './dto/create-church.dto';
+import { ListChurchesQueryDto } from './dto/list-churches-query.dto';
 import { UpdateChurchDto } from './dto/update-church.dto';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 
@@ -37,12 +43,27 @@ export class ChurchesService {
     return { id: created.id, name: created.name };
   }
 
-  async findAll(includeInactive = false): Promise<ChurchResponseDto[]> {
-    const items = await this.prisma.church.findMany({
-      where: includeInactive ? {} : { active: true },
-      orderBy: { name: 'asc' },
-    });
-    return items.map((item) => this.toResponse(item));
+  async findAll(query: ListChurchesQueryDto): Promise<ChurchesPageResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where: Prisma.ChurchWhereInput =
+      query.includeInactive === true ? {} : { active: true };
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.church.count({ where }),
+      this.prisma.church.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        ...buildPagination(page, limit),
+      }),
+    ]);
+
+    return toPaginated(
+      items.map((item) => this.toResponse(item)),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findOne(

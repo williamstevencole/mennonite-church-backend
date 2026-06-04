@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import { City, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
+import { CitiesPageResponseDto } from './dto/cities-page.response.dto';
 import { CityResponseDto } from './dto/city.response.dto';
 import { CreateCityDto } from './dto/create-city.dto';
 import { ListCitiesQueryDto } from './dto/list-cities-query.dto';
@@ -27,16 +32,29 @@ export class CitiesService {
     return { id: created.id, name: created.name };
   }
 
-  async findAll(query: ListCitiesQueryDto): Promise<CityResponseDto[]> {
+  async findAll(query: ListCitiesQueryDto): Promise<CitiesPageResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
     const where: Prisma.CityWhereInput = {};
     if (query.idDepartment !== undefined) {
       where.idDepartment = query.idDepartment;
     }
-    const items = await this.prisma.city.findMany({
-      where,
-      orderBy: { name: 'asc' },
-    });
-    return items.map((item) => this.toResponse(item));
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.city.count({ where }),
+      this.prisma.city.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        ...buildPagination(page, limit),
+      }),
+    ]);
+
+    return toPaginated(
+      items.map((item) => this.toResponse(item)),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findOne(id: number): Promise<CityResponseDto> {
