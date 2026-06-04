@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -35,6 +36,7 @@ import { TripDetailListResponseDto } from './dto/trip-detail-list-response.dto';
 import { TripDetailResponseDto } from './dto/trip-detail-response.dto';
 import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
+import { UpdateTripDetailDto } from './dto/update-trip-detail.dto';
 
 @ApiTags('Trip Details')
 @ApiBearerAuth('JWT-auth')
@@ -84,5 +86,23 @@ export class TripDetailsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<TripDetailResponseDto> {
     return this.service.findOne(id, user);
+  }
+
+  @Patch(':id')
+  @Permissions('events.update')
+  @ApiOperation({ summary: 'Actualizar trip detail' })
+  @ApiOkResponse({ type: IdResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Datos inválidos o evento no es tipo trip',
+  })
+  @ApiNotFoundResponse({
+    description: 'Trip detail no encontrado',
+  })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTripDetailDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<IdResponseDto> {
+    return this.service.update(id, dto, user);
   }
 }

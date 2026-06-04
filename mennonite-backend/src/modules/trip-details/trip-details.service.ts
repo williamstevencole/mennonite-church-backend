@@ -17,6 +17,7 @@ import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto
 import { TripDetailResponseDto } from './dto/trip-detail-response.dto';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginatedResponseDto } from '../../common/pagination/paginated-response.dto';
+import { UpdateTripDetailDto } from './dto/update-trip-detail.dto';
 
 export class TripDetailListResponseDto extends PaginatedResponseDto<TripDetailResponseDto> {
   @ApiProperty({
@@ -152,5 +153,47 @@ export class TripDetailsService {
       notes: tripDetail.notes,
       eventTitle: tripDetail.event.title,
     };
+  }
+
+  async update(
+    id: number,
+    dto: UpdateTripDetailDto,
+    user: JwtPayload,
+  ): Promise<IdResponseDto> {
+    const tripDetail = await this.prisma.tripDetail.findFirst({
+      where: {
+        id,
+        event: {
+          idChurch: user.idChurch,
+        },
+      },
+      include: {
+        event: {
+          include: {
+            eventType: true,
+          },
+        },
+      },
+    });
+
+    if (!tripDetail) {
+      throw new NotFoundException('Trip detail no encontrado');
+    }
+
+    if (tripDetail.event.eventType?.eventCategory !== 'trip') {
+      throw new BadRequestException('Este evento no es tipo trip');
+    }
+
+    const updated = await this.prisma.tripDetail.update({
+      where: { id },
+      data: {
+        origin: dto.origin,
+        destination: dto.destination,
+        notes: dto.notes ?? null,
+      },
+      select: { id: true },
+    });
+
+    return updated;
   }
 }
