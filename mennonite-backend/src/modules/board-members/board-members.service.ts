@@ -198,7 +198,7 @@ export class BoardMembersService {
     }
 
     if (dto.endDate !== undefined) {
-      data.endDate = new Date(dto.endDate);
+      data.endDate = dto.endDate === null ? null : new Date(dto.endDate);
     }
 
     const resolvedStartDate =
@@ -206,7 +206,11 @@ export class BoardMembersService {
         ? new Date(dto.startDate)
         : existing.startDate;
     const resolvedEndDate =
-      dto.endDate !== undefined ? new Date(dto.endDate) : existing.endDate;
+      dto.endDate === null
+        ? null
+        : dto.endDate !== undefined
+          ? new Date(dto.endDate)
+          : existing.endDate;
 
     if (resolvedEndDate && resolvedEndDate < resolvedStartDate) {
       throw new BadRequestException(

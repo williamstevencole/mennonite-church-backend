@@ -8,15 +8,14 @@ export class PastorsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(user: JwtPayload, query: ListPastorsQueryDto) {
-    const churchId = await this.resolveChurchId(user);
-
     const members = await this.prisma.boardMember.findMany({
       where: {
-        active: true,
+        // sin fecha de conclusión = sigue en funciones
+        endDate: null,
 
         // concilio activo (board)
         board: {
-          idChurch: churchId,
+          idChurch: user.idChurch,
           active: true,
         },
 
@@ -60,18 +59,5 @@ export class PastorsService {
       startDate: bm.startDate,
       endDate: bm.endDate,
     }));
-  }
-
-  private async resolveChurchId(user: JwtPayload): Promise<number> {
-    const userRecord = await this.prisma.user.findUnique({
-      where: { id: user.sub },
-      select: { idChurch: true },
-    });
-
-    if (!userRecord?.idChurch) {
-      throw new Error('Usuario no encontrado o sin iglesia');
-    }
-
-    return userRecord.idChurch;
   }
 }

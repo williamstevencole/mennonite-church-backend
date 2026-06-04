@@ -1,29 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
+import { TripDetailResponseDto } from './trip-detail-response.dto';
 
-export class TripDetailListResponseDto {
-  @ApiProperty({
-    type: 'array',
-    example: [
-      {
-        id: 1,
-        origin: 'Tegucigalpa',
-        destination: 'San Pedro Sula',
-        notes: 'Traer agua y snacks',
-        eventTitle: 'Retiro de jóvenes',
-      },
-    ],
-  })
-  data!: any[];
-
-  @ApiProperty({ example: 100 })
-  total!: number;
-
-  @ApiProperty({ example: 1 })
-  page!: number;
-
-  @ApiProperty({ example: 20 })
-  limit!: number;
-
-  @ApiProperty({ example: 5 })
-  totalPages!: number;
+export class TripDetailListResponseDto extends PaginatedResponseDto<TripDetailResponseDto> {
+  @ApiProperty({ type: [TripDetailResponseDto] })
+  declare data: TripDetailResponseDto[];
 }

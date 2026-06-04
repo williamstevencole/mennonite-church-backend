@@ -420,17 +420,20 @@ export class MembersService {
     const limit = query.limit ?? 20;
     const month = query.month ?? new Date().getMonth() + 1;
 
-    const where: Prisma.MemberWhereInput = {
-      idChurch,
-      active: true,
-    };
+    const now = new Date();
+    const todayUTC = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+    );
+    const msPerDay = 1000 * 60 * 60 * 24;
 
     const members = await this.prisma.member.findMany({
       where: {
-        ...where,
+        idChurch,
+        active: true,
         birthDate: { not: undefined },
       },
-      orderBy: [{ birthDate: 'asc' }],
       select: {
         id: true,
         name: true,
@@ -438,18 +441,32 @@ export class MembersService {
       },
     });
 
-    const filtered = members
-      .filter((m) => {
-        const d = new Date(m.birthDate);
-        return d.getMonth() + 1 === month;
+    const enriched = members
+      .filter((m) => new Date(m.birthDate).getUTCMonth() + 1 === month)
+      .map((m) => {
+        const bd = new Date(m.birthDate);
+        const bdMonth = bd.getUTCMonth();
+        const bdDay = bd.getUTCDate();
+        let nextUTC = Date.UTC(now.getUTCFullYear(), bdMonth, bdDay);
+        if (nextUTC < todayUTC) {
+          nextUTC = Date.UTC(now.getUTCFullYear() + 1, bdMonth, bdDay);
+        }
+        const daysUntilNextBirthday = Math.round(
+          (nextUTC - todayUTC) / msPerDay,
+        );
+        return {
+          id: m.id,
+          name: m.name,
+          birthDate: m.birthDate,
+          dayOfMonth: bdDay,
+          daysUntilNextBirthday,
+        };
       })
-      .map((m) => ({
-        id: m.id,
-        name: m.name,
-        birthDate: m.birthDate,
-        dayOfMonth: new Date(m.birthDate).getDate(),
-      }));
+      .sort((a, b) => a.daysUntilNextBirthday - b.daysUntilNextBirthday);
 
-    return toPaginated(filtered, filtered.length, page, limit);
+    const total = enriched.length;
+    const sliced = enriched.slice((page - 1) * limit, page * limit);
+
+    return toPaginated(sliced, total, page, limit);
   }
 }

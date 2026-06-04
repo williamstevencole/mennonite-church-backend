@@ -15,16 +15,7 @@ import {
 
 import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
 import { TripDetailResponseDto } from './dto/trip-detail-response.dto';
-import { ApiProperty } from '@nestjs/swagger';
-import { PaginatedResponseDto } from '../../common/pagination/paginated-response.dto';
 import { UpdateTripDetailDto } from './dto/update-trip-detail.dto';
-
-export class TripDetailListResponseDto extends PaginatedResponseDto<TripDetailResponseDto> {
-  @ApiProperty({
-    type: [TripDetailResponseDto],
-  })
-  data!: TripDetailResponseDto[];
-}
 
 @Injectable()
 export class TripDetailsService {

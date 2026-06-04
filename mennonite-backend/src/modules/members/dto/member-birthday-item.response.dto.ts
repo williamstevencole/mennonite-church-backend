@@ -4,4 +4,5 @@ export class MemberBirthdayItemResponseDto {
   @ApiProperty() name!: string;
   @ApiProperty() birthDate!: Date;
   @ApiProperty() dayOfMonth!: number;
+  @ApiProperty() daysUntilNextBirthday!: number;
 }
