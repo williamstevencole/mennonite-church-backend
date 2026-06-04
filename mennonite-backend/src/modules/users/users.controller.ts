@@ -30,6 +30,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -80,6 +81,22 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
   ): Promise<IdResponseDto> {
     return this.usersService.update(id, dto);
+  }
+
+  @Patch(':id/role')
+  @Permissions('users.update')
+  @ApiOperation({ summary: 'Asignar un rol a un usuario' })
+  @ApiOkResponse({ type: IdResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Rol inexistente o no pertenece a tu iglesia',
+  })
+  @ApiNotFoundResponse({ description: 'Usuario no encontrado' })
+  assignRole(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AssignUserRoleDto,
+  ): Promise<IdResponseDto> {
+    return this.usersService.assignRole(user.idChurch, id, dto);
   }
 
   @Delete(':id')

@@ -32,6 +32,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreateTransactionCategoryDto } from './dto/create-transaction-category.dto';
 import { ListTransactionCategoriesQueryDto } from './dto/list-transaction-categories-query.dto';
+import { TransactionCategoriesPageResponseDto } from './dto/transaction-categories-page.response.dto';
 import { TransactionCategoryResponseDto } from './dto/transaction-category.response.dto';
 import { UpdateTransactionCategoryDto } from './dto/update-transaction-category.dto';
 import { TransactionCategoriesService } from './transaction-categories.service';
@@ -65,13 +66,14 @@ export class TransactionCategoriesController {
   @Get()
   @Permissions('catalog.transaction-categories.read')
   @ApiOperation({
-    summary: 'Listar categorias activas, opcionalmente filtradas por tipo',
+    summary:
+      'Listar categorias con paginacion, opcionalmente filtradas por tipo',
   })
-  @ApiOkResponse({ type: TransactionCategoryResponseDto, isArray: true })
+  @ApiOkResponse({ type: TransactionCategoriesPageResponseDto })
   findAll(
     @CurrentUser() user: JwtPayload,
     @Query() query: ListTransactionCategoriesQueryDto,
-  ): Promise<TransactionCategoryResponseDto[]> {
+  ): Promise<TransactionCategoriesPageResponseDto> {
     return this.service.findAll(user.idChurch, query);
   }
 

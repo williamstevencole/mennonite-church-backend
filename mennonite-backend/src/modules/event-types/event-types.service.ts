@@ -5,8 +5,14 @@ import {
 } from '@nestjs/common';
 import { EventType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
 import { CreateEventTypeDto } from './dto/create-event-type.dto';
 import { EventTypeResponseDto } from './dto/event-type.response.dto';
+import { EventTypesPageResponseDto } from './dto/event-types-page.response.dto';
+import { ListEventTypesQueryDto } from './dto/list-event-types-query.dto';
 import { UpdateEventTypeDto } from './dto/update-event-type.dto';
 import { EventCategory } from './event-category.enum';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
@@ -29,12 +35,29 @@ export class EventTypesService {
     return { id: created.id, name: created.name };
   }
 
-  async findAll(idChurch: number): Promise<EventTypeResponseDto[]> {
-    const items = await this.prisma.eventType.findMany({
-      where: { idChurch },
-      orderBy: { name: 'asc' },
-    });
-    return items.map((item) => this.toResponse(item));
+  async findAll(
+    idChurch: number,
+    query: ListEventTypesQueryDto,
+  ): Promise<EventTypesPageResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = { idChurch };
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.eventType.count({ where }),
+      this.prisma.eventType.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        ...buildPagination(page, limit),
+      }),
+    ]);
+
+    return toPaginated(
+      items.map((item) => this.toResponse(item)),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findOne(idChurch: number, id: number): Promise<EventTypeResponseDto> {

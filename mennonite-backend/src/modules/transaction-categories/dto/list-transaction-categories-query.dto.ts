@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 import { TransactionCategoryType } from '../transaction-category-type.enum';
 
 const toBoolean = ({ value }: { value: unknown }): unknown => {
@@ -13,7 +14,7 @@ const toBoolean = ({ value }: { value: unknown }): unknown => {
   return value;
 };
 
-export class ListTransactionCategoriesQueryDto {
+export class ListTransactionCategoriesQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: TransactionCategoryType })
   @IsOptional()
   @IsEnum(TransactionCategoryType)

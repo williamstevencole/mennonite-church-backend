@@ -89,6 +89,38 @@ const BASE_PERMISSIONS = [
   { code: 'events.update', description: 'Editar los detalles de un evento' },
   { code: 'events.delete', description: 'Cancelar o eliminar eventos' },
 
+  // Eventos - asistencia
+  {
+    code: 'events.attendance.read',
+    description: 'Ver la asistencia registrada de los eventos',
+  },
+  {
+    code: 'events.attendance.create',
+    description: 'Registrar asistencia de miembros a un evento',
+  },
+  {
+    code: 'events.attendance.update',
+    description: 'Editar registros de asistencia',
+  },
+  {
+    code: 'events.attendance.delete',
+    description: 'Eliminar registros de asistencia',
+  },
+
+  // Eventos - responsables
+  {
+    code: 'events.responsibles.read',
+    description: 'Ver los responsables asignados a eventos',
+  },
+  {
+    code: 'events.responsibles.create',
+    description: 'Asignar responsables a eventos',
+  },
+  {
+    code: 'events.responsibles.delete',
+    description: 'Quitar responsables asignados',
+  },
+
   // Inventario - articulos
   { code: 'inventory.read', description: 'Ver el inventario de la iglesia' },
   {
@@ -267,6 +299,13 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'events.create',
     'events.update',
     'events.delete',
+    'events.attendance.read',
+    'events.attendance.create',
+    'events.attendance.update',
+    'events.attendance.delete',
+    'events.responsibles.read',
+    'events.responsibles.create',
+    'events.responsibles.delete',
     'inventory.read',
     'finance.read',
     'budgets.read',

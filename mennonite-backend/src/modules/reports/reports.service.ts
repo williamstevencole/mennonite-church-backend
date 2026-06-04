@@ -3,6 +3,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AvailabilityClosureResponseDto } from './dto/availability-closure.response.dto';
 import { AvailabilityLiveResponseDto } from './dto/availability-live.response.dto';
 import {
+  NextYearBudgetRowDto,
+  NextYearBudgetSectionDto,
   ResultsSummaryResponseDto,
   ResultsSummaryRowDto,
 } from './dto/results-summary.response.dto';
@@ -146,6 +148,8 @@ export class ReportsService {
       netRow.montoAnio,
     );
 
+    const nextYearBudget = await this.buildNextYearBudget(idChurch, year + 1);
+
     return {
       year,
       rows: [
@@ -154,6 +158,68 @@ export class ReportsService {
         ...expenseRows,
         totalExpenseRow,
         netRow,
+      ],
+      nextYearBudget,
+    };
+  }
+
+  private async buildNextYearBudget(
+    idChurch: number,
+    year: number,
+  ): Promise<NextYearBudgetSectionDto> {
+    const budgetTotals = await this.aggregateBudgetByCategory(idChurch, year);
+
+    if (budgetTotals.size === 0) {
+      return { year, hasBudget: false, rows: [] };
+    }
+
+    const categories = await this.prisma.transactionCategory.findMany({
+      where: { idChurch, active: true },
+      orderBy: [{ type: 'asc' }, { id: 'asc' }],
+      select: { id: true, name: true, type: true },
+    });
+
+    const incomeRows: NextYearBudgetRowDto[] = [];
+    const expenseRows: NextYearBudgetRowDto[] = [];
+
+    for (const cat of categories) {
+      const monto = budgetTotals.get(cat.id) ?? 0;
+      const row: NextYearBudgetRowDto = {
+        categoria: cat.name,
+        tipo: cat.type as 'income' | 'expense',
+        montoPresupuesto: monto,
+      };
+      if (cat.type === 'income') incomeRows.push(row);
+      else expenseRows.push(row);
+    }
+
+    const totalIncome = incomeRows.reduce((s, r) => s + r.montoPresupuesto, 0);
+    const totalExpense = expenseRows.reduce(
+      (s, r) => s + r.montoPresupuesto,
+      0,
+    );
+
+    return {
+      year,
+      hasBudget: true,
+      rows: [
+        ...incomeRows,
+        {
+          categoria: 'Total Ingresos',
+          tipo: 'total_income',
+          montoPresupuesto: totalIncome,
+        },
+        ...expenseRows,
+        {
+          categoria: 'Total Egresos',
+          tipo: 'total_expense',
+          montoPresupuesto: totalExpense,
+        },
+        {
+          categoria: 'Resultado',
+          tipo: 'net_result',
+          montoPresupuesto: totalIncome - totalExpense,
+        },
       ],
     };
   }
