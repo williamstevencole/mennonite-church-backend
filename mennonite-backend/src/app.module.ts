@@ -30,6 +30,7 @@ import { PeriodClosuresModule } from './modules/period-closures/period-closures.
 import { FinancialReportsModule } from './modules/financial-reports/financial-reports.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { TripDetailsModule } from './modules/trip-details/trip-details.module';
+import { PastorsModule } from './modules/pastors/pastors.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { TripDetailsModule } from './modules/trip-details/trip-details.module';
     FinancialReportsModule,
     ReportsModule,
     TripDetailsModule,
+    PastorsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
