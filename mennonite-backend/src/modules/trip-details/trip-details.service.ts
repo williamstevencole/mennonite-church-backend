@@ -196,4 +196,34 @@ export class TripDetailsService {
 
     return updated;
   }
+
+  async remove(id: number, user: JwtPayload): Promise<void> {
+    const tripDetail = await this.prisma.tripDetail.findFirst({
+      where: {
+        id,
+        event: {
+          idChurch: user.idChurch,
+        },
+      },
+      include: {
+        event: {
+          include: {
+            eventType: true,
+          },
+        },
+      },
+    });
+
+    if (!tripDetail) {
+      throw new NotFoundException('Trip detail no encontrado');
+    }
+
+    if (tripDetail.event.eventType?.eventCategory !== 'trip') {
+      throw new BadRequestException('Este evento no es tipo trip');
+    }
+
+    await this.prisma.tripDetail.delete({
+      where: { id },
+    });
+  }
 }

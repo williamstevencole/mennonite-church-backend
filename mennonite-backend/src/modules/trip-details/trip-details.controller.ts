@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -17,6 +18,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -104,5 +106,18 @@ export class TripDetailsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<IdResponseDto> {
     return this.service.update(id, dto, user);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Permissions('events.delete')
+  @ApiOperation({ summary: 'Eliminar trip detail' })
+  @ApiNoContentResponse({ description: 'Trip detail eliminado correctamente' })
+  @ApiNotFoundResponse({ description: 'Trip detail no encontrado' })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.service.remove(id, user);
   }
 }
