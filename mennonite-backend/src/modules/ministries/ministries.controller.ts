@@ -37,6 +37,9 @@ import { MinistryDetailResponseDto } from './dto/ministry-detail.response.dto';
 import { UpdateMinistryDto } from './dto/update-ministry.dto';
 import { MinistriesService } from './ministries.service';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
+import { MinistryMembersService } from '../ministry-members/ministry-members.service';
+import { MinistryMembersPageResponseDto } from '../ministry-members/dto/ministry-members-page.response.dto';
+import { ListMinistryMembersQueryDto } from '../ministry-members/dto/list-ministry-members-query.dto';
 
 @ApiTags('Ministries')
 @ApiBearerAuth('JWT-auth')
@@ -45,7 +48,10 @@ import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('ministries')
 export class MinistriesController {
-  constructor(private readonly ministriesService: MinistriesService) {}
+  constructor(
+    private readonly ministriesService: MinistriesService,
+    private readonly ministryMembersService: MinistryMembersService,
+  ) {}
 
   @Get()
   @Permissions('ministries.read')
@@ -100,6 +106,21 @@ export class MinistriesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.ministriesService.remove(id, user);
+  }
+
+  @Get(':id/members')
+  @Permissions('assignments.read')
+  @ApiOperation({
+    summary: 'Listar integrantes de un ministerio con paginacion',
+  })
+  @ApiOkResponse({ type: MinistryMembersPageResponseDto })
+  @ApiNotFoundResponse({ description: 'Ministerio no encontrado' })
+  findMembers(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: ListMinistryMembersQueryDto,
+  ): Promise<MinistryMembersPageResponseDto> {
+    return this.ministryMembersService.findByMinistry(user.idChurch, id, query);
   }
 
   @Get(':id')

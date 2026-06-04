@@ -32,9 +32,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { CreateMinistryMemberDto } from './dto/create-ministry-member.dto';
-import { ListMinistryMembersQueryDto } from './dto/list-ministry-members-query.dto';
 import { MinistryMemberDetailResponseDto } from './dto/ministry-member-detail.response.dto';
-import { MinistryMembersPageResponseDto } from './dto/ministry-members-page.response.dto';
 import { UpdateMinistryMemberDto } from './dto/update-ministry-member.dto';
 import { MinistryMembersService } from './ministry-members.service';
 
@@ -59,19 +57,6 @@ export class MinistryMembersController {
     @Body() dto: CreateMinistryMemberDto,
   ): Promise<IdResponseDto> {
     return this.service.create(user, dto);
-  }
-
-  @Get()
-  @Permissions('assignments.read')
-  @ApiOperation({
-    summary: 'Listar integrantes de ministerios con filtros y paginacion',
-  })
-  @ApiOkResponse({ type: MinistryMembersPageResponseDto })
-  findAll(
-    @CurrentUser() user: JwtPayload,
-    @Query() query: ListMinistryMembersQueryDto,
-  ): Promise<MinistryMembersPageResponseDto> {
-    return this.service.findAll(user, query);
   }
 
   @Get(':id')

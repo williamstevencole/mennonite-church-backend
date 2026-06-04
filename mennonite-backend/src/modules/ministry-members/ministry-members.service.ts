@@ -114,29 +114,44 @@ export class MinistryMembersService {
     return { id: created.id };
   }
 
-  async findAll(
-    user: JwtPayload,
+  async findByMinistry(
+    idChurch: number,
+    ministryId: number,
     query: ListMinistryMembersQueryDto,
   ): Promise<MinistryMembersPageResponseDto> {
+    const ministry = await this.prisma.ministry.findFirst({
+      where: { id: ministryId, idChurch },
+      select: { id: true },
+    });
+
+    if (!ministry) {
+      throw new NotFoundException(
+        `Ministerio con id ${ministryId} no encontrado`,
+      );
+    }
+
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
     const where: Prisma.MinistryMemberWhereInput = {
-      ministry: { idChurch: user.idChurch },
+      idMinistry: ministryId,
     };
-
-    if (query.idMinistry !== undefined) {
-      where.idMinistry = query.idMinistry;
-    }
-
-    if (query.idMember !== undefined) {
-      where.idMember = query.idMember;
-    }
 
     if (query.active !== undefined) {
       where.active = query.active;
     } else if (query.includeInactive !== true) {
       where.active = true;
+    }
+
+    if (query.role) {
+      const role = query.role.trim();
+      if (/^\d+$/.test(role)) {
+        where.idMinistryRoleType = Number(role);
+      } else {
+        where.ministryRoleType = {
+          name: { equals: role, mode: 'insensitive' },
+        };
+      }
     }
 
     const [total, members] = await this.prisma.$transaction([

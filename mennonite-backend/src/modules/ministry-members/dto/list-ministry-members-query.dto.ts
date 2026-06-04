@@ -1,7 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
+
+const trimToUndefined = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.trim() || undefined : value;
 
 const toBoolean = ({ value }: { value: unknown }): unknown => {
   if (typeof value === 'boolean') return value;
@@ -14,20 +17,6 @@ const toBoolean = ({ value }: { value: unknown }): unknown => {
 };
 
 export class ListMinistryMembersQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ description: 'Filtra por ministerio' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  idMinistry?: number;
-
-  @ApiPropertyOptional({ description: 'Filtra por miembro' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  idMember?: number;
-
   @ApiPropertyOptional({ description: 'Filtra por estado activo' })
   @IsOptional()
   @IsBoolean()
@@ -42,4 +31,12 @@ export class ListMinistryMembersQueryDto extends PaginationQueryDto {
   @IsBoolean()
   @Transform(toBoolean)
   includeInactive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filtra por rol (id o nombre del rol)',
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(trimToUndefined)
+  role?: string;
 }
