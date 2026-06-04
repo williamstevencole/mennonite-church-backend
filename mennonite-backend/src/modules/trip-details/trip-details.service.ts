@@ -4,6 +4,13 @@ import { CreateTripDetailDto } from './dto/create-trip-detail.dto';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
 
+import {
+  buildPagination,
+  toPaginated,
+} from '../../common/pagination/paginate.util';
+
+import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
+
 @Injectable()
 export class TripDetailsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -12,7 +19,7 @@ export class TripDetailsService {
     dto: CreateTripDetailDto,
     user: JwtPayload,
   ): Promise<IdResponseDto> {
-    // 1. Buscar evento
+    // 1. Buscar evento (con seguridad por iglesia)
     const event = await this.prisma.event.findFirst({
       where: {
         id: dto.idEvent,
@@ -25,7 +32,7 @@ export class TripDetailsService {
       throw new BadRequestException('El evento no existe');
     }
 
-    // 2. Validar que sea TRIP
+    // 2. Validar tipo TRIP
     if (event.eventType?.eventCategory !== 'trip') {
       throw new BadRequestException('Este evento no es tipo trip');
     }
@@ -47,9 +54,55 @@ export class TripDetailsService {
         destination: dto.destination,
         notes: dto.notes ?? null,
       },
-      select: { id: true },
+      select: {
+        id: true,
+      },
     });
 
-    return created;
+    return { id: created.id };
+  }
+
+  async findAll(user: JwtPayload, query: PaginationQueryDto) {
+    const { skip, take } = buildPagination(query.page ?? 1, query.limit ?? 20);
+
+    const where = {
+      event: {
+        idChurch: user.idChurch,
+        eventType: {
+          eventCategory: 'trip',
+        },
+      },
+    };
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.tripDetail.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { id: 'desc' },
+        select: {
+          id: true,
+          origin: true,
+          destination: true,
+          notes: true,
+          event: {
+            select: {
+              title: true,
+            },
+          },
+        },
+      }),
+      this.prisma.tripDetail.count({ where }),
+    ]);
+
+    const mapped = data.map((t) => ({
+      id: t.id,
+      origin: t.origin,
+      destination: t.destination,
+      notes: t.notes,
+      eventTitle: t.event.title,
+    }));
+
+    return toPaginated(mapped, total, query.page ?? 1, query.limit ?? 20);
   }
 }
