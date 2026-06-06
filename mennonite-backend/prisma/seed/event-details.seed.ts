@@ -20,18 +20,18 @@ const DEMO_EVENT_DETAILS: EventDetailSeed[] = [
     attendeeMemberNames: ['Sofia Gomez', 'Andrea Quin'],
   },
   {
-    eventTitle: 'Reunion de Oracion',
+    eventTitle: 'Reunión de Oración',
     responsibleMemberNames: ['Patricia Cruz'],
     attendeeMemberNames: ['Lucia Paredes', 'Ana Rivera'],
   },
   {
-    eventTitle: 'Conferencia de Jovenes',
+    eventTitle: 'Conferencia de Jóvenes',
     responsibleMemberNames: ['David Zelaya'],
     attendeeMemberNames: ['William Cole', 'Andrea Quin'],
     trip: {
       origin: 'IMCSP - San Pedro Sula',
       destination: 'Campamento Las Brisas, Siguatepeque',
-      notes: 'Transporte coordinado por el ministerio de jovenes.',
+      notes: 'Transporte coordinado por el ministerio de jóvenes.',
     },
   },
   {
@@ -44,12 +44,12 @@ const DEMO_EVENT_DETAILS: EventDetailSeed[] = [
     },
   },
   {
-    eventTitle: 'Cena Benefica Anual',
+    eventTitle: 'Cena Benéfica Anual',
     responsibleMemberNames: ['Carlos Fernandez'],
     attendeeMemberNames: ['Roberto Aguilar', 'Manuel Rosales'],
     fundraising: {
       targetAmount: 80000,
-      notes: 'Fondos destinados a remodelacion del templo principal.',
+      notes: 'Fondos destinados a remodelación del templo principal.',
     },
   },
 ];

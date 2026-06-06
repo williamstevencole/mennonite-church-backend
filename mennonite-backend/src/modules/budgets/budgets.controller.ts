@@ -32,11 +32,20 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { BudgetsService } from './budgets.service';
+import { BudgetCategoriesService } from '../budget-categories/budget-categories.service';
+import { BudgetDistributionsService } from '../budget-distributions/budget-distributions.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { ListBudgetsQueryDto } from './dto/list-budgets-query.dto';
 import { BudgetDetailResponseDto } from './dto/budget-detail.response.dto';
 import { BudgetsPageResponseDto } from './dto/budgets-page.response.dto';
+import { BudgetSummaryResponseDto } from './dto/budget-summary.response.dto';
+import { FindBudgetCategoriesQueryDto } from '../budget-categories/dto/find-budget-categories-query.dto';
+import { BudgetCategoriesPageResponseDto } from '../budget-categories/dto/budget-categories-page.response.dto';
+import { FindBudgetDistributionsQueryDto } from '../budget-distributions/dto/find-budget-distribution.dto';
+import { BudgetDistributionsPageResponseDto } from '../budget-distributions/dto/budget-distributions-page.response.dto';
+import { BudgetDistributionsSummaryResponseDto } from '../budget-distributions/dto/budget-distributions-summary.response.dto';
+import { BulkReplaceBudgetDistributionsDto } from '../budget-distributions/dto/bulk-replace-budget-distributions.dto';
 
 @ApiTags('Budgets')
 @ApiBearerAuth('JWT-auth')
@@ -45,7 +54,11 @@ import { BudgetsPageResponseDto } from './dto/budgets-page.response.dto';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('budgets')
 export class BudgetsController {
-  constructor(private readonly service: BudgetsService) {}
+  constructor(
+    private readonly service: BudgetsService,
+    private readonly budgetCategoriesService: BudgetCategoriesService,
+    private readonly budgetDistributionsService: BudgetDistributionsService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -82,6 +95,96 @@ export class BudgetsController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<BudgetDetailResponseDto> {
     return this.service.findOne(user.idChurch, id);
+  }
+
+  @Get(':id/categories')
+  @Permissions('budgets.read')
+  @ApiOperation({
+    summary: 'Listar categorias del presupuesto con % derivado por bucket',
+  })
+  @ApiOkResponse({ type: BudgetCategoriesPageResponseDto })
+  @ApiNotFoundResponse({ description: 'Presupuesto no encontrado' })
+  findCategories(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: FindBudgetCategoriesQueryDto,
+  ): Promise<BudgetCategoriesPageResponseDto> {
+    return this.budgetCategoriesService.findByBudget(user.idChurch, id, query);
+  }
+
+  @Get(':id/summary')
+  @Permissions('budgets.read')
+  @ApiOperation({
+    summary:
+      'Resumen del presupuesto (mapea el cuadro del informe del cliente)',
+  })
+  @ApiOkResponse({ type: BudgetSummaryResponseDto })
+  @ApiNotFoundResponse({ description: 'Presupuesto no encontrado' })
+  getSummary(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<BudgetSummaryResponseDto> {
+    return this.service.getSummary(user.idChurch, id);
+  }
+
+  @Get(':id/distributions/summary')
+  @Permissions('budgets.read')
+  @ApiOperation({
+    summary:
+      'Resumen del techo de distribuciones (sum vs MinisteriosCategory.annualAmount)',
+  })
+  @ApiOkResponse({ type: BudgetDistributionsSummaryResponseDto })
+  @ApiNotFoundResponse({ description: 'Presupuesto no encontrado' })
+  getDistributionsSummary(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<BudgetDistributionsSummaryResponseDto> {
+    return this.budgetDistributionsService.getSummary(user.idChurch, id);
+  }
+
+  @Get(':id/distributions')
+  @Permissions('budgets.read')
+  @ApiOperation({
+    summary:
+      'Listar distribuciones del presupuesto con % derivado vs Ministerios',
+  })
+  @ApiOkResponse({ type: BudgetDistributionsPageResponseDto })
+  @ApiNotFoundResponse({ description: 'Presupuesto no encontrado' })
+  findDistributions(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: FindBudgetDistributionsQueryDto,
+  ): Promise<BudgetDistributionsPageResponseDto> {
+    return this.budgetDistributionsService.findByBudget(
+      user.idChurch,
+      id,
+      query,
+    );
+  }
+
+  @Post(':id/distributions/bulk')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('budgets.update')
+  @ApiOperation({
+    summary: 'Reemplazar todas las distribuciones del presupuesto atómicamente',
+  })
+  @ApiOkResponse({ type: BudgetDistributionsPageResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Suma excede el techo o ministerio invalido',
+  })
+  @ApiConflictResponse({ description: 'El presupuesto no esta en Draft' })
+  @ApiNotFoundResponse({ description: 'Presupuesto no encontrado' })
+  bulkReplaceDistributions(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: BulkReplaceBudgetDistributionsDto,
+  ): Promise<BudgetDistributionsPageResponseDto> {
+    return this.budgetDistributionsService.bulkReplace(
+      user.idChurch,
+      user.sub,
+      id,
+      dto,
+    );
   }
 
   @Patch(':id')

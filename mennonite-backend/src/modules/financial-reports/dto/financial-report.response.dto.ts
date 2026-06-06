@@ -48,6 +48,13 @@ export class FinancialReportResponseDto {
   @ApiPropertyOptional({ nullable: true })
   approvedAt!: string | null;
 
+  @ApiPropertyOptional({
+    example: 'Faltan dos transacciones del mes de marzo en el detalle',
+    description: 'Observación del concilio al devolver el reporte',
+    nullable: true,
+  })
+  observacion!: string | null;
+
   @ApiPropertyOptional({ nullable: true })
   createdAt!: string | null;
 }

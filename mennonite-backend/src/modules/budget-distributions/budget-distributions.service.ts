@@ -4,53 +4,92 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   buildPagination,
   toPaginated,
 } from '../../common/pagination/paginate.util';
 import { CreateBudgetDistributionDto } from './dto/create-budget-distribution.dto';
-import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
 import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.dto';
 import { BudgetDistributionsPageResponseDto } from './dto/budget-distributions-page.response.dto';
-import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
+import { BudgetDistributionResponseDto } from './dto/budget-distribution.response.dto';
+import { BudgetDistributionsSummaryResponseDto } from './dto/budget-distributions-summary.response.dto';
+import { BulkReplaceBudgetDistributionsDto } from './dto/bulk-replace-budget-distributions.dto';
+import { IdResponseDto } from '../../common/dto/id-response.dto';
+
+// PRD §6.6.4: la distribución por ministerio se calcula sobre el monto
+// presupuestado en la categoría de gasto "Ministerios", NO sobre el total
+// del presupuesto.
+const MINISTRIES_CATEGORY_NAME = 'Ministerios';
+
+// Upper page limit for bulkReplace response; distributions per budget are
+// bounded by ministry count, which is well under this threshold.
+const BULK_REPLACE_RESPONSE_LIMIT = 50;
+
+type BudgetCategoryWithName = Prisma.BudgetCategoryGetPayload<{
+  select: {
+    annualAmount: true;
+    category: { select: { name: true; type: true } };
+  };
+}>;
+
+function resolveMinistriesAmount(categories: BudgetCategoryWithName[]): number {
+  const match = categories.find(
+    (bc) =>
+      bc.category.name === MINISTRIES_CATEGORY_NAME &&
+      bc.category.type === 'expense',
+  );
+  return match ? Number(match.annualAmount) : 0;
+}
 
 @Injectable()
 export class BudgetDistributionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getChurchId(user: JwtPayload): Promise<number> {
-    const userRecord = await this.prisma.user.findUnique({
-      where: { id: user.sub },
-      select: { idChurch: true },
+  private async getMinisteriosBudgetAmount(budgetId: number): Promise<number> {
+    const budgetCategories = await this.prisma.budgetCategory.findMany({
+      where: { idBudget: budgetId },
+      select: {
+        annualAmount: true,
+        category: { select: { name: true, type: true } },
+      },
     });
 
-    if (!userRecord?.idChurch) {
-      throw new BadRequestException('Usuario no reconocido');
-    }
-
-    return userRecord.idChurch;
+    return resolveMinistriesAmount(budgetCategories);
   }
 
-  async create(dto: CreateBudgetDistributionDto, user: JwtPayload) {
-    const idChurch = await this.getChurchId(user);
-
+  private async assertBudgetDraft(
+    idChurch: number,
+    budgetId: number,
+  ): Promise<void> {
     const budget = await this.prisma.budget.findFirst({
-      where: {
-        id: dto.idBudget,
-        idChurch,
-      },
+      where: { id: budgetId, idChurch },
+      select: { status: true },
     });
 
     if (!budget) {
       throw new NotFoundException('Budget no encontrado');
     }
 
+    if (budget.status !== 'Draft') {
+      throw new ConflictException(
+        'Solo se pueden modificar distribuciones de presupuestos en estado Draft',
+      );
+    }
+  }
+
+  async create(
+    idChurch: number,
+    createdBy: number,
+    dto: CreateBudgetDistributionDto,
+  ): Promise<IdResponseDto> {
+    await this.assertBudgetDraft(idChurch, dto.idBudget);
+
     const ministry = await this.prisma.ministry.findFirst({
-      where: {
-        id: dto.idMinistry,
-        idChurch,
-      },
+      where: { id: dto.idMinistry, idChurch },
+      select: { id: true },
     });
 
     if (!ministry) {
@@ -64,23 +103,33 @@ export class BudgetDistributionsService {
           idMinistry: dto.idMinistry,
         },
       },
+      select: { id: true },
     });
 
     if (existing) {
-      throw new ConflictException('Distribucion ya existe.');
+      throw new ConflictException(
+        'Distribución ya existe para este ministerio',
+      );
+    }
+
+    const target = await this.getMinisteriosBudgetAmount(dto.idBudget);
+
+    if (target === 0) {
+      throw new BadRequestException(
+        'El presupuesto no tiene categoría "Ministerios" de gasto configurada',
+      );
     }
 
     const agg = await this.prisma.budgetDistribution.aggregate({
       where: { idBudget: dto.idBudget },
-      _sum: { percentage: true },
+      _sum: { annualAmount: true },
     });
 
-    const currentTotal = Number(agg._sum.percentage ?? 0);
-    const newTotal = currentTotal + Number(dto.percentage);
+    const currentTotal = Number(agg._sum.annualAmount ?? 0);
 
-    if (newTotal > 100) {
+    if (currentTotal + dto.annualAmount > target + 0.001) {
       throw new BadRequestException(
-        'Porcentaje total no se puede exceder del 100%',
+        'El monto total de distribuciones excedería el monto de la categoría Ministerios',
       );
     }
 
@@ -88,48 +137,34 @@ export class BudgetDistributionsService {
       data: {
         idBudget: dto.idBudget,
         idMinistry: dto.idMinistry,
-        percentage: dto.percentage,
-        createdBy: user.sub,
+        annualAmount: dto.annualAmount,
+        createdBy,
       },
+      select: { id: true },
     });
 
-    return {
-      id: created.id,
-    };
+    return { id: created.id };
   }
 
-  async findAll(
+  async findByBudget(
+    idChurch: number,
+    budgetId: number,
     query: FindBudgetDistributionsQueryDto,
-    user: JwtPayload,
   ): Promise<BudgetDistributionsPageResponseDto> {
-    const idChurch = await this.getChurchId(user);
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-
     const budget = await this.prisma.budget.findFirst({
-      where: {
-        id: query.budgetId,
-        idChurch,
-      },
-      include: {
-        budgetCategories: {
-          select: {
-            annualAmount: true,
-          },
-        },
-      },
+      where: { id: budgetId, idChurch },
+      select: { id: true },
     });
 
     if (!budget) {
-      throw new NotFoundException('Budget no fue encontrado');
+      throw new NotFoundException('Budget no encontrado');
     }
 
-    const totalBudget = budget.budgetCategories.reduce(
-      (sum, category) => sum + Number(category.annualAmount),
-      0,
-    );
+    const ministeriosAmount = await this.getMinisteriosBudgetAmount(budgetId);
 
-    const where = { idBudget: query.budgetId };
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = { idBudget: budgetId };
 
     const [total, distributions] = await this.prisma.$transaction([
       this.prisma.budgetDistribution.count({ where }),
@@ -137,10 +172,7 @@ export class BudgetDistributionsService {
         where,
         include: {
           ministry: {
-            select: {
-              id: true,
-              name: true,
-            },
+            select: { id: true, name: true },
           },
         },
         orderBy: { id: 'asc' },
@@ -148,37 +180,38 @@ export class BudgetDistributionsService {
       }),
     ]);
 
-    const data = distributions.map((distribution) => {
-      const percentage = Number(distribution.percentage);
-
+    const data = distributions.map((d) => {
+      const annualAmount = Number(d.annualAmount);
       return {
-        id: distribution.id,
-        ministry: distribution.ministry,
-        percentage,
-        allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
+        id: d.id,
+        ministry: d.ministry,
+        annualAmount,
+        percentageOfMinisteriosBudget:
+          ministeriosAmount > 0
+            ? Number(((annualAmount / ministeriosAmount) * 100).toFixed(2))
+            : 0,
       };
     });
 
     return toPaginated(data, total, page, limit);
   }
 
-  async findOne(id: number, user: JwtPayload) {
-    const idChurch = await this.getChurchId(user);
-
+  async findOne(
+    idChurch: number,
+    id: number,
+  ): Promise<BudgetDistributionResponseDto> {
     const distribution = await this.prisma.budgetDistribution.findFirst({
-      where: { id },
+      where: { id, budget: { idChurch } },
       include: {
         ministry: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
         budget: {
           include: {
             budgetCategories: {
               select: {
                 annualAmount: true,
+                category: { select: { name: true, type: true } },
               },
             },
           },
@@ -190,128 +223,164 @@ export class BudgetDistributionsService {
       throw new NotFoundException('Budget distribution no fue encontrado');
     }
 
-    if (distribution.budget.idChurch !== idChurch) {
-      throw new NotFoundException(
-        'Budget distribution no pertenece a esta iglesia',
-      );
-    }
-
-    const totalBudget = distribution.budget.budgetCategories.reduce(
-      (sum, c) => sum + Number(c.annualAmount),
-      0,
+    const ministeriosAmount = resolveMinistriesAmount(
+      distribution.budget.budgetCategories,
     );
 
-    const percentage = Number(distribution.percentage);
+    const annualAmount = Number(distribution.annualAmount);
 
     return {
       id: distribution.id,
       ministry: distribution.ministry,
-      percentage,
-      allocatedAmount: Number(((totalBudget * percentage) / 100).toFixed(2)),
+      annualAmount,
+      percentageOfMinisteriosBudget:
+        ministeriosAmount > 0
+          ? Number(((annualAmount / ministeriosAmount) * 100).toFixed(2))
+          : 0,
     };
   }
 
-  async update(id: number, dto: UpdateBudgetDistributionDto, user: JwtPayload) {
-    const idChurch = await this.getChurchId(user);
-
+  async update(
+    idChurch: number,
+    id: number,
+    dto: UpdateBudgetDistributionDto,
+  ): Promise<IdResponseDto> {
     const distribution = await this.prisma.budgetDistribution.findFirst({
-      where: {
-        id,
-        budget: {
-          idChurch,
-        },
-      },
-      include: {
-        budget: true,
-      },
+      where: { id, budget: { idChurch } },
+      select: { id: true, idBudget: true },
     });
 
     if (!distribution) {
       throw new NotFoundException('Budget distribution no fue encontrado');
     }
 
-    const newPercentage = dto.percentage ?? Number(distribution.percentage);
+    await this.assertBudgetDraft(idChurch, distribution.idBudget);
 
-    const others = await this.prisma.budgetDistribution.findMany({
-      where: {
-        idBudget: distribution.idBudget,
-        id: {
-          not: id,
-        },
-      },
+    if (dto.annualAmount === undefined) {
+      return { id };
+    }
+
+    const agg = await this.prisma.budgetDistribution.aggregate({
+      where: { idBudget: distribution.idBudget, id: { not: id } },
+      _sum: { annualAmount: true },
     });
 
-    const currentTotalOthers = others.reduce(
-      (sum, d) => sum + Number(d.percentage),
-      0,
-    );
+    const otherSum = Number(agg._sum.annualAmount ?? 0);
+    const target = await this.getMinisteriosBudgetAmount(distribution.idBudget);
 
-    const newTotal = currentTotalOthers + newPercentage;
-
-    if (newTotal > 100) {
+    if (otherSum + dto.annualAmount > target + 0.001) {
       throw new BadRequestException(
-        'La suma total de porcentajes no puede exceder 100%',
+        'El monto total de distribuciones excedería el monto de la categoría Ministerios',
       );
     }
 
     const updated = await this.prisma.budgetDistribution.update({
       where: { id },
-      data: {
-        percentage: dto.percentage ?? distribution.percentage,
-      },
+      data: { annualAmount: dto.annualAmount },
       select: { id: true },
     });
 
     return { id: updated.id };
   }
 
-  async remove(id: number, user: JwtPayload) {
-    const idChurch = await this.getChurchId(user);
-
+  async remove(idChurch: number, id: number): Promise<void> {
     const distribution = await this.prisma.budgetDistribution.findFirst({
-      where: {
-        id,
-        budget: {
-          idChurch,
-        },
-      },
-      include: {
-        budget: true,
-      },
+      where: { id, budget: { idChurch } },
+      select: { id: true, idBudget: true },
     });
 
     if (!distribution) {
       throw new NotFoundException('Budget distribution no fue encontrado');
     }
 
-    if (distribution.budget.status === 'Active') {
-      throw new BadRequestException(
-        'No se puede eliminar una distribución de un budget activo',
-      );
-    }
+    await this.assertBudgetDraft(idChurch, distribution.idBudget);
 
-    const others = await this.prisma.budgetDistribution.findMany({
-      where: {
-        idBudget: distribution.idBudget,
-        id: {
-          not: id,
-        },
-      },
+    await this.prisma.budgetDistribution.delete({ where: { id } });
+  }
+
+  async getSummary(
+    idChurch: number,
+    budgetId: number,
+  ): Promise<BudgetDistributionsSummaryResponseDto> {
+    const budget = await this.prisma.budget.findFirst({
+      where: { id: budgetId, idChurch },
+      select: { id: true },
     });
 
-    const remainingTotal = others.reduce(
-      (sum, d) => sum + Number(d.percentage),
-      0,
-    );
+    if (!budget) {
+      throw new NotFoundException('Budget no encontrado');
+    }
 
-    if (remainingTotal > 100) {
+    const target = await this.getMinisteriosBudgetAmount(budgetId);
+
+    const agg = await this.prisma.budgetDistribution.aggregate({
+      where: { idBudget: budgetId },
+      _sum: { annualAmount: true },
+    });
+
+    const total = Number(agg._sum.annualAmount ?? 0);
+    const remaining = Math.max(0, target - total);
+    const isComplete = target > 0 && Math.abs(total - target) < 0.01;
+
+    return { targetAmount: target, total, remaining, isComplete };
+  }
+
+  async bulkReplace(
+    idChurch: number,
+    createdBy: number,
+    budgetId: number,
+    dto: BulkReplaceBudgetDistributionsDto,
+  ): Promise<BudgetDistributionsPageResponseDto> {
+    await this.assertBudgetDraft(idChurch, budgetId);
+
+    const ministryIds = dto.items.map((i) => i.idMinistry);
+    const uniqueIds = new Set(ministryIds);
+
+    if (uniqueIds.size !== ministryIds.length) {
+      throw new BadRequestException('La lista contiene ministerios duplicados');
+    }
+
+    const foundMinistries = await this.prisma.ministry.count({
+      where: { id: { in: ministryIds }, idChurch },
+    });
+
+    if (foundMinistries !== ministryIds.length) {
+      throw new BadRequestException('Uno o más ministerio(s) no encontrado(s)');
+    }
+
+    const target = await this.getMinisteriosBudgetAmount(budgetId);
+
+    if (target === 0) {
       throw new BadRequestException(
-        'La distribución restante excede 100% después del borrado',
+        'El presupuesto no tiene categoría "Ministerios" de gasto configurada',
       );
     }
 
-    await this.prisma.budgetDistribution.delete({
-      where: { id },
+    const sum = dto.items.reduce((acc, i) => acc + i.annualAmount, 0);
+
+    if (sum > target + 0.001) {
+      throw new BadRequestException(
+        'La suma de montos excedería el monto de la categoría Ministerios',
+      );
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.budgetDistribution.deleteMany({
+        where: { idBudget: budgetId },
+      }),
+      this.prisma.budgetDistribution.createMany({
+        data: dto.items.map((i) => ({
+          idBudget: budgetId,
+          idMinistry: i.idMinistry,
+          annualAmount: i.annualAmount,
+          createdBy,
+        })),
+      }),
+    ]);
+
+    return this.findByBudget(idChurch, budgetId, {
+      page: 1,
+      limit: BULK_REPLACE_RESPONSE_LIMIT,
     });
   }
 }

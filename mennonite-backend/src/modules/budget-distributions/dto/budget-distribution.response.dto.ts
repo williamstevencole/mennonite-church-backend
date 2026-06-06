@@ -9,14 +9,15 @@ export class BudgetDistributionResponseDto {
   ministry!: BudgetDistributionMinistryResponseDto;
 
   @ApiProperty({
-    example: 25,
-    description: 'Porcentaje del presupuesto asignado al ministerio',
+    example: 62500,
+    description: 'Monto anual asignado al ministerio en Lempiras',
   })
-  percentage!: number;
+  annualAmount!: number;
 
   @ApiProperty({
-    example: 125000,
-    description: 'Monto en Lempiras calculado como porcentaje del total',
+    example: 25,
+    description:
+      'Porcentaje que representa este monto sobre el total de la categoría Ministerios',
   })
-  allocatedAmount!: number;
+  percentageOfMinisteriosBudget!: number;
 }

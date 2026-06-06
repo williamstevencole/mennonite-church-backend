@@ -14,6 +14,13 @@ export class BudgetCategoryResponseDto {
   @ApiProperty({ example: 120000 })
   annualAmount!: number;
 
+  @ApiProperty({
+    example: 7.27,
+    description:
+      'Porcentaje que representa esta categoria dentro de su bucket (income o expense) del mismo presupuesto',
+  })
+  percentageOfBucket!: number;
+
   @ApiPropertyOptional({ nullable: true })
   notes!: string | null;
 }

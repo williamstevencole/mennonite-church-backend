@@ -1,9 +1,19 @@
 import { Board, PrismaClient } from '@prisma/client';
 
+// PRD §6.4 — cargos del concilio (pastorales + administrativos)
 const BOARD_ROLE_TYPE_NAMES = [
+  // Pastorales
+  'Pastor',
+  'Co-pastor',
+  'Anciano',
+  'Anciana',
+  'Diácono',
+  'Diácona',
+  // Administrativos
   'Presidente',
   'Vicepresidente',
   'Secretario',
+  'Tesorero',
   'Vocal',
 ] as const;
 

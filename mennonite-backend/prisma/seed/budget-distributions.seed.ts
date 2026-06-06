@@ -1,14 +1,18 @@
 import { Budget, Ministry, PrismaClient } from '@prisma/client';
 
+// Reparto demo en Lempiras de la categoría "Ministerios" expense (L.300,000).
+// La suma debe ser ≤ MinisteriosBudgetCategory.annualAmount.
 const DEMO_DISTRIBUTIONS: Record<string, number> = {
-  'Ministerio de Alabanza': 20,
-  'Ministerio de Jovenes': 20,
-  'Ministerio de Ninos': 15,
-  'Ministerio de Damas': 10,
-  'Ministerio de Caballeros': 10,
-  'Ministerio de Evangelismo': 15,
-  'Ministerio de Servidores': 10,
+  'Alabanza y Adoración': 75000,
+  Jóvenes: 60000,
+  'Escuela Dominical': 45000,
+  Damas: 30000,
+  Caballeros: 30000,
+  Misiones: 45000,
+  Ujieres: 15000,
 };
+
+const MINISTERIOS_CATEGORY_AMOUNT = 300000;
 
 export async function seedBudgetDistributions(
   prisma: PrismaClient,
@@ -16,14 +20,14 @@ export async function seedBudgetDistributions(
   ministriesByName: Map<string, Ministry>,
 ): Promise<number> {
   const total = Object.values(DEMO_DISTRIBUTIONS).reduce((a, b) => a + b, 0);
-  if (total !== 100) {
+  if (total > MINISTERIOS_CATEGORY_AMOUNT) {
     throw new Error(
-      `Seed budget distributions: los porcentajes suman ${total}, deben sumar 100.`,
+      `Seed budget distributions: la suma de distribuciones (${total}) excede el monto de la categoría Ministerios (${MINISTERIOS_CATEGORY_AMOUNT}).`,
     );
   }
 
   let count = 0;
-  for (const [name, percentage] of Object.entries(DEMO_DISTRIBUTIONS)) {
+  for (const [name, annualAmount] of Object.entries(DEMO_DISTRIBUTIONS)) {
     const ministry = ministriesByName.get(name);
     if (!ministry) {
       throw new Error(
@@ -38,11 +42,11 @@ export async function seedBudgetDistributions(
           idMinistry: ministry.id,
         },
       },
-      update: { percentage },
+      update: { annualAmount },
       create: {
         idBudget: budget.id,
         idMinistry: ministry.id,
-        percentage,
+        annualAmount,
       },
     });
     count++;

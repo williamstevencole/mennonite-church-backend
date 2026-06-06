@@ -508,6 +508,7 @@ model FinancialReport {
   approvedBy    Int?      @map("approved_by")
   createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy     Int?      @map("created_by")
+  observacion   String?
 
   church          Church    @relation(fields: [idChurch], references: [id])
   ministry        Ministry? @relation(fields: [idMinistry], references: [id])
@@ -527,7 +528,7 @@ model PeriodClosure {
   year               Int
   ownFunds           Decimal   @map("own_funds") @db.Decimal(12, 2) // Caja chica + cuenta corriente operativa
   accumulatedReserve Decimal   @map("accumulated_reserve") @db.Decimal(12, 2) // Ahorros historicos
-  closureDate        DateTime? @map("closure_date") @db.Date
+  closureDate        DateTime  @map("closure_date") @db.Date
   notes              String?
   createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy          Int?      @map("created_by")
@@ -540,14 +541,16 @@ model PeriodClosure {
 }
 
 model Budget {
-  id          Int       @id @default(autoincrement())
-  idChurch    Int       @map("id_church")
-  periodStart DateTime  @map("period_start") @db.Date // Always January 1st of the year
-  periodEnd   DateTime  @map("period_end") @db.Date // Always December 31st of the year
-  description String?
-  status      String    @default("Draft") @db.VarChar(20) // CHECK ('Draft','Active','Closed')
-  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
-  createdBy   Int?      @map("created_by")
+  id              Int       @id @default(autoincrement())
+  idChurch        Int       @map("id_church")
+  periodStart     DateTime  @map("period_start") @db.Date // Always January 1st of the year
+  periodEnd       DateTime  @map("period_end") @db.Date // Always December 31st of the year
+  description     String?
+  expectedIncome  Decimal   @map("expected_income") @db.Decimal(12, 2) // Total ingresos planificado (cuadro del Informe Financiero)
+  expectedExpense Decimal   @map("expected_expense") @db.Decimal(12, 2) // Total egresos planificado
+  status          String    @default("Draft") @db.VarChar(20) // CHECK ('Draft','Active','Closed')
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy       Int?      @map("created_by")
 
   church              Church               @relation(fields: [idChurch], references: [id])
   createdByUser       User?                @relation("BudgetCreatedBy", fields: [createdBy], references: [id])
@@ -573,12 +576,12 @@ model BudgetCategory {
 }
 
 model BudgetDistribution {
-  id         Int       @id @default(autoincrement())
-  idBudget   Int       @map("id_budget")
-  idMinistry Int       @map("id_ministry")
-  percentage Decimal   @db.Decimal(5, 2) // Active distribution must sum to 100.00
-  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz()
-  createdBy  Int?      @map("created_by")
+  id           Int       @id @default(autoincrement())
+  idBudget     Int       @map("id_budget")
+  idMinistry   Int       @map("id_ministry")
+  annualAmount Decimal   @map("annual_amount") @db.Decimal(12, 2) // Monto en Lempiras; suma ≤ annualAmount de la categoria "Ministerios"
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy    Int?      @map("created_by")
 
   budget        Budget   @relation(fields: [idBudget], references: [id])
   ministry      Ministry @relation(fields: [idMinistry], references: [id])

@@ -1,22 +1,23 @@
 import { PrismaClient } from '@prisma/client';
 
+// PRD §6.6 — 13 categorias canonicas (5 ingreso + 8 gasto)
 const INCOME_CATEGORIES = [
-  'Diezmos',
-  'Ofrendas',
-  'Donaciones',
-  'Actividades Especiales',
-  'Ingresos por Eventos',
+  'Diezmos y Ofrendas',
+  'Alquileres',
+  'Barbacoas',
+  'Ministerios',
+  'Otros Ingresos',
 ] as const;
 
 const EXPENSE_CATEGORIES = [
-  'Servicios Publicos',
+  'Salarios y Obligaciones Patronales',
   'Mantenimiento',
-  'Ayuda Social',
-  'Materiales Ministeriales',
-  'Transporte',
-  'Alimentacion',
-  'Equipo y Tecnologia',
-  'Papeleria y Suministros',
+  'Mejoras',
+  'Mobiliario y Equipo',
+  'Servicios Públicos',
+  'Gastos Varios Administración',
+  'Ministerios',
+  'Otros Egresos',
 ] as const;
 
 export async function seedTransactionCategories(

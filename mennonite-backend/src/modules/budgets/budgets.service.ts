@@ -17,11 +17,14 @@ import { ListBudgetsQueryDto } from './dto/list-budgets-query.dto';
 import { BudgetDetailResponseDto } from './dto/budget-detail.response.dto';
 import { BudgetListItemResponseDto } from './dto/budget-list-item.response.dto';
 import { BudgetsPageResponseDto } from './dto/budgets-page.response.dto';
+import { BudgetSummaryResponseDto } from './dto/budget-summary.response.dto';
 
 type BudgetRow = {
   id: number;
   periodStart: Date;
   description: string | null;
+  expectedIncome: Prisma.Decimal;
+  expectedExpense: Prisma.Decimal;
   status: string;
   createdAt: Date | null;
   createdBy: number | null;
@@ -47,6 +50,8 @@ export class BudgetsService {
         periodStart,
         periodEnd,
         description: dto.description ?? null,
+        expectedIncome: dto.expectedIncome,
+        expectedExpense: dto.expectedExpense,
         status: 'Draft',
         createdBy,
       },
@@ -78,6 +83,8 @@ export class BudgetsService {
           id: true,
           periodStart: true,
           description: true,
+          expectedIncome: true,
+          expectedExpense: true,
           status: true,
           createdAt: true,
           createdBy: true,
@@ -103,6 +110,8 @@ export class BudgetsService {
         id: true,
         periodStart: true,
         description: true,
+        expectedIncome: true,
+        expectedExpense: true,
         status: true,
         createdAt: true,
         createdBy: true,
@@ -115,33 +124,28 @@ export class BudgetsService {
 
     const year = budget.periodStart.getUTCFullYear();
 
-    const [categoryAggregates, distributionCount] =
+    const [incomeAgg, expenseAgg, distributionCount] =
       await this.prisma.$transaction([
-        this.prisma.budgetCategory.findMany({
-          where: { idBudget: id },
-          select: {
-            annualAmount: true,
-            category: { select: { type: true } },
-          },
+        this.prisma.budgetCategory.aggregate({
+          where: { idBudget: id, category: { type: 'income' } },
+          _sum: { annualAmount: true },
+        }),
+        this.prisma.budgetCategory.aggregate({
+          where: { idBudget: id, category: { type: 'expense' } },
+          _sum: { annualAmount: true },
         }),
         this.prisma.budgetDistribution.count({ where: { idBudget: id } }),
       ]);
 
-    let totalIncome = 0;
-    let totalExpenses = 0;
-    for (const row of categoryAggregates) {
-      const amount = Number(row.annualAmount);
-      if (row.category.type === 'income') {
-        totalIncome += amount;
-      } else {
-        totalExpenses += amount;
-      }
-    }
+    const totalIncome = Number(incomeAgg._sum.annualAmount ?? 0);
+    const totalExpenses = Number(expenseAgg._sum.annualAmount ?? 0);
 
     return {
       id: budget.id,
       year,
       description: budget.description,
+      expectedIncome: Number(budget.expectedIncome),
+      expectedExpense: Number(budget.expectedExpense),
       status: budget.status,
       createdAt: budget.createdAt ? budget.createdAt.toISOString() : null,
       createdBy: budget.createdBy,
@@ -167,15 +171,26 @@ export class BudgetsService {
       throw new NotFoundException('Presupuesto no encontrado');
     }
 
-    if (existing.status === 'Closed') {
+    if (existing.status !== 'Draft') {
       throw new ConflictException(
-        'No se puede modificar un presupuesto cerrado',
+        `Solo se pueden modificar presupuestos en estado Draft (estado actual: ${existing.status})`,
       );
+    }
+
+    const data: Prisma.BudgetUpdateInput = {};
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.expectedIncome !== undefined)
+      data.expectedIncome = dto.expectedIncome;
+    if (dto.expectedExpense !== undefined)
+      data.expectedExpense = dto.expectedExpense;
+
+    if (Object.keys(data).length === 0) {
+      return { id: existing.id };
     }
 
     const updated = await this.prisma.budget.update({
       where: { id },
-      data: { description: dto.description },
+      data,
       select: { id: true },
     });
 
@@ -204,40 +219,80 @@ export class BudgetsService {
   }
 
   async activate(idChurch: number, id: number): Promise<IdResponseDto> {
-    const existing = await this.prisma.budget.findFirst({
-      where: { id, idChurch },
-      select: { id: true, status: true },
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.budget.findFirst({
+        where: { id, idChurch },
+        select: {
+          id: true,
+          status: true,
+          expectedIncome: true,
+          expectedExpense: true,
+        },
+      });
+
+      if (!existing) {
+        throw new NotFoundException('Presupuesto no encontrado');
+      }
+
+      if (existing.status !== 'Draft') {
+        throw new ConflictException(
+          `El presupuesto debe estar en estado Draft para activarse (estado actual: ${existing.status})`,
+        );
+      }
+
+      const incomeAgg = await tx.budgetCategory.aggregate({
+        where: { idBudget: id, category: { type: 'income' } },
+        _sum: { annualAmount: true },
+      });
+      const expenseAgg = await tx.budgetCategory.aggregate({
+        where: { idBudget: id, category: { type: 'expense' } },
+        _sum: { annualAmount: true },
+      });
+      const totalIncome = Number(incomeAgg._sum.annualAmount ?? 0);
+      const totalExpense = Number(expenseAgg._sum.annualAmount ?? 0);
+
+      const expectedIncomeNum = Number(existing.expectedIncome);
+      const expectedExpenseNum = Number(existing.expectedExpense);
+      if (totalIncome > expectedIncomeNum + 0.001) {
+        throw new BadRequestException(
+          `Suma de categorías de ingreso (${totalIncome}) excede el ingreso esperado (${expectedIncomeNum})`,
+        );
+      }
+      if (totalExpense > expectedExpenseNum + 0.001) {
+        throw new BadRequestException(
+          `Suma de categorías de egreso (${totalExpense}) excede el egreso esperado (${expectedExpenseNum})`,
+        );
+      }
+
+      const ministeriosCategory = await tx.budgetCategory.findFirst({
+        where: {
+          idBudget: id,
+          category: { name: 'Ministerios', type: 'expense' },
+        },
+        select: { annualAmount: true },
+      });
+      if (ministeriosCategory) {
+        const distAgg = await tx.budgetDistribution.aggregate({
+          where: { idBudget: id },
+          _sum: { annualAmount: true },
+        });
+        const totalDistributions = Number(distAgg._sum.annualAmount ?? 0);
+        const target = Number(ministeriosCategory.annualAmount);
+        if (totalDistributions > target + 0.001) {
+          throw new BadRequestException(
+            `Suma de distribuciones (${totalDistributions}) excede el presupuesto de Ministerios (${target})`,
+          );
+        }
+      }
+
+      const updated = await tx.budget.update({
+        where: { id },
+        data: { status: 'Active' },
+        select: { id: true },
+      });
+
+      return { id: updated.id };
     });
-
-    if (!existing) {
-      throw new NotFoundException('Presupuesto no encontrado');
-    }
-
-    if (existing.status !== 'Draft') {
-      throw new ConflictException(
-        `El presupuesto debe estar en estado Draft para activarse (estado actual: ${existing.status})`,
-      );
-    }
-
-    const percentageSum = await this.prisma.budgetDistribution.aggregate({
-      where: { idBudget: id },
-      _sum: { percentage: true },
-    });
-
-    const total = Number(percentageSum._sum.percentage ?? 0);
-    if (Math.abs(total - 100) > 0.001) {
-      throw new BadRequestException(
-        `La suma de porcentajes de distribución debe ser exactamente 100 (actual: ${total})`,
-      );
-    }
-
-    const updated = await this.prisma.budget.update({
-      where: { id },
-      data: { status: 'Active' },
-      select: { id: true },
-    });
-
-    return { id: updated.id };
   }
 
   async close(idChurch: number, id: number): Promise<IdResponseDto> {
@@ -265,6 +320,45 @@ export class BudgetsService {
     return { id: updated.id };
   }
 
+  async getSummary(
+    idChurch: number,
+    budgetId: number,
+  ): Promise<BudgetSummaryResponseDto> {
+    const budget = await this.prisma.budget.findFirst({
+      where: { id: budgetId, idChurch },
+      select: { id: true, expectedIncome: true, expectedExpense: true },
+    });
+    if (!budget) {
+      throw new NotFoundException('Presupuesto no encontrado');
+    }
+
+    const [incomeAgg, expenseAgg] = await this.prisma.$transaction([
+      this.prisma.budgetCategory.aggregate({
+        where: { idBudget: budgetId, category: { type: 'income' } },
+        _sum: { annualAmount: true },
+      }),
+      this.prisma.budgetCategory.aggregate({
+        where: { idBudget: budgetId, category: { type: 'expense' } },
+        _sum: { annualAmount: true },
+      }),
+    ]);
+
+    const expectedIncome = Number(budget.expectedIncome);
+    const expectedExpense = Number(budget.expectedExpense);
+    const plannedIncome = Number(incomeAgg._sum.annualAmount ?? 0);
+    const plannedExpense = Number(expenseAgg._sum.annualAmount ?? 0);
+
+    return {
+      expectedIncome,
+      plannedIncome,
+      incomeRemaining: Math.max(0, expectedIncome - plannedIncome),
+      expectedExpense,
+      plannedExpense,
+      expenseRemaining: Math.max(0, expectedExpense - plannedExpense),
+      plannedResult: expectedIncome - expectedExpense,
+    };
+  }
+
   private async assertYearAvailable(
     idChurch: number,
     year: number,
@@ -289,6 +383,8 @@ export class BudgetsService {
       id: row.id,
       year: row.periodStart.getUTCFullYear(),
       description: row.description,
+      expectedIncome: Number(row.expectedIncome),
+      expectedExpense: Number(row.expectedExpense),
       status: row.status,
       createdAt: row.createdAt ? row.createdAt.toISOString() : null,
       createdBy: row.createdBy,

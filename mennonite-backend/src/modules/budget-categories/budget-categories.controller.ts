@@ -9,7 +9,6 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -33,9 +32,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
 import { BudgetCategoriesService } from './budget-categories.service';
 import { BudgetCategoryResponseDto } from './dto/budget-category.response.dto';
-import { BudgetCategoriesPageResponseDto } from './dto/budget-categories-page.response.dto';
 import { CreateBudgetCategoryDto } from './dto/create-budget-category.dto';
-import { FindBudgetCategoriesQueryDto } from './dto/find-budget-categories-query.dto';
 import { UpdateBudgetCategoryDto } from './dto/update-budget-category.dto';
 
 @ApiTags('Budget Categories')
@@ -60,18 +57,6 @@ export class BudgetCategoriesController {
     @Body() dto: CreateBudgetCategoryDto,
   ): Promise<IdResponseDto> {
     return this.service.create(user, dto);
-  }
-
-  @Get()
-  @Permissions('budgets.read')
-  @ApiOperation({ summary: 'Listar categorias de un presupuesto' })
-  @ApiOkResponse({ type: BudgetCategoriesPageResponseDto })
-  @ApiNotFoundResponse({ description: 'Budget no encontrado' })
-  findAll(
-    @CurrentUser() user: JwtPayload,
-    @Query() query: FindBudgetCategoriesQueryDto,
-  ): Promise<BudgetCategoriesPageResponseDto> {
-    return this.service.findAll(user, query);
   }
 
   @Get(':id')

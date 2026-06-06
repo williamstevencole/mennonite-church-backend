@@ -33,6 +33,18 @@ export class BudgetDetailResponseDto {
   })
   description!: string | null;
 
+  @ApiProperty({
+    example: 1770000,
+    description: 'Total ingresos planificado en Lempiras',
+  })
+  expectedIncome!: number;
+
+  @ApiProperty({
+    example: 1650000,
+    description: 'Total egresos planificado en Lempiras',
+  })
+  expectedExpense!: number;
+
   @ApiProperty({ example: 'Draft' })
   status!: string;
 

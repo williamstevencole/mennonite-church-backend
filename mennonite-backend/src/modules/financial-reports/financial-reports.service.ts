@@ -19,6 +19,12 @@ import {
   FinancialReportStatus,
   UpdateFinancialReportDto,
 } from './dto/update-financial-report.dto';
+import {
+  assertMinistryLeadership,
+  getLeadingMinistries,
+} from '../../common/scope/ministry-scope.helper';
+import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { RejectFinancialReportDto } from './dto/reject-financial-report.dto';
 
 const ALLOWED_TRANSITIONS: Record<string, FinancialReportStatus[]> = {
   Draft: [FinancialReportStatus.PRESENTED],
@@ -77,10 +83,31 @@ export class FinancialReportsService {
 
   async findAll(
     idChurch: number,
+    user: JwtPayload,
     query: ListFinancialReportsQueryDto,
   ): Promise<FinancialReportsPageResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+
+    // Determine user scope by reading their permissions
+    const userRecord = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      select: {
+        userRole: {
+          select: {
+            rolePermissions: {
+              select: { permission: { select: { code: true } } },
+            },
+          },
+        },
+      },
+    });
+    const permissionCodes = new Set(
+      userRecord?.userRole?.rolePermissions.map((rp) => rp.permission.code) ??
+        [],
+    );
+
+    const canSeeAllReports = permissionCodes.has('financial-reports.approve');
 
     const where: Prisma.FinancialReportWhereInput = { idChurch };
     if (query.idMinistry !== undefined) where.idMinistry = query.idMinistry;
@@ -89,6 +116,17 @@ export class FinancialReportsService {
       const start = new Date(Date.UTC(query.year, 0, 1));
       const end = new Date(Date.UTC(query.year + 1, 0, 1));
       where.periodStart = { gte: start, lt: end };
+    }
+
+    if (!canSeeAllReports) {
+      if (permissionCodes.has('financial-reports.submit')) {
+        // Líder de Ministerio: filter to ministries they lead
+        const ministryIds = await getLeadingMinistries(this.prisma, user);
+        where.idMinistry = { in: ministryIds.length > 0 ? ministryIds : [-1] };
+      } else {
+        // Has financial-reports.read but neither submit nor approve → return nothing
+        where.idMinistry = { in: [-1] };
+      }
     }
 
     const [total, items] = await this.prisma.$transaction([
@@ -242,6 +280,100 @@ export class FinancialReportsService {
     await this.prisma.financialReport.delete({ where: { id } });
   }
 
+  async submit(
+    idChurch: number,
+    user: JwtPayload,
+    id: number,
+  ): Promise<IdResponseDto> {
+    const report = await this.prisma.financialReport.findFirst({
+      where: { id, idChurch },
+      select: { id: true, status: true, idMinistry: true },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Reporte financiero no encontrado');
+    }
+
+    if (report.status !== 'Draft') {
+      throw new ConflictException(
+        `El reporte debe estar en estado Draft para enviarse (estado actual: ${report.status})`,
+      );
+    }
+
+    if (!report.idMinistry) {
+      throw new ConflictException(
+        'Solo los reportes asociados a un ministerio se pueden enviar al concilio',
+      );
+    }
+
+    await assertMinistryLeadership(this.prisma, user, report.idMinistry);
+
+    const updated = await this.prisma.financialReport.update({
+      where: { id },
+      data: { status: 'Presented' },
+      select: { id: true },
+    });
+
+    return { id: updated.id };
+  }
+
+  async approve(idChurch: number, id: number): Promise<IdResponseDto> {
+    const report = await this.prisma.financialReport.findFirst({
+      where: { id, idChurch },
+      select: { id: true, status: true },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Reporte financiero no encontrado');
+    }
+
+    if (report.status !== 'Presented') {
+      throw new ConflictException(
+        `Solo se pueden aprobar reportes en estado Presented (estado actual: ${report.status})`,
+      );
+    }
+
+    const updated = await this.prisma.financialReport.update({
+      where: { id },
+      data: { status: 'Approved' },
+      select: { id: true },
+    });
+
+    return { id: updated.id };
+  }
+
+  async reject(
+    idChurch: number,
+    id: number,
+    dto: RejectFinancialReportDto,
+  ): Promise<IdResponseDto> {
+    const report = await this.prisma.financialReport.findFirst({
+      where: { id, idChurch },
+      select: { id: true, status: true },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Reporte financiero no encontrado');
+    }
+
+    if (report.status !== 'Presented') {
+      throw new ConflictException(
+        `Solo se pueden devolver reportes en estado Presented (estado actual: ${report.status})`,
+      );
+    }
+
+    const updated = await this.prisma.financialReport.update({
+      where: { id },
+      data: {
+        status: 'Draft',
+        observacion: dto.observacion,
+      },
+      select: { id: true },
+    });
+
+    return { id: updated.id };
+  }
+
   private async assertMinistryInChurch(
     idChurch: number,
     idMinistry: number,
@@ -275,6 +407,7 @@ export class FinancialReportsService {
       status: entity.status,
       presentedAt: entity.presentedAt ? entity.presentedAt.toISOString() : null,
       approvedAt: entity.approvedAt ? entity.approvedAt.toISOString() : null,
+      observacion: entity.observacion ?? null,
       createdAt: entity.createdAt ? entity.createdAt.toISOString() : null,
     };
   }

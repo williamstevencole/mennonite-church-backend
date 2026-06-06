@@ -1,13 +1,14 @@
 import { Ministry, PrismaClient } from '@prisma/client';
 
+// PRD §6.3 + §6.6.4 ejemplo de distribucion — 7 ministerios canonicos
 const DEMO_MINISTRIES = [
-  { name: 'Ministerio de Alabanza' },
-  { name: 'Ministerio de Jovenes' },
-  { name: 'Ministerio de Ninos' },
-  { name: 'Ministerio de Damas' },
-  { name: 'Ministerio de Caballeros' },
-  { name: 'Ministerio de Evangelismo' },
-  { name: 'Ministerio de Servidores' },
+  { name: 'Alabanza y Adoración' },
+  { name: 'Jóvenes' },
+  { name: 'Escuela Dominical' },
+  { name: 'Damas' },
+  { name: 'Caballeros' },
+  { name: 'Misiones' },
+  { name: 'Ujieres' },
 ] as const;
 
 export async function seedMinistries(

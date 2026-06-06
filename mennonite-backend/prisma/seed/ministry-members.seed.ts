@@ -2,54 +2,59 @@ import { Member, Ministry, PrismaClient } from '@prisma/client';
 
 const DEMO_MINISTRY_MEMBERS = [
   {
-    ministryName: 'Ministerio de Alabanza',
+    ministryName: 'Alabanza y Adoración',
     memberName: 'Jose Hernandez',
-    roleName: 'Lider de Ministerio',
+    roleName: 'Líder',
   },
   {
-    ministryName: 'Ministerio de Alabanza',
+    ministryName: 'Alabanza y Adoración',
     memberName: 'Andrea Quin',
     roleName: 'Servidor',
   },
   {
-    ministryName: 'Ministerio de Jovenes',
+    ministryName: 'Jóvenes',
     memberName: 'David Zelaya',
-    roleName: 'Lider de Ministerio',
+    roleName: 'Líder',
   },
   {
-    ministryName: 'Ministerio de Jovenes',
+    ministryName: 'Jóvenes',
     memberName: 'William Cole',
-    roleName: 'Coordinador',
+    roleName: 'Co-líder',
   },
   {
-    ministryName: 'Ministerio de Ninos',
+    ministryName: 'Escuela Dominical',
     memberName: 'Sofia Gomez',
-    roleName: 'Lider de Ministerio',
+    roleName: 'Líder',
   },
   {
-    ministryName: 'Ministerio de Damas',
+    ministryName: 'Escuela Dominical',
+    memberName: 'Patricia Cruz',
+    roleName: 'Maestro',
+  },
+  {
+    ministryName: 'Damas',
     memberName: 'Maria Lopez',
-    roleName: 'Lider de Ministerio',
+    roleName: 'Líder',
   },
   {
-    ministryName: 'Ministerio de Damas',
+    ministryName: 'Damas',
     memberName: 'Lucia Paredes',
     roleName: 'Colaborador',
   },
   {
-    ministryName: 'Ministerio de Caballeros',
+    ministryName: 'Caballeros',
     memberName: 'Luis Mejia',
-    roleName: 'Lider de Ministerio',
+    roleName: 'Líder',
   },
   {
-    ministryName: 'Ministerio de Evangelismo',
+    ministryName: 'Misiones',
     memberName: 'Manuel Rosales',
-    roleName: 'Lider de Ministerio',
+    roleName: 'Líder',
   },
   {
-    ministryName: 'Ministerio de Servidores',
+    ministryName: 'Ujieres',
     memberName: 'Ana Rivera',
-    roleName: 'Coordinador',
+    roleName: 'Líder',
   },
 ] as const;
 

@@ -1,8 +1,10 @@
 import { Ministry, PrismaClient } from '@prisma/client';
 
+// PRD §6.3 — cargos dentro de un ministerio
 const MINISTRY_ROLE_TYPE_NAMES = [
-  'Lider de Ministerio',
-  'Coordinador',
+  'Líder',
+  'Co-líder',
+  'Maestro',
   'Servidor',
   'Colaborador',
 ] as const;

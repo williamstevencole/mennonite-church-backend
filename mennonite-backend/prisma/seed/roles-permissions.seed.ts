@@ -4,6 +4,16 @@ const BASIC_ROLES = [
   { name: 'Administrador', description: 'Acceso total al sistema' },
   { name: 'Pastor', description: 'Gestion pastoral y supervision' },
   { name: 'Tesorero', description: 'Gestion financiera y reportes' },
+  {
+    name: 'Líder de Ministerio',
+    description:
+      'Líder o co-líder de uno o más ministerios. Acceso scoped a sus ministerios.',
+  },
+  {
+    name: 'Miembro',
+    description:
+      'Miembro regular con cuenta. Acceso de solo lectura a su contexto.',
+  },
 ] as const;
 
 const BASE_PERMISSIONS = [
@@ -210,6 +220,18 @@ const BASE_PERMISSIONS = [
     code: 'financial-reports.delete',
     description: 'Eliminar un reporte que no esté Aprobado',
   },
+  {
+    code: 'financial-reports.submit',
+    description: 'Enviar reporte financiero del ministerio al concilio',
+  },
+  {
+    code: 'financial-reports.approve',
+    description: 'Aprobar reportes financieros de ministerios',
+  },
+  {
+    code: 'financial-reports.review',
+    description: 'Devolver reportes financieros con observación al líder',
+  },
 
   // Catalogos: tipos de evento
   {
@@ -316,6 +338,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'catalog.board-role-types.read',
     'churches.read',
     'audit.read',
+    'financial-reports.approve',
+    'financial-reports.review',
   ],
   Tesorero: [
     'members.read',
@@ -339,8 +363,27 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'financial-reports.create',
     'financial-reports.update',
     'financial-reports.delete',
+    'financial-reports.approve',
+    'financial-reports.review',
     'catalog.transaction-categories.read',
     'catalog.transaction-categories.manage',
+  ],
+  'Líder de Ministerio': [
+    'financial-reports.submit',
+    'financial-reports.read',
+    'assignments.read',
+    'assignments.create',
+    'assignments.update',
+    'members.read',
+    'events.read',
+    'ministries.read',
+    'finance.read',
+  ],
+  Miembro: [
+    'events.read',
+    'ministries.read',
+    'members.read',
+    'assignments.read',
   ],
 };
 

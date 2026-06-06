@@ -33,7 +33,7 @@ export class PeriodClosuresService {
         year: dto.year,
         ownFunds: new Prisma.Decimal(dto.ownFunds),
         accumulatedReserve: new Prisma.Decimal(dto.accumulatedReserve),
-        closureDate: dto.closureDate ? new Date(dto.closureDate) : undefined,
+        closureDate: dto.closureDate ? new Date(dto.closureDate) : new Date(),
         notes: dto.notes,
         createdBy,
       },

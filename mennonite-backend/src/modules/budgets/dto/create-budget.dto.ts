@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -16,6 +17,24 @@ export class CreateBudgetDto {
   @Min(1900)
   @Max(2100)
   year!: number;
+
+  @ApiProperty({
+    example: 1770000,
+    description: 'Total ingresos planificado en Lempiras (techo)',
+  })
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  expectedIncome!: number;
+
+  @ApiProperty({
+    example: 1650000,
+    description: 'Total egresos planificado en Lempiras (techo)',
+  })
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  expectedExpense!: number;
 
   @ApiPropertyOptional({ example: 'Presupuesto aprobado en asamblea' })
   @IsOptional()

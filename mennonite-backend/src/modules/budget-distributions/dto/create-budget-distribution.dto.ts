@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, Min, Max } from 'class-validator';
+import { IsInt, IsNumber, Min } from 'class-validator';
 
 export class CreateBudgetDistributionDto {
   @ApiProperty({
@@ -14,7 +14,7 @@ export class CreateBudgetDistributionDto {
 
   @ApiProperty({
     example: 3,
-    description: 'Id del ministerio que recibe el porcentaje',
+    description: 'Id del ministerio que recibe el monto anual',
   })
   @Type(() => Number)
   @IsInt()
@@ -22,12 +22,11 @@ export class CreateBudgetDistributionDto {
   idMinistry!: number;
 
   @ApiProperty({
-    example: 25,
-    description: 'Porcentaje del presupuesto asignado al ministerio (0-100)',
+    example: 50000,
+    description: 'Monto anual asignado al ministerio en Lempiras',
   })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  @Max(100)
-  percentage!: number;
+  annualAmount!: number;
 }

@@ -35,6 +35,7 @@ import { CreateFinancialReportDto } from './dto/create-financial-report.dto';
 import { FinancialReportResponseDto } from './dto/financial-report.response.dto';
 import { FinancialReportsPageResponseDto } from './dto/financial-reports-page.response.dto';
 import { ListFinancialReportsQueryDto } from './dto/list-financial-reports-query.dto';
+import { RejectFinancialReportDto } from './dto/reject-financial-report.dto';
 import { UpdateFinancialReportDto } from './dto/update-financial-report.dto';
 import { FinancialReportsService } from './financial-reports.service';
 
@@ -72,7 +73,7 @@ export class FinancialReportsController {
     @CurrentUser() user: JwtPayload,
     @Query() query: ListFinancialReportsQueryDto,
   ): Promise<FinancialReportsPageResponseDto> {
-    return this.service.findAll(user.idChurch, query);
+    return this.service.findAll(user.idChurch, user, query);
   }
 
   @Get(':id')
@@ -120,5 +121,63 @@ export class FinancialReportsController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {
     await this.service.remove(user.idChurch, id);
+  }
+
+  @Post(':id/submit')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('financial-reports.submit')
+  @ApiOperation({
+    summary: 'Enviar reporte de ministerio al concilio (Draft → Presented)',
+  })
+  @ApiOkResponse({ type: IdResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Reporte no está en Draft o no es de ministerio',
+  })
+  @ApiNotFoundResponse({ description: 'Reporte no encontrado' })
+  @ApiForbiddenResponse({
+    description: 'Usuario no es líder del ministerio del reporte',
+  })
+  submit(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<IdResponseDto> {
+    return this.service.submit(user.idChurch, user, id);
+  }
+
+  @Post(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('financial-reports.approve')
+  @ApiOperation({
+    summary: 'Aprobar reporte de ministerio (Presented → Approved)',
+  })
+  @ApiOkResponse({ type: IdResponseDto })
+  @ApiConflictResponse({
+    description: 'El reporte no está en estado Presented',
+  })
+  @ApiNotFoundResponse({ description: 'Reporte no encontrado' })
+  approve(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<IdResponseDto> {
+    return this.service.approve(user.idChurch, id);
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('financial-reports.review')
+  @ApiOperation({
+    summary: 'Devolver reporte al líder con observación (Presented → Draft)',
+  })
+  @ApiOkResponse({ type: IdResponseDto })
+  @ApiConflictResponse({
+    description: 'El reporte no está en estado Presented',
+  })
+  @ApiNotFoundResponse({ description: 'Reporte no encontrado' })
+  reject(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RejectFinancialReportDto,
+  ): Promise<IdResponseDto> {
+    return this.service.reject(user.idChurch, id, dto);
   }
 }

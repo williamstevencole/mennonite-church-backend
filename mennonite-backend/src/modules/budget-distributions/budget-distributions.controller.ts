@@ -9,7 +9,6 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -34,9 +33,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { BudgetDistributionsService } from './budget-distributions.service';
 import { BudgetDistributionResponseDto } from './dto/budget-distribution.response.dto';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
-import { BudgetDistributionsPageResponseDto } from './dto/budget-distributions-page.response.dto';
 import { CreateBudgetDistributionDto } from './dto/create-budget-distribution.dto';
-import { FindBudgetDistributionsQueryDto } from './dto/find-budget-distribution.dto';
 import { UpdateBudgetDistributionDto } from './dto/update-budget-distribution.dto';
 
 @ApiTags('Budget Distributions')
@@ -54,11 +51,12 @@ export class BudgetDistributionsController {
   @HttpCode(HttpStatus.CREATED)
   @Permissions('budgets.create')
   @ApiOperation({
-    summary: 'Crear una distribución de porcentaje para un ministerio',
+    summary: 'Crear una distribución de monto anual para un ministerio',
   })
   @ApiCreatedResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
-    description: 'Payload invalido o porcentaje total excede 100%',
+    description:
+      'Payload invalido o monto anual excede el techo de la categoría Ministerios',
   })
   @ApiNotFoundResponse({
     description: 'Presupuesto o ministerio no encontrado',
@@ -71,22 +69,7 @@ export class BudgetDistributionsController {
     @Body() dto: CreateBudgetDistributionDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<IdResponseDto> {
-    return this.budgetDistributionsService.create(dto, user);
-  }
-
-  @Get()
-  @Permissions('budgets.read')
-  @ApiOperation({
-    summary:
-      'Listar distribuciones de un presupuesto con monto calculado y paginacion',
-  })
-  @ApiOkResponse({ type: BudgetDistributionsPageResponseDto })
-  @ApiNotFoundResponse({ description: 'Presupuesto no encontrado' })
-  findAll(
-    @Query() query: FindBudgetDistributionsQueryDto,
-    @CurrentUser() user: JwtPayload,
-  ): Promise<BudgetDistributionsPageResponseDto> {
-    return this.budgetDistributionsService.findAll(query, user);
+    return this.budgetDistributionsService.create(user.idChurch, user.sub, dto);
   }
 
   @Get(':id')
@@ -98,15 +81,16 @@ export class BudgetDistributionsController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ): Promise<BudgetDistributionResponseDto> {
-    return this.budgetDistributionsService.findOne(id, user);
+    return this.budgetDistributionsService.findOne(user.idChurch, id);
   }
 
   @Patch(':id')
   @Permissions('budgets.update')
-  @ApiOperation({ summary: 'Actualizar el porcentaje de una distribución' })
+  @ApiOperation({ summary: 'Actualizar el monto anual de una distribución' })
   @ApiOkResponse({ type: IdResponseDto })
   @ApiBadRequestResponse({
-    description: 'Payload invalido o porcentaje total excede 100%',
+    description:
+      'Payload invalido o monto anual excede el techo de la categoría Ministerios',
   })
   @ApiNotFoundResponse({ description: 'Distribución no encontrada' })
   update(
@@ -114,7 +98,7 @@ export class BudgetDistributionsController {
     @Body() dto: UpdateBudgetDistributionDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<IdResponseDto> {
-    return this.budgetDistributionsService.update(id, dto, user);
+    return this.budgetDistributionsService.update(user.idChurch, id, dto);
   }
 
   @Delete(':id')
@@ -124,13 +108,13 @@ export class BudgetDistributionsController {
   @ApiNoContentResponse({ description: 'Distribución eliminada' })
   @ApiBadRequestResponse({
     description:
-      'No se puede eliminar una distribución de un presupuesto activo',
+      'No se puede eliminar una distribución de un presupuesto que no está en estado Draft',
   })
   @ApiNotFoundResponse({ description: 'Distribución no encontrada' })
   remove(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
-    return this.budgetDistributionsService.remove(id, user);
+    return this.budgetDistributionsService.remove(user.idChurch, id);
   }
 }

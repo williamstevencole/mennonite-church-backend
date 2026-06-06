@@ -2,23 +2,28 @@ import { Budget, PrismaClient } from '@prisma/client';
 
 const YEAR = new Date().getFullYear();
 
+// Valores demo (no son los reales del informe del cliente).
+// Total Ingresos: 2,000,000  |  Total Egresos: 1,800,000  |  Superávit planificado: 200,000
+const EXPECTED_INCOME = 2000000;
+const EXPECTED_EXPENSE = 1800000;
+
 const EXPENSE_BUDGETS: Record<string, number> = {
-  'Servicios Publicos': 60000,
-  Mantenimiento: 80000,
-  'Ayuda Social': 120000,
-  'Materiales Ministeriales': 40000,
-  Transporte: 30000,
-  Alimentacion: 25000,
-  'Equipo y Tecnologia': 50000,
-  'Papeleria y Suministros': 15000,
+  'Salarios y Obligaciones Patronales': 540000,
+  Mantenimiento: 280000,
+  Mejoras: 120000,
+  'Mobiliario y Equipo': 80000,
+  'Servicios Públicos': 175000,
+  'Gastos Varios Administración': 220000,
+  Ministerios: 300000,
+  'Otros Egresos': 85000,
 };
 
 const INCOME_PROJECTIONS: Record<string, number> = {
-  Diezmos: 350000,
-  Ofrendas: 120000,
-  Donaciones: 40000,
-  'Actividades Especiales': 60000,
-  'Ingresos por Eventos': 50000,
+  'Diezmos y Ofrendas': 1400000,
+  Alquileres: 300000,
+  Barbacoas: 180000,
+  Ministerios: 80000,
+  'Otros Ingresos': 40000,
 };
 
 export async function seedBudgets(
@@ -38,6 +43,8 @@ export async function seedBudgets(
     },
     update: {
       description: `Presupuesto anual ${YEAR}`,
+      expectedIncome: EXPECTED_INCOME,
+      expectedExpense: EXPECTED_EXPENSE,
       status: 'Active',
     },
     create: {
@@ -45,18 +52,38 @@ export async function seedBudgets(
       periodStart,
       periodEnd,
       description: `Presupuesto anual ${YEAR}`,
+      expectedIncome: EXPECTED_INCOME,
+      expectedExpense: EXPECTED_EXPENSE,
       status: 'Active',
     },
   });
 
-  const allBudgetLines = { ...EXPENSE_BUDGETS, ...INCOME_PROJECTIONS };
-  const categoryNames = Object.keys(allBudgetLines);
+  // "Ministerios" existe tanto en income como expense — necesitamos resolver por (name, type)
+  const incomeMap = new Map(
+    Object.entries(INCOME_PROJECTIONS).map(([name, amount]) => [
+      `income:${name}`,
+      amount,
+    ]),
+  );
+  const expenseMap = new Map(
+    Object.entries(EXPENSE_BUDGETS).map(([name, amount]) => [
+      `expense:${name}`,
+      amount,
+    ]),
+  );
+  const allBudgetLines = new Map([...incomeMap, ...expenseMap]);
+
+  const categoryNames = [
+    ...Object.keys(INCOME_PROJECTIONS),
+    ...Object.keys(EXPENSE_BUDGETS),
+  ];
   const categories = await prisma.transactionCategory.findMany({
-    where: { name: { in: categoryNames } },
+    where: { idChurch, name: { in: categoryNames } },
   });
 
   for (const category of categories) {
-    const annualAmount = allBudgetLines[category.name];
+    const key = `${category.type}:${category.name}`;
+    const annualAmount = allBudgetLines.get(key);
     if (annualAmount === undefined) continue;
 
     await prisma.budgetCategory.upsert({
@@ -75,8 +102,8 @@ export async function seedBudgets(
         annualAmount,
         notes:
           category.type === 'income'
-            ? `Proyeccion anual de ingresos por ${category.name.toLowerCase()}`
-            : `Asignacion anual para ${category.name.toLowerCase()}`,
+            ? `Proyección anual de ingresos por ${category.name.toLowerCase()}`
+            : `Asignación anual para ${category.name.toLowerCase()}`,
       },
     });
   }

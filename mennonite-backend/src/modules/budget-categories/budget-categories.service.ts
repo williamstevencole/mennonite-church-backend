@@ -34,20 +34,33 @@ type BudgetCategoryWithCategory = Prisma.BudgetCategoryGetPayload<{
 export class BudgetCategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async assertBudgetDraft(
+    idChurch: number,
+    budgetId: number,
+  ): Promise<void> {
+    const budget = await this.prisma.budget.findFirst({
+      where: { id: budgetId, idChurch },
+      select: { status: true },
+    });
+
+    if (!budget) {
+      throw new NotFoundException('Budget no encontrado');
+    }
+
+    if (budget.status !== 'Draft') {
+      throw new ConflictException(
+        `Solo se pueden modificar categorías de un presupuesto en estado Draft (estado actual: ${budget.status})`,
+      );
+    }
+  }
+
   async create(
     user: JwtPayload,
     dto: CreateBudgetCategoryDto,
   ): Promise<IdResponseDto> {
     const idChurch = user.idChurch;
 
-    const budget = await this.prisma.budget.findFirst({
-      where: { id: dto.idBudget, idChurch },
-      select: { id: true },
-    });
-
-    if (!budget) {
-      throw new NotFoundException('Budget no encontrado');
-    }
+    await this.assertBudgetDraft(idChurch, dto.idBudget);
 
     const category = await this.prisma.transactionCategory.findFirst({
       where: { id: dto.idCategory, idChurch },
@@ -85,16 +98,13 @@ export class BudgetCategoriesService {
     return { id: created.id };
   }
 
-  async findAll(
-    user: JwtPayload,
+  async findByBudget(
+    idChurch: number,
+    budgetId: number,
     query: FindBudgetCategoriesQueryDto,
   ): Promise<BudgetCategoriesPageResponseDto> {
-    const idChurch = user.idChurch;
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-
     const budget = await this.prisma.budget.findFirst({
-      where: { id: query.budgetId, idChurch },
+      where: { id: budgetId, idChurch },
       select: { id: true },
     });
 
@@ -102,9 +112,33 @@ export class BudgetCategoriesService {
       throw new NotFoundException('Budget no encontrado');
     }
 
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
     const where: Prisma.BudgetCategoryWhereInput = {
-      idBudget: query.budgetId,
+      idBudget: budgetId,
+      ...(query.type ? { category: { is: { type: query.type } } } : {}),
     };
+
+    const [incomeSumAgg, expenseSumAgg] = await Promise.all([
+      this.prisma.budgetCategory.aggregate({
+        where: {
+          idBudget: budgetId,
+          category: { type: 'income' },
+        },
+        _sum: { annualAmount: true },
+      }),
+      this.prisma.budgetCategory.aggregate({
+        where: {
+          idBudget: budgetId,
+          category: { type: 'expense' },
+        },
+        _sum: { annualAmount: true },
+      }),
+    ]);
+
+    const incomeSum = Number(incomeSumAgg._sum.annualAmount ?? 0);
+    const expenseSum = Number(expenseSumAgg._sum.annualAmount ?? 0);
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.budgetCategory.count({ where }),
@@ -121,7 +155,15 @@ export class BudgetCategoriesService {
     ]);
 
     return toPaginated(
-      items.map((item) => this.toResponse(item)),
+      items.map((item) => {
+        const bucketSum =
+          item.category.type === 'income' ? incomeSum : expenseSum;
+        const percentageOfBucket =
+          bucketSum > 0
+            ? Number(((Number(item.annualAmount) / bucketSum) * 100).toFixed(2))
+            : 0;
+        return this.toResponse(item, percentageOfBucket);
+      }),
       total,
       page,
       limit,
@@ -145,7 +187,21 @@ export class BudgetCategoriesService {
       throw new NotFoundException('Categoria de presupuesto no encontrada');
     }
 
-    return this.toResponse(item);
+    const bucketSumAgg = await this.prisma.budgetCategory.aggregate({
+      where: {
+        idBudget: item.idBudget,
+        category: { type: item.category.type },
+      },
+      _sum: { annualAmount: true },
+    });
+
+    const bucketSum = Number(bucketSumAgg._sum.annualAmount ?? 0);
+    const percentageOfBucket =
+      bucketSum > 0
+        ? Number(((Number(item.annualAmount) / bucketSum) * 100).toFixed(2))
+        : 0;
+
+    return this.toResponse(item, percentageOfBucket);
   }
 
   async update(
@@ -155,12 +211,14 @@ export class BudgetCategoriesService {
   ): Promise<IdResponseDto> {
     const existing = await this.prisma.budgetCategory.findFirst({
       where: { id, budget: { idChurch: user.idChurch } },
-      select: { id: true, annualAmount: true, notes: true },
+      select: { id: true, idBudget: true, annualAmount: true, notes: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Categoria de presupuesto no encontrada');
     }
+
+    await this.assertBudgetDraft(user.idChurch, existing.idBudget);
 
     if (dto.annualAmount === undefined && dto.notes === undefined) {
       return { id: existing.id };
@@ -181,18 +239,21 @@ export class BudgetCategoriesService {
   async remove(user: JwtPayload, id: number): Promise<void> {
     const existing = await this.prisma.budgetCategory.findFirst({
       where: { id, budget: { idChurch: user.idChurch } },
-      select: { id: true },
+      select: { id: true, idBudget: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Categoria de presupuesto no encontrada');
     }
 
+    await this.assertBudgetDraft(user.idChurch, existing.idBudget);
+
     await this.prisma.budgetCategory.delete({ where: { id } });
   }
 
   private toResponse(
     entity: BudgetCategoryWithCategory,
+    percentageOfBucket: number,
   ): BudgetCategoryResponseDto {
     return {
       id: entity.id,
@@ -203,6 +264,7 @@ export class BudgetCategoriesService {
         type: entity.category.type as TransactionCategoryType,
       },
       annualAmount: Number(entity.annualAmount),
+      percentageOfBucket,
       notes: entity.notes ?? null,
     };
   }

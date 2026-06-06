@@ -13,7 +13,7 @@ type SeededUser = {
   memberName: string;
   email: string;
   password: string;
-  roleName: 'Pastor' | 'Tesorero';
+  roleName: 'Pastor' | 'Tesorero' | 'Líder de Ministerio' | 'Miembro';
 };
 
 const DEMO_USERS: readonly SeededUser[] = [
@@ -28,6 +28,18 @@ const DEMO_USERS: readonly SeededUser[] = [
     email: 'carlos.fernandez@imcsp.org',
     password: 'Tesorero12345!',
     roleName: 'Tesorero',
+  },
+  {
+    memberName: 'Maria Lopez',
+    email: 'lider.damas@imcsp.test',
+    password: 'Lider12345!',
+    roleName: 'Líder de Ministerio',
+  },
+  {
+    memberName: 'Andrea Quin',
+    email: 'miembro@imcsp.test',
+    password: 'Miembro12345!',
+    roleName: 'Miembro',
   },
 ];
 

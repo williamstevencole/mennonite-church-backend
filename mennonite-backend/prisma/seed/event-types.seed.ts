@@ -1,14 +1,21 @@
 import { PrismaClient } from '@prisma/client';
 
+// PRD §6.7 — tipos de eventos por categoria (calendar / trip / fundraising)
 const EVENT_TYPES = [
-  { name: 'Culto Dominical', eventCategory: 'calendar_event' },
+  // calendar_event
+  { name: 'Culto', eventCategory: 'calendar_event' },
+  { name: 'Reunión Ministerial', eventCategory: 'calendar_event' },
   { name: 'Escuela Dominical', eventCategory: 'calendar_event' },
-  { name: 'Reunion de Oracion', eventCategory: 'calendar_event' },
-  { name: 'Conferencia', eventCategory: 'calendar_event' },
-  { name: 'Retiro Espiritual', eventCategory: 'trip' },
+  { name: 'Aniversario', eventCategory: 'calendar_event' },
+  { name: 'Actividad Especial', eventCategory: 'calendar_event' },
+  // trip
+  { name: 'Retiro', eventCategory: 'trip' },
   { name: 'Viaje Misionero', eventCategory: 'trip' },
-  { name: 'Cena Benefica', eventCategory: 'fundraising' },
-  { name: 'Venta Pro Fondos', eventCategory: 'fundraising' },
+  // fundraising
+  { name: 'Barbacoa', eventCategory: 'fundraising' },
+  { name: 'Cena Benéfica', eventCategory: 'fundraising' },
+  { name: 'Rifa', eventCategory: 'fundraising' },
+  { name: 'Venta Especial', eventCategory: 'fundraising' },
 ] as const;
 
 export async function seedEventTypes(

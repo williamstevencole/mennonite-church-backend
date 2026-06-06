@@ -1,15 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsInt, Min } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
+import { TransactionCategoryType } from '../../transaction-categories/transaction-category-type.enum';
 
 export class FindBudgetCategoriesQueryDto extends PaginationQueryDto {
-  @ApiProperty({
-    example: 1,
-    description: 'Id del presupuesto cuyas categorias se listan',
+  @ApiPropertyOptional({
+    enum: ['income', 'expense'],
+    description: 'Filtrar por tipo de categoria (income / expense)',
   })
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  budgetId!: number;
+  @IsOptional()
+  @IsIn(['income', 'expense'])
+  type?: TransactionCategoryType;
 }
