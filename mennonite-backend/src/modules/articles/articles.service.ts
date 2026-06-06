@@ -12,6 +12,7 @@ import {
 } from '../../common/pagination/paginate.util';
 
 import { ArticleResponseDto } from './dto/article.response.dto';
+import { ArticleBalanceResponseDto } from './dto/article-balance.response.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesPageResponseDto } from './dto/articles-page.response.dto';
@@ -140,6 +141,43 @@ export class ArticlesService {
     }
 
     return this.toResponse(article);
+  }
+
+  async getBalance(
+    user: JwtPayload,
+    id: number,
+  ): Promise<ArticleBalanceResponseDto> {
+    const idChurch = await this.getChurchId(user);
+
+    const article = await this.prisma.article.findFirst({
+      where: { id, idChurch },
+      select: { id: true },
+    });
+
+    if (!article) {
+      throw new NotFoundException('Articulo no encontrado');
+    }
+
+    const grouped = await this.prisma.inventoryMovement.groupBy({
+      by: ['type'],
+      where: { idArticle: id, idChurch },
+      _sum: { quantity: true },
+    });
+
+    let totalInbound = 0;
+    let totalOutbound = 0;
+    for (const row of grouped) {
+      const qty = row._sum.quantity !== null ? Number(row._sum.quantity) : 0;
+      if (row.type === 'Inbound') totalInbound += qty;
+      else if (row.type === 'Outbound') totalOutbound += qty;
+    }
+
+    return {
+      idArticle: id,
+      balance: totalInbound - totalOutbound,
+      totalInbound,
+      totalOutbound,
+    };
   }
 
   private toResponse(entity: Article): ArticleResponseDto {

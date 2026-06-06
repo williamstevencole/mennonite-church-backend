@@ -20,6 +20,8 @@ import { BoardMemberMemberSummaryResponseDto } from './dto/board-member-member-s
 import { BoardMemberRoleResponseDto } from './dto/board-member-role.response.dto';
 import { CreateBoardMemberDto } from './dto/create-board-member.dto';
 import { UpdateBoardMemberDto } from './dto/update-board-member.dto';
+import { BulkBoardMembersDto } from './dto/bulk-board-members.dto';
+import { BulkBoardMembersResponseDto } from './dto/bulk-board-members.response.dto';
 
 const UNIQUE_BOARD_ROLE_NAMES = new Set([
   'pastor',
@@ -307,6 +309,145 @@ export class BoardMembersService {
       page,
       limit,
     );
+  }
+
+  /**
+   * Bulk add/update/remove of board_member rows for a single board, in one transaction.
+   * - add: validates board ownership, unique role conflicts (same as `create`)
+   * - update: validates ownership and applies the patch (same as `update`)
+   * - remove: soft delete (active=false) of ids that belong to the board
+   */
+  async bulkUpdate(
+    idChurch: number,
+    boardId: number,
+    dto: BulkBoardMembersDto,
+  ): Promise<BulkBoardMembersResponseDto> {
+    const board = await this.prisma.board.findFirst({
+      where: { id: boardId, idChurch },
+      select: { id: true },
+    });
+    if (!board) {
+      throw new BadRequestException('Concilio inexistente');
+    }
+
+    const adds = dto.add ?? [];
+    const updates = dto.update ?? [];
+    const removeIds = dto.remove ?? [];
+
+    if (removeIds.length > 0) {
+      const owned = await this.prisma.boardMember.findMany({
+        where: { id: { in: removeIds }, idBoard: boardId },
+        select: { id: true },
+      });
+      if (owned.length !== removeIds.length) {
+        throw new BadRequestException(
+          'Uno o más ids de remove no pertenecen a este concilio',
+        );
+      }
+    }
+
+    for (const item of updates) {
+      const owned = await this.prisma.boardMember.findFirst({
+        where: { id: item.id, idBoard: boardId },
+        select: { id: true },
+      });
+      if (!owned) {
+        throw new BadRequestException(
+          `El integrante ${item.id} no pertenece a este concilio`,
+        );
+      }
+    }
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [];
+
+    for (const item of adds) {
+      const role = await this.prisma.boardRoleType.findFirst({
+        where: { id: item.idBoardRoleType, idBoard: boardId },
+        select: { id: true, name: true, active: true },
+      });
+      if (!role || !role.active) {
+        throw new BadRequestException(
+          `Rol de concilio ${item.idBoardRoleType} inexistente`,
+        );
+      }
+      const memberOk = await this.prisma.member.findFirst({
+        where: { id: item.idMember, idChurch, active: true },
+        select: { id: true },
+      });
+      if (!memberOk) {
+        throw new BadRequestException(
+          `Miembro ${item.idMember} inexistente o inactivo`,
+        );
+      }
+      if (this.isUniqueRole(role.name)) {
+        const duplicate = await this.prisma.boardMember.findFirst({
+          where: { idBoard: boardId, idBoardRoleType: role.id, active: true },
+          select: { id: true },
+        });
+        if (duplicate) {
+          throw new ConflictException(
+            `El rol ${role.name} ya esta asignado en este concilio`,
+          );
+        }
+      }
+      const startDate = new Date(item.startDate);
+      const endDate = item.endDate ? new Date(item.endDate) : null;
+      if (endDate && endDate < startDate) {
+        throw new BadRequestException(
+          'La fecha de fin no puede ser anterior a la fecha de inicio',
+        );
+      }
+      ops.push(
+        this.prisma.boardMember.create({
+          data: {
+            idBoard: boardId,
+            idMember: item.idMember,
+            idBoardRoleType: item.idBoardRoleType,
+            startDate,
+            endDate,
+            active: true,
+          },
+          select: { id: true },
+        }),
+      );
+    }
+
+    for (const item of updates) {
+      const data: Prisma.BoardMemberUpdateInput = {};
+      if (item.idBoardRoleType !== undefined) {
+        data.boardRoleType = { connect: { id: item.idBoardRoleType } };
+      }
+      if (item.startDate !== undefined) {
+        data.startDate = new Date(item.startDate);
+      }
+      if (item.endDate !== undefined) {
+        data.endDate = item.endDate === null ? null : new Date(item.endDate);
+      }
+      ops.push(
+        this.prisma.boardMember.update({
+          where: { id: item.id },
+          data,
+          select: { id: true },
+        }),
+      );
+    }
+
+    if (removeIds.length > 0) {
+      ops.push(
+        this.prisma.boardMember.updateMany({
+          where: { id: { in: removeIds }, active: true },
+          data: { active: false },
+        }),
+      );
+    }
+
+    await this.prisma.$transaction(ops);
+
+    return {
+      added: adds.length,
+      updated: updates.length,
+      removed: removeIds.length,
+    };
   }
 
   async remove(idChurch: number, id: number): Promise<void> {

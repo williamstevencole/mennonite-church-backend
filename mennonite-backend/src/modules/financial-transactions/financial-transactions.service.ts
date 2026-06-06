@@ -20,7 +20,36 @@ import { FinancialTransactionResponseDto } from './dto/financial-transaction.res
 import { FinancialTransactionsPageResponseDto } from './dto/financial-transactions-page.response.dto';
 import { ListFinancialTransactionsQueryDto } from './dto/list-financial-transactions-query.dto';
 import { UpdateFinancialTransactionDto } from './dto/update-financial-transaction.dto';
+import {
+  FinancialTransactionsSeriesQueryDto,
+  SeriesRange,
+} from './dto/series-query.dto';
+import {
+  FinancialTransactionsSeriesResponseDto,
+  MonthlySeriesPointDto,
+} from './dto/financial-transactions-series.response.dto';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
+
+const MONTH_LABELS = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+];
+
+const RANGE_MONTHS: Record<SeriesRange, number> = {
+  '3m': 3,
+  '6m': 6,
+  '12m': 12,
+};
 
 type FinancialTransactionWithCategory = FinancialTransaction & {
   category?: { type: string } | null;
@@ -249,6 +278,78 @@ export class FinancialTransactionsService {
     if (closure) {
       throw new ConflictException(`Año ${year} ya cerrado para esta iglesia`);
     }
+  }
+
+  async getMonthlySeries(
+    query: FinancialTransactionsSeriesQueryDto,
+    idChurch: number,
+  ): Promise<FinancialTransactionsSeriesResponseDto> {
+    const range: SeriesRange = query.range ?? '12m';
+    const months = RANGE_MONTHS[range];
+
+    const now = new Date();
+    const endExclusive = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
+    const start = new Date(
+      Date.UTC(
+        endExclusive.getUTCFullYear(),
+        endExclusive.getUTCMonth() - months,
+        1,
+      ),
+    );
+
+    const rows = await this.prisma.financialTransaction.findMany({
+      where: {
+        idChurch,
+        transactionDate: { gte: start, lt: endExclusive },
+      },
+      select: {
+        amount: true,
+        transactionDate: true,
+        category: { select: { type: true } },
+      },
+    });
+
+    const bucket = new Map<string, { income: number; expense: number }>();
+    for (let i = 0; i < months; i++) {
+      const d = new Date(
+        Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1),
+      );
+      bucket.set(this.monthKey(d), { income: 0, expense: 0 });
+    }
+
+    for (const row of rows) {
+      const key = this.monthKey(row.transactionDate);
+      const current = bucket.get(key);
+      if (!current) continue;
+      const amount = Number(row.amount);
+      if (row.category?.type === 'income') current.income += amount;
+      else if (row.category?.type === 'expense') current.expense += amount;
+    }
+
+    const data: MonthlySeriesPointDto[] = [];
+    for (const [key, totals] of bucket.entries()) {
+      const [yearStr, monthStr] = key.split('-');
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+      data.push({
+        year,
+        month,
+        label: `${MONTH_LABELS[month - 1]}-${year}`,
+        income: totals.income,
+        expense: totals.expense,
+        net: totals.income - totals.expense,
+      });
+    }
+
+    return { range, data };
+  }
+
+  private monthKey(date: Date): string {
+    const y = date.getUTCFullYear();
+    const m = date.getUTCMonth() + 1;
+    return `${y}-${String(m).padStart(2, '0')}`;
   }
 
   private toResponse(

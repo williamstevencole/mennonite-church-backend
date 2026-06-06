@@ -32,6 +32,7 @@ import {
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { ArticleResponseDto } from './dto/article.response.dto';
+import { ArticleBalanceResponseDto } from './dto/article-balance.response.dto';
 import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesService } from './articles.service';
 import { ArticlesPageResponseDto } from './dto/articles-page.response.dto';
@@ -72,6 +73,22 @@ export class ArticlesController {
     @Query() query: FindArticlesQueryDto,
   ): Promise<ArticlesPageResponseDto> {
     return this.service.findAll(user, query);
+  }
+
+  @Get(':id/balance')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('inventory.read')
+  @ApiOperation({
+    summary:
+      'Saldo actual del artículo (suma de inventory_movement Inbound - Outbound)',
+  })
+  @ApiOkResponse({ type: ArticleBalanceResponseDto })
+  @ApiNotFoundResponse({ description: 'Articulo no encontrado' })
+  getBalance(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ArticleBalanceResponseDto> {
+    return this.service.getBalance(user, id);
   }
 
   @Get(':id')

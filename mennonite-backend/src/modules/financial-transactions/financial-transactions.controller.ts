@@ -35,6 +35,8 @@ import { FinancialTransactionResponseDto } from './dto/financial-transaction.res
 import { FinancialTransactionsPageResponseDto } from './dto/financial-transactions-page.response.dto';
 import { ListFinancialTransactionsQueryDto } from './dto/list-financial-transactions-query.dto';
 import { UpdateFinancialTransactionDto } from './dto/update-financial-transaction.dto';
+import { FinancialTransactionsSeriesQueryDto } from './dto/series-query.dto';
+import { FinancialTransactionsSeriesResponseDto } from './dto/financial-transactions-series.response.dto';
 import { FinancialTransactionsService } from './financial-transactions.service';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
 
@@ -75,6 +77,20 @@ export class FinancialTransactionsController {
     @Query() query: ListFinancialTransactionsQueryDto,
   ): Promise<FinancialTransactionsPageResponseDto> {
     return this.service.findAll(query);
+  }
+
+  @Get('series')
+  @Permissions('finance.read')
+  @ApiOperation({
+    summary:
+      'Serie mensual agregada de ingresos vs gastos (rango móvil 3m/6m/12m) — alimenta el dashboard',
+  })
+  @ApiOkResponse({ type: FinancialTransactionsSeriesResponseDto })
+  series(
+    @Query() query: FinancialTransactionsSeriesQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<FinancialTransactionsSeriesResponseDto> {
+    return this.service.getMonthlySeries(query, user.idChurch);
   }
 
   @Get(':id')

@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 
 export class ListFundraisingDetailsQueryDto extends PaginationQueryDto {
@@ -10,4 +10,12 @@ export class ListFundraisingDetailsQueryDto extends PaginationQueryDto {
   @IsInt()
   @Min(1)
   idEvent?: number;
+
+  @ApiPropertyOptional({
+    enum: ['date_desc', 'date_asc'],
+    description: 'Ordenar por fecha del evento. Default: date_desc',
+  })
+  @IsOptional()
+  @IsEnum(['date_desc', 'date_asc'])
+  orderBy?: 'date_desc' | 'date_asc';
 }

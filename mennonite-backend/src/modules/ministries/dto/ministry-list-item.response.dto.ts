@@ -5,4 +5,10 @@ export class MinistryListItemResponseDto {
   @ApiProperty() idChurch!: number;
   @ApiProperty() name!: string;
   @ApiProperty() active!: boolean;
+
+  @ApiProperty({
+    example: 14,
+    description: 'Cantidad de integrantes activos del ministerio',
+  })
+  memberCount!: number;
 }

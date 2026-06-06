@@ -36,6 +36,7 @@ import { PastorsModule } from './modules/pastors/pastors.module';
 import { MemberEventsModule } from './modules/member-events/member-events.module';
 import { EventResponsibleMembersModule } from './modules/event-responsible-members/event-responsible-members.module';
 import { FundraisingDetailsModule } from './modules/fundraising-details/fundraising-details.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { FundraisingDetailsModule } from './modules/fundraising-details/fundrais
     MemberEventsModule,
     EventResponsibleMembersModule,
     FundraisingDetailsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

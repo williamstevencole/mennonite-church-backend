@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Ministry, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -37,6 +37,13 @@ type MinistryDetailRecord = Prisma.MinistryGetPayload<{
         ministryRoleType: { select: { id: true; name: true } };
       };
     };
+    _count: { select: { ministryMembers: { where: { active: true } } } };
+  };
+}>;
+
+type MinistryListRecord = Prisma.MinistryGetPayload<{
+  include: {
+    _count: { select: { ministryMembers: { where: { active: true } } } };
   };
 }>;
 
@@ -63,6 +70,9 @@ export class MinistriesService {
         where,
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
         ...buildPagination(page, limit),
+        include: {
+          _count: { select: { ministryMembers: { where: { active: true } } } },
+        },
       }),
     ]);
 
@@ -213,6 +223,7 @@ export class MinistriesService {
           },
           orderBy: [{ member: { name: 'asc' } }, { id: 'asc' }],
         },
+        _count: { select: { ministryMembers: { where: { active: true } } } },
       },
     });
 
@@ -246,12 +257,15 @@ export class MinistriesService {
     ]);
   }
 
-  private toListItem(ministry: Ministry): MinistryListItemResponseDto {
+  private toListItem(
+    ministry: MinistryListRecord,
+  ): MinistryListItemResponseDto {
     return {
       id: ministry.id,
       idChurch: ministry.idChurch,
       name: ministry.name,
       active: ministry.active,
+      memberCount: ministry._count.ministryMembers,
     };
   }
 
@@ -261,6 +275,7 @@ export class MinistriesService {
       idChurch: entity.idChurch,
       name: entity.name,
       active: entity.active,
+      memberCount: entity._count.ministryMembers,
       members: entity.ministryMembers.map((member) =>
         this.toMinistryMemberListItem(member),
       ),

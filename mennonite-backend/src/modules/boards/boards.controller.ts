@@ -33,6 +33,8 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { BoardMembersService } from '../board-members/board-members.service';
 import { BoardMembersPageResponseDto } from '../board-members/dto/board-members-page.response.dto';
 import { ListBoardMembersQueryDto } from '../board-members/dto/list-board-members-query.dto';
+import { BulkBoardMembersDto } from '../board-members/dto/bulk-board-members.dto';
+import { BulkBoardMembersResponseDto } from '../board-members/dto/bulk-board-members.response.dto';
 import { BoardDetailResponseDto } from './dto/board-detail.response.dto';
 import { BoardsPageResponseDto } from './dto/boards-page.response.dto';
 import { CreateBoardDto } from './dto/create-board.dto';
@@ -104,6 +106,30 @@ export class BoardsController {
     @Query() query: ListBoardMembersQueryDto,
   ): Promise<BoardMembersPageResponseDto> {
     return this.boardMembersService.findByBoard(user.idChurch, id, query);
+  }
+
+  @Post(':id/members/bulk')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('assignments.update')
+  @ApiOperation({
+    summary:
+      'Bulk add/update/remove de integrantes de un concilio en una transacción',
+  })
+  @ApiOkResponse({ type: BulkBoardMembersResponseDto })
+  @ApiBadRequestResponse({
+    description:
+      'Payload inválido, ids que no pertenecen al concilio o FKs inexistentes',
+  })
+  @ApiConflictResponse({
+    description: 'Rol único duplicado en el concilio',
+  })
+  @ApiNotFoundResponse({ description: 'Concilio no encontrado' })
+  bulkMembers(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: BulkBoardMembersDto,
+  ): Promise<BulkBoardMembersResponseDto> {
+    return this.boardMembersService.bulkUpdate(user.idChurch, id, dto);
   }
 
   @Get(':id')

@@ -19,6 +19,27 @@ import { FundraisingDetailDetailResponseDto } from './dto/fundraising-detail-det
 import { FundraisingDetailListItemResponseDto } from './dto/fundraising-detail-list-item.response.dto';
 import { FundraisingDetailsPageResponseDto } from './dto/fundraising-details-page.response.dto';
 
+const DETAIL_SELECT = {
+  id: true,
+  targetAmount: true,
+  notes: true,
+  event: {
+    select: {
+      id: true,
+      title: true,
+      startDatetime: true,
+      status: true,
+      responsibleMembers: {
+        select: { member: { select: { id: true, name: true } } },
+      },
+    },
+  },
+} satisfies Prisma.FundraisingDetailSelect;
+
+type DetailRecord = Prisma.FundraisingDetailGetPayload<{
+  select: typeof DETAIL_SELECT;
+}>;
+
 @Injectable()
 export class FundraisingDetailsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -27,7 +48,6 @@ export class FundraisingDetailsService {
     dto: CreateFundraisingDetailDto,
     user: JwtPayload,
   ): Promise<IdResponseDto> {
-    // 1. Verificar que el evento existe y pertenece a la iglesia del usuario
     const event = await this.prisma.event.findFirst({
       where: {
         id: dto.idEvent,
@@ -42,12 +62,10 @@ export class FundraisingDetailsService {
       );
     }
 
-    // 2. Validar que el evento sea de categoria fundraising
     if (event.eventType?.eventCategory !== 'fundraising') {
       throw new BadRequestException('El evento no es de categoria fundraising');
     }
 
-    // 3. Verificar que no exista ya un fundraising detail para este evento
     const existing = await this.prisma.fundraisingDetail.findUnique({
       where: { idEvent: dto.idEvent },
     });
@@ -58,7 +76,6 @@ export class FundraisingDetailsService {
       );
     }
 
-    // 4. Crear el detalle
     const created = await this.prisma.fundraisingDetail.create({
       data: {
         idEvent: dto.idEvent,
@@ -80,6 +97,10 @@ export class FundraisingDetailsService {
   ): Promise<FundraisingDetailsPageResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const orderDir =
+      query.orderBy === 'date_asc'
+        ? Prisma.SortOrder.asc
+        : Prisma.SortOrder.desc;
 
     const where: Prisma.FundraisingDetailWhereInput = {
       event: { idChurch: user.idChurch },
@@ -93,26 +114,21 @@ export class FundraisingDetailsService {
       this.prisma.fundraisingDetail.count({ where }),
       this.prisma.fundraisingDetail.findMany({
         where,
-        orderBy: { id: 'asc' },
+        orderBy: { event: { startDatetime: orderDir } },
         ...buildPagination(page, limit),
-        select: {
-          id: true,
-          targetAmount: true,
-          notes: true,
-          event: {
-            select: { id: true, title: true },
-          },
-        },
+        select: DETAIL_SELECT,
       }),
     ]);
 
-    const data: FundraisingDetailListItemResponseDto[] = items.map((item) => ({
-      id: item.id,
-      targetAmount:
-        item.targetAmount !== null ? Number(item.targetAmount) : null,
-      notes: item.notes ?? null,
-      event: { id: item.event.id, title: item.event.title },
-    }));
+    const eventIds = items.map((i) => i.event.id);
+    const totalsByEvent = await this.computeEventTotals(
+      eventIds,
+      user.idChurch,
+    );
+
+    const data: FundraisingDetailListItemResponseDto[] = items.map((item) =>
+      this.toResponse(item, totalsByEvent.get(item.event.id)),
+    );
 
     return toPaginated(data, total, page, limit);
   }
@@ -126,27 +142,19 @@ export class FundraisingDetailsService {
         id,
         event: { idChurch: user.idChurch },
       },
-      select: {
-        id: true,
-        targetAmount: true,
-        notes: true,
-        event: {
-          select: { id: true, title: true },
-        },
-      },
+      select: DETAIL_SELECT,
     });
 
     if (!detail) {
       throw new NotFoundException(`Detalle de recaudacion ${id} no encontrado`);
     }
 
-    return {
-      id: detail.id,
-      targetAmount:
-        detail.targetAmount !== null ? Number(detail.targetAmount) : null,
-      notes: detail.notes ?? null,
-      event: { id: detail.event.id, title: detail.event.title },
-    };
+    const totalsByEvent = await this.computeEventTotals(
+      [detail.event.id],
+      user.idChurch,
+    );
+
+    return this.toResponse(detail, totalsByEvent.get(detail.event.id));
   }
 
   async update(
@@ -172,7 +180,6 @@ export class FundraisingDetailsService {
       data.targetAmount = new Prisma.Decimal(dto.targetAmount);
     }
 
-    // Use undefined (not null) so unset fields are not overwritten
     if (dto.notes !== undefined) {
       data.notes = dto.notes;
     }
@@ -200,5 +207,75 @@ export class FundraisingDetailsService {
     }
 
     await this.prisma.fundraisingDetail.delete({ where: { id } });
+  }
+
+  /**
+   * One-shot aggregate of income/expense totals per event from
+   * financial_transaction joined with transaction_category.type.
+   * Returns Map<idEvent, { income, expense }>.
+   */
+  private async computeEventTotals(
+    eventIds: number[],
+    idChurch: number,
+  ): Promise<Map<number, { income: number; expense: number }>> {
+    const totals = new Map<number, { income: number; expense: number }>();
+    if (eventIds.length === 0) return totals;
+
+    const rows = await this.prisma.financialTransaction.groupBy({
+      by: ['idEvent', 'idCategory'],
+      where: {
+        idChurch,
+        idEvent: { in: eventIds },
+      },
+      _sum: { amount: true },
+    });
+
+    if (rows.length === 0) return totals;
+
+    const categoryIds = Array.from(new Set(rows.map((r) => r.idCategory)));
+    const categories = await this.prisma.transactionCategory.findMany({
+      where: { id: { in: categoryIds } },
+      select: { id: true, type: true },
+    });
+    const categoryType = new Map(categories.map((c) => [c.id, c.type]));
+
+    for (const row of rows) {
+      if (row.idEvent === null) continue;
+      const type = categoryType.get(row.idCategory);
+      const amount = row._sum.amount !== null ? Number(row._sum.amount) : 0;
+      const current = totals.get(row.idEvent) ?? { income: 0, expense: 0 };
+      if (type === 'income') current.income += amount;
+      else if (type === 'expense') current.expense += amount;
+      totals.set(row.idEvent, current);
+    }
+
+    return totals;
+  }
+
+  private toResponse(
+    record: DetailRecord,
+    totals: { income: number; expense: number } | undefined,
+  ): FundraisingDetailListItemResponseDto {
+    const income = totals?.income ?? 0;
+    const expense = totals?.expense ?? 0;
+    return {
+      id: record.id,
+      targetAmount:
+        record.targetAmount !== null ? Number(record.targetAmount) : null,
+      notes: record.notes ?? null,
+      event: {
+        id: record.event.id,
+        title: record.event.title,
+        startDate: record.event.startDatetime.toISOString(),
+        status: record.event.status,
+      },
+      responsibles: record.event.responsibleMembers.map((r) => ({
+        id: r.member.id,
+        name: r.member.name,
+      })),
+      actualIncome: income,
+      actualExpense: expense,
+      profit: income - expense,
+    };
   }
 }
