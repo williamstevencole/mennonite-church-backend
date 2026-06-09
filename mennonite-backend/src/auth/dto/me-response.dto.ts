@@ -15,6 +15,9 @@ export class MeResponseDto {
   @ApiProperty({ example: 'usuario@iglesia.org' })
   email!: string;
 
+  @ApiProperty({ example: 'Oscar Martinez', required: false })
+  name?: string;
+
   @ApiProperty({ type: MeRoleDto })
   role!: MeRoleDto;
 

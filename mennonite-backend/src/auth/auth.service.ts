@@ -153,6 +153,7 @@ export class AuthService {
         id: true,
         email: true,
         active: true,
+        member: { select: { name: true } },
         userRole: {
           select: {
             id: true,
@@ -195,6 +196,7 @@ export class AuthService {
         id: true,
         email: true,
         active: true,
+        member: { select: { name: true } },
         userRole: {
           select: {
             id: true,
@@ -219,6 +221,7 @@ export class AuthService {
   private toMeResponse(user: {
     id: number;
     email: string;
+    member: { name: string } | null;
     userRole: {
       id: number;
       name: string;
@@ -238,6 +241,7 @@ export class AuthService {
     return {
       id: user.id,
       email: user.email,
+      name: user.member?.name,
       role: { id: user.userRole.id, name: user.userRole.name },
       permissions,
     };
