@@ -9,7 +9,6 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -106,7 +105,7 @@ export class UserRolesController {
     return this.service.update(user.idChurch, id, dto);
   }
 
-  @Put(':id/permissions')
+  @Patch(':id/permissions')
   @Permissions('user-roles.update')
   @ApiOperation({
     summary: 'Reemplazar la lista completa de permisos del rol',
