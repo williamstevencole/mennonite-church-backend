@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsEnum,
   IsEmail,
+  IsBoolean,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -45,6 +46,14 @@ export class CreateMemberDto {
   baptismDate?: Date;
 
   @ApiProperty() @Type(() => Date) @IsDate() joinDate!: Date;
+
+  @ApiPropertyOptional({
+    description:
+      'Estado de membresía (true = activo). En update controla la activación/desactivación; inactivated_at se deriva de este valor.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -61,6 +61,8 @@ export class MembersService {
       throw new ConflictException('El numero de identificacion ya existe');
     }
 
+    const active = createMemberDto.active ?? true;
+
     const member = await this.prisma.member.create({
       data: {
         idChurch,
@@ -74,7 +76,11 @@ export class MembersService {
         address: createMemberDto.address,
         baptismDate: createMemberDto.baptismDate,
         joinDate: createMemberDto.joinDate,
-        inactivatedAt: createMemberDto.inactivatedAt,
+        active,
+        // INSERT has no trigger; keep inactivated_at consistent with `active`.
+        inactivatedAt: active
+          ? null
+          : (createMemberDto.inactivatedAt ?? new Date()),
         createdBy: user.sub,
       },
       select: { id: true, name: true },
@@ -247,7 +253,12 @@ export class MembersService {
     const idChurch = await this.resolveChurchId(user);
     const existing = await this.prisma.member.findFirst({
       where: { id, idChurch },
-      select: { id: true, documentType: true, documentNumber: true },
+      select: {
+        id: true,
+        documentType: true,
+        documentNumber: true,
+        active: true,
+      },
     });
 
     if (!existing) {
@@ -294,8 +305,22 @@ export class MembersService {
       address: updateMemberDto.address,
       baptismDate: updateMemberDto.baptismDate,
       joinDate: updateMemberDto.joinDate,
-      inactivatedAt: updateMemberDto.inactivatedAt,
     };
+
+    // `active` is the source of truth for membership state. Keep inactivated_at
+    // consistent with it (DB constraint: active=false <=> inactivated_at set).
+    if (updateMemberDto.active !== undefined) {
+      data.active = updateMemberDto.active;
+      if (updateMemberDto.active && !existing.active) {
+        data.inactivatedAt = null;
+      } else if (!updateMemberDto.active && existing.active) {
+        data.inactivatedAt = updateMemberDto.inactivatedAt ?? new Date();
+      } else if (updateMemberDto.inactivatedAt !== undefined) {
+        data.inactivatedAt = updateMemberDto.inactivatedAt;
+      }
+    } else if (updateMemberDto.inactivatedAt !== undefined) {
+      data.inactivatedAt = updateMemberDto.inactivatedAt;
+    }
 
     const updated = await this.prisma.member.update({
       where: { id },
