@@ -4,6 +4,11 @@ import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/pagination/pagination-query.dto';
 import { TransactionCategoryType } from '../../transaction-categories/transaction-category-type.enum';
 
+export enum TransactionOrigin {
+  General = 'general',
+  Ministry = 'ministry',
+}
+
 export class ListFinancialTransactionsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     enum: TransactionCategoryType,
@@ -42,6 +47,15 @@ export class ListFinancialTransactionsQueryDto extends PaginationQueryDto {
   @IsInt()
   @Min(1)
   ministryId?: number;
+
+  @ApiPropertyOptional({
+    enum: TransactionOrigin,
+    description:
+      'Filtra por origen: "general" (sin ministerio) o "ministry" (cualquier ministerio).',
+  })
+  @IsOptional()
+  @IsEnum(TransactionOrigin)
+  origin?: TransactionOrigin;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
