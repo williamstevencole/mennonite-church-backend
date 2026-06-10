@@ -18,7 +18,11 @@ import {
   EventFrequency,
   EventStatus,
 } from './dto/create-calendar-event.dto';
-import { ListCalendarEventsQueryDto } from './dto/list-calendar-events-query.dto';
+import {
+  CalendarEventOrigin,
+  CalendarEventsSort,
+  ListCalendarEventsQueryDto,
+} from './dto/list-calendar-events-query.dto';
 import { UpdateCalendarEventDto } from './dto/update-calendar-event.dto';
 
 @Injectable()
@@ -76,7 +80,13 @@ export class CalendarEventsService {
     const where: Prisma.EventWhereInput = {};
 
     if (query.idChurch !== undefined) where.idChurch = query.idChurch;
-    if (query.idMinistry !== undefined) where.idMinistry = query.idMinistry;
+    if (query.idMinistry !== undefined) {
+      where.idMinistry = query.idMinistry;
+    } else if (query.origin === CalendarEventOrigin.General) {
+      where.idMinistry = null;
+    } else if (query.origin === CalendarEventOrigin.Ministry) {
+      where.idMinistry = { not: null };
+    }
     if (query.idEventType !== undefined) where.idEventType = query.idEventType;
     if (query.status) where.status = query.status;
 
@@ -87,11 +97,18 @@ export class CalendarEventsService {
       where.startDatetime = startFilter;
     }
 
+    if (query.q) {
+      where.title = { contains: query.q, mode: 'insensitive' };
+    }
+
+    const direction: Prisma.SortOrder =
+      query.sort === CalendarEventsSort.StartDesc ? 'desc' : 'asc';
+
     const [total, items] = await this.prisma.$transaction([
       this.prisma.event.count({ where }),
       this.prisma.event.findMany({
         where,
-        orderBy: [{ startDatetime: 'asc' }, { id: 'asc' }],
+        orderBy: [{ startDatetime: direction }, { id: direction }],
         ...buildPagination(page, limit),
       }),
     ]);
