@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsEmail,
   IsOptional,
   IsString,
@@ -43,4 +44,12 @@ export class UpdateUserDto {
   @Transform(trimToUndefined)
   @MinLength(8)
   password?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Activar/desactivar usuario (soft delete)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 }

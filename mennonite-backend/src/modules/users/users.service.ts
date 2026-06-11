@@ -234,6 +234,10 @@ export class UsersService {
       data.email = dto.email;
     }
 
+    if (dto.active !== undefined) {
+      data.active = dto.active;
+    }
+
     if (dto.password !== undefined) {
       const localUser = await this.prisma.user.findUnique({
         where: { id },
@@ -381,6 +385,7 @@ export class UsersService {
       name: user.member?.name ?? null,
       active: user.active,
       role: user.userRole ? this.toRoleResponse(user.userRole) : null,
+      idMember: user.idMember ?? null,
     };
   }
 
