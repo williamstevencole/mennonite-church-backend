@@ -118,13 +118,21 @@ export class UsersService {
 
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
-      select: { id: true },
+      select: { id: true, active: true },
     });
 
     if (existing) {
-      throw new ConflictException(
-        'Ya existe un usuario registrado con ese email',
-      );
+      if (existing.active === true) {
+        throw new ConflictException(
+          'Ya existe un usuario registrado con ese email',
+        );
+      } else {
+        await this.prisma.user.update({
+          where: { id: existing.id },
+          data: { active: true },
+        });
+        return { id: existing.id };
+      }
     }
 
     const existingMemberUser = await this.prisma.user.findUnique({
@@ -204,13 +212,21 @@ export class UsersService {
     if (dto.email && dto.email !== existing.email) {
       const duplicate = await this.prisma.user.findUnique({
         where: { email: dto.email },
-        select: { id: true },
+        select: { id: true, active: true },
       });
 
       if (duplicate) {
-        throw new ConflictException(
-          'Ya existe un usuario registrado con ese email',
-        );
+        if (duplicate.active === true) {
+          throw new ConflictException(
+            'Ya existe un usuario registrado con ese email',
+          );
+        } else {
+          await this.prisma.user.update({
+            where: { id: existing.id },
+            data: { active: true },
+          });
+          return { id: existing.id };
+        }
       }
     }
 
