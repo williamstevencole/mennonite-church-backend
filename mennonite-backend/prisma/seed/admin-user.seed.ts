@@ -127,7 +127,7 @@ export async function seedAdminUser(
     },
   });
 
-  return await prisma.user.upsert({
+  const adminUser = await prisma.user.upsert({
     where: { email: ADMIN_SEED_CREDENTIALS.email },
     update: {
       idUserRole,
@@ -145,6 +145,39 @@ export async function seedAdminUser(
       supabaseUid,
     },
   });
+
+  // Vincular al admin con el board activo de la iglesia para que area='admin'.
+  const activeBoard = await prisma.board.findFirst({
+    where: { idChurch, active: true },
+  });
+  if (activeBoard) {
+    const adminBoardRole = await prisma.boardRoleType.findFirst({
+      where: { idBoard: activeBoard.id, name: 'Vocal' },
+    });
+    if (adminBoardRole) {
+      const existingBoardMember = await prisma.boardMember.findFirst({
+        where: {
+          idMember: adminMember.id,
+          idBoard: activeBoard.id,
+          idBoardRoleType: adminBoardRole.id,
+        },
+      });
+      if (!existingBoardMember) {
+        await prisma.boardMember.create({
+          data: {
+            idMember: adminMember.id,
+            idBoard: activeBoard.id,
+            idBoardRoleType: adminBoardRole.id,
+            startDate: activeBoard.startDate,
+            endDate: null,
+            active: true,
+          },
+        });
+      }
+    }
+  }
+
+  return adminUser;
 }
 
 export async function seedMemberUsers(

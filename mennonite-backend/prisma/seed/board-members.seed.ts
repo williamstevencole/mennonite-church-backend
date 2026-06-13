@@ -2,7 +2,6 @@ import { Board, Member, PrismaClient } from '@prisma/client';
 
 const DEMO_BOARD_MEMBERS = [
   { memberName: 'Oscar Martinez', roleName: 'Pastor' },
-  { memberName: 'Maria Lopez', roleName: 'Co-pastor' },
   { memberName: 'Oscar Martinez', roleName: 'Presidente' },
   { memberName: 'Roberto Aguilar', roleName: 'Vicepresidente' },
   { memberName: 'Patricia Cruz', roleName: 'Secretario' },
