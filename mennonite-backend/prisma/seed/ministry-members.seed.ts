@@ -9,7 +9,7 @@ const DEMO_MINISTRY_MEMBERS = [
   {
     ministryName: 'Alabanza y Adoración',
     memberName: 'Andrea Quin',
-    roleName: 'Servidor',
+    roleName: 'Miembro',
   },
   {
     ministryName: 'Jóvenes',
@@ -39,7 +39,7 @@ const DEMO_MINISTRY_MEMBERS = [
   {
     ministryName: 'Damas',
     memberName: 'Lucia Paredes',
-    roleName: 'Colaborador',
+    roleName: 'Miembro',
   },
   {
     ministryName: 'Caballeros',
