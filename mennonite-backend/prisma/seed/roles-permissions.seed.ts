@@ -378,12 +378,21 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'events.read',
     'ministries.read',
     'finance.read',
+    'catalog.event-types.read',
+    'catalog.transaction-categories.read',
+    'catalog.ministry-role-types.read',
+    'catalog.board-role-types.read',
+    'budgets.read',
+    'events.attendance.read',
+    'boards.read',
   ],
   Miembro: [
     'events.read',
     'ministries.read',
     'members.read',
     'assignments.read',
+    'boards.read',
+    'catalog.board-role-types.read',
   ],
 };
 
