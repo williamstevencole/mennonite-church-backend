@@ -1,35 +1,63 @@
 import { PrismaClient } from '@prisma/client';
 
-const CLOSURE_YEAR = new Date().getFullYear() - 1;
+const CURRENT_YEAR = new Date().getFullYear();
+
+type ClosureSeed = {
+  year: number;
+  ownFunds: number;
+  accumulatedReserve: number;
+  notes: string;
+};
+
+const CLOSURES: ClosureSeed[] = [
+  {
+    year: CURRENT_YEAR - 3,
+    ownFunds: 28_000,
+    accumulatedReserve: 120_000,
+    notes: `Cierre contable del período ${CURRENT_YEAR - 3}.`,
+  },
+  {
+    year: CURRENT_YEAR - 2,
+    ownFunds: 36_000,
+    accumulatedReserve: 150_000,
+    notes: `Cierre contable del período ${CURRENT_YEAR - 2}.`,
+  },
+  {
+    year: CURRENT_YEAR - 1,
+    ownFunds: 45_000,
+    accumulatedReserve: 180_000,
+    notes: `Cierre contable del período ${CURRENT_YEAR - 1}.`,
+  },
+];
 
 export async function seedPeriodClosures(
   prisma: PrismaClient,
   idChurch: number,
   createdBy: number,
 ): Promise<number> {
-  await prisma.periodClosure.upsert({
-    where: {
-      idChurch_year: {
-        idChurch,
-        year: CLOSURE_YEAR,
+  let count = 0;
+  for (const c of CLOSURES) {
+    await prisma.periodClosure.upsert({
+      where: {
+        idChurch_year: { idChurch, year: c.year },
       },
-    },
-    update: {
-      ownFunds: 45000,
-      accumulatedReserve: 180000,
-      closureDate: new Date(CLOSURE_YEAR, 11, 31),
-      notes: `Cierre contable del periodo ${CLOSURE_YEAR}.`,
-    },
-    create: {
-      idChurch,
-      year: CLOSURE_YEAR,
-      ownFunds: 45000,
-      accumulatedReserve: 180000,
-      closureDate: new Date(CLOSURE_YEAR, 11, 31),
-      notes: `Cierre contable del periodo ${CLOSURE_YEAR}.`,
-      createdBy,
-    },
-  });
-
-  return 1;
+      update: {
+        ownFunds: c.ownFunds,
+        accumulatedReserve: c.accumulatedReserve,
+        closureDate: new Date(c.year, 11, 31),
+        notes: c.notes,
+      },
+      create: {
+        idChurch,
+        year: c.year,
+        ownFunds: c.ownFunds,
+        accumulatedReserve: c.accumulatedReserve,
+        closureDate: new Date(c.year, 11, 31),
+        notes: c.notes,
+        createdBy,
+      },
+    });
+    count++;
+  }
+  return 1 * count;
 }

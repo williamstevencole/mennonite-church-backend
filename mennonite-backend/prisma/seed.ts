@@ -92,8 +92,12 @@ async function main(): Promise<void> {
   // 7. Eventos
   await seedEvents(prisma, church.id, ministriesByName);
 
-  // 8. Presupuesto anual + categorias
-  const budget = await seedBudgets(prisma, church.id);
+  // 8. Presupuesto anual + categorias (3 años: actual, anterior, antepasado)
+  const {
+    current: budget,
+    all: allBudgets,
+    byYear: budgetsByYear,
+  } = await seedBudgets(prisma, church.id);
 
   // 9. Asignaciones de miembros (concilio + ministerios)
   const boardMembersCount = await seedBoardMembers(
@@ -142,7 +146,9 @@ async function main(): Promise<void> {
   console.log(`Miembros: ${membersByName.size}`);
   console.log(`Ministerios: ${ministriesByName.size}`);
   console.log(`Concilio activo: ${board.name}`);
-  console.log(`Presupuesto: ${budget.description} (id=${budget.id})`);
+  console.log(
+    `Presupuestos: ${allBudgets.length} (años ${[...budgetsByYear.keys()].sort().join(', ')})`,
+  );
   console.log(`Miembros del concilio: ${boardMembersCount}`);
   console.log(`Miembros en ministerios: ${ministryMembersCount}`);
   console.log(
