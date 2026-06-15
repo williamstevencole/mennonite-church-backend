@@ -92,6 +92,7 @@ export class EventResponsibleMembersService {
     const limit = query.limit ?? 20;
 
     const where: Prisma.EventResponsibleMemberWhereInput = {
+      active: true,
       event: { idChurch: user.idChurch },
     };
 
@@ -128,6 +129,7 @@ export class EventResponsibleMembersService {
     const record = await this.prisma.eventResponsibleMember.findFirst({
       where: {
         id,
+        active: true,
         event: { idChurch: user.idChurch },
       },
       include: this.include(),
@@ -148,7 +150,7 @@ export class EventResponsibleMembersService {
         id,
         event: { idChurch: user.idChurch },
       },
-      select: { id: true },
+      select: { id: true, active: true },
     });
 
     if (!record) {
@@ -157,7 +159,14 @@ export class EventResponsibleMembersService {
       );
     }
 
-    await this.prisma.eventResponsibleMember.delete({ where: { id } });
+    if (!record.active) {
+      return;
+    }
+
+    await this.prisma.eventResponsibleMember.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   private include() {

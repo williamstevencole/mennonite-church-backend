@@ -77,7 +77,7 @@ export class CalendarEventsService {
   ): Promise<CalendarEventsPageResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where: Prisma.EventWhereInput = {};
+    const where: Prisma.EventWhereInput = { active: true };
 
     if (query.idChurch !== undefined) where.idChurch = query.idChurch;
     if (query.idMinistry !== undefined) {
@@ -122,7 +122,9 @@ export class CalendarEventsService {
   }
 
   async findOne(id: number): Promise<CalendarEventResponseDto> {
-    const event = await this.prisma.event.findUnique({ where: { id } });
+    const event = await this.prisma.event.findFirst({
+      where: { id, active: true },
+    });
     if (!event) {
       throw new NotFoundException(`Evento ${id} no encontrado`);
     }
@@ -133,7 +135,9 @@ export class CalendarEventsService {
     id: number,
     dto: UpdateCalendarEventDto,
   ): Promise<IdResponseDto> {
-    const current = await this.prisma.event.findUnique({ where: { id } });
+    const current = await this.prisma.event.findFirst({
+      where: { id, active: true },
+    });
     if (!current) {
       throw new NotFoundException(`Evento ${id} no encontrado`);
     }
@@ -207,12 +211,18 @@ export class CalendarEventsService {
   async remove(id: number): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, active: true },
     });
     if (!event) {
       throw new NotFoundException(`Evento ${id} no encontrado`);
     }
-    await this.prisma.event.delete({ where: { id } });
+    if (!event.active) {
+      return;
+    }
+    await this.prisma.event.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   private assertDateRange(start: string, end: string): void {

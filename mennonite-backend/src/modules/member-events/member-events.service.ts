@@ -91,6 +91,7 @@ export class MemberEventsService {
     const limit = query.limit ?? 20;
 
     const where: Prisma.MemberEventWhereInput = {
+      active: true,
       event: { idChurch: user.idChurch },
     };
 
@@ -127,6 +128,7 @@ export class MemberEventsService {
     const record = await this.prisma.memberEvent.findFirst({
       where: {
         id,
+        active: true,
         event: { idChurch: user.idChurch },
       },
       include: this.include(),
@@ -147,7 +149,7 @@ export class MemberEventsService {
     dto: UpdateMemberEventDto,
   ): Promise<IdResponseDto> {
     const existing = await this.prisma.memberEvent.findFirst({
-      where: { id, event: { idChurch: user.idChurch } },
+      where: { id, active: true, event: { idChurch: user.idChurch } },
       select: { id: true },
     });
 
@@ -186,7 +188,7 @@ export class MemberEventsService {
         id,
         event: { idChurch: user.idChurch },
       },
-      select: { id: true },
+      select: { id: true, active: true },
     });
 
     if (!record) {
@@ -195,7 +197,14 @@ export class MemberEventsService {
       );
     }
 
-    await this.prisma.memberEvent.delete({ where: { id } });
+    if (!record.active) {
+      return;
+    }
+
+    await this.prisma.memberEvent.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   private include() {

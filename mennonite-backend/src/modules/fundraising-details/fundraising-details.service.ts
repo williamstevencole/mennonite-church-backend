@@ -68,21 +68,37 @@ export class FundraisingDetailsService {
 
     const existing = await this.prisma.fundraisingDetail.findUnique({
       where: { idEvent: dto.idEvent },
+      select: { id: true, active: true },
     });
 
-    if (existing) {
+    if (existing?.active) {
       throw new ConflictException(
         'Este evento ya tiene un detalle de recaudacion registrado',
       );
     }
 
+    const targetAmount =
+      dto.targetAmount !== undefined
+        ? new Prisma.Decimal(dto.targetAmount)
+        : undefined;
+
+    if (existing) {
+      const reactivated = await this.prisma.fundraisingDetail.update({
+        where: { id: existing.id },
+        data: {
+          targetAmount,
+          notes: dto.notes,
+          active: true,
+        },
+        select: { id: true },
+      });
+      return { id: reactivated.id };
+    }
+
     const created = await this.prisma.fundraisingDetail.create({
       data: {
         idEvent: dto.idEvent,
-        targetAmount:
-          dto.targetAmount !== undefined
-            ? new Prisma.Decimal(dto.targetAmount)
-            : undefined,
+        targetAmount,
         notes: dto.notes,
       },
       select: { id: true },
@@ -103,6 +119,7 @@ export class FundraisingDetailsService {
         : Prisma.SortOrder.desc;
 
     const where: Prisma.FundraisingDetailWhereInput = {
+      active: true,
       event: { idChurch: user.idChurch },
     };
 
@@ -140,6 +157,7 @@ export class FundraisingDetailsService {
     const detail = await this.prisma.fundraisingDetail.findFirst({
       where: {
         id,
+        active: true,
         event: { idChurch: user.idChurch },
       },
       select: DETAIL_SELECT,
@@ -165,6 +183,7 @@ export class FundraisingDetailsService {
     const existing = await this.prisma.fundraisingDetail.findFirst({
       where: {
         id,
+        active: true,
         event: { idChurch: user.idChurch },
       },
       select: { id: true },
@@ -199,14 +218,21 @@ export class FundraisingDetailsService {
         id,
         event: { idChurch: user.idChurch },
       },
-      select: { id: true },
+      select: { id: true, active: true },
     });
 
     if (!existing) {
       throw new NotFoundException(`Detalle de recaudacion ${id} no encontrado`);
     }
 
-    await this.prisma.fundraisingDetail.delete({ where: { id } });
+    if (!existing.active) {
+      return;
+    }
+
+    await this.prisma.fundraisingDetail.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   /**
