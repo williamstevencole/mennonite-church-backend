@@ -23,12 +23,20 @@ export class PermissionsService {
   async create(dto: CreatePermissionDto): Promise<IdResponseDto> {
     const existing = await this.prisma.permission.findUnique({
       where: { code: dto.code },
-      select: { id: true },
+      select: { id: true, active: true },
     });
-    if (existing) {
+    if (existing?.active) {
       throw new ConflictException(
         `Ya existe un permiso con code "${dto.code}"`,
       );
+    }
+    if (existing) {
+      const reactivated = await this.prisma.permission.update({
+        where: { id: existing.id },
+        data: { description: dto.description, active: true },
+        select: { id: true },
+      });
+      return { id: reactivated.id };
     }
     const created = await this.prisma.permission.create({
       data: { code: dto.code, description: dto.description },

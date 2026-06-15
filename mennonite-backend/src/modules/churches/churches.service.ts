@@ -25,7 +25,34 @@ export class ChurchesService {
     if (dto.idCity !== undefined) {
       await this.assertCity(dto.idCity);
     }
-    await this.assertNameUnique(dto.name);
+    const existing = await this.prisma.church.findFirst({
+      where: { name: { equals: dto.name.trim(), mode: 'insensitive' } },
+      select: { id: true, active: true },
+    });
+    if (existing?.active) {
+      throw new ConflictException(
+        `Ya existe una iglesia con el nombre "${dto.name}"`,
+      );
+    }
+    if (existing) {
+      const reactivated = await this.prisma.church.update({
+        where: { id: existing.id },
+        data: {
+          name: dto.name,
+          idCity: dto.idCity,
+          rtn: dto.rtn,
+          contactPhone: dto.contactPhone,
+          founderName: dto.founderName,
+          mission: dto.mission,
+          vision: dto.vision,
+          values: dto.values,
+          foundationDate: dto.foundationDate,
+          active: true,
+        },
+        select: { id: true, name: true },
+      });
+      return { id: reactivated.id, name: reactivated.name };
+    }
     const created = await this.prisma.church.create({
       data: {
         name: dto.name,
