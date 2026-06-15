@@ -171,9 +171,9 @@ export class BudgetsService {
       throw new NotFoundException('Presupuesto no encontrado');
     }
 
-    if (existing.status !== 'Draft') {
+    if (existing.status === 'Closed') {
       throw new ConflictException(
-        `Solo se pueden modificar presupuestos en estado Draft (estado actual: ${existing.status})`,
+        'Un presupuesto cerrado es inmutable y no puede modificarse',
       );
     }
 

@@ -34,7 +34,7 @@ type BudgetCategoryWithCategory = Prisma.BudgetCategoryGetPayload<{
 export class BudgetCategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async assertBudgetDraft(
+  private async assertBudgetEditable(
     idChurch: number,
     budgetId: number,
   ): Promise<void> {
@@ -47,9 +47,9 @@ export class BudgetCategoriesService {
       throw new NotFoundException('Budget no encontrado');
     }
 
-    if (budget.status !== 'Draft') {
+    if (budget.status === 'Closed') {
       throw new ConflictException(
-        `Solo se pueden modificar categorías de un presupuesto en estado Draft (estado actual: ${budget.status})`,
+        'No se pueden modificar categorías de un presupuesto cerrado (inmutable)',
       );
     }
   }
@@ -60,7 +60,7 @@ export class BudgetCategoriesService {
   ): Promise<IdResponseDto> {
     const idChurch = user.idChurch;
 
-    await this.assertBudgetDraft(idChurch, dto.idBudget);
+    await this.assertBudgetEditable(idChurch, dto.idBudget);
 
     const category = await this.prisma.transactionCategory.findFirst({
       where: { id: dto.idCategory, idChurch },
@@ -218,7 +218,7 @@ export class BudgetCategoriesService {
       throw new NotFoundException('Categoria de presupuesto no encontrada');
     }
 
-    await this.assertBudgetDraft(user.idChurch, existing.idBudget);
+    await this.assertBudgetEditable(user.idChurch, existing.idBudget);
 
     if (dto.annualAmount === undefined && dto.notes === undefined) {
       return { id: existing.id };
@@ -246,7 +246,7 @@ export class BudgetCategoriesService {
       throw new NotFoundException('Categoria de presupuesto no encontrada');
     }
 
-    await this.assertBudgetDraft(user.idChurch, existing.idBudget);
+    await this.assertBudgetEditable(user.idChurch, existing.idBudget);
 
     await this.prisma.budgetCategory.delete({ where: { id } });
   }

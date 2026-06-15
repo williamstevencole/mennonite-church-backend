@@ -60,7 +60,7 @@ export class BudgetDistributionsService {
     return resolveMinistriesAmount(budgetCategories);
   }
 
-  private async assertBudgetDraft(
+  private async assertBudgetEditable(
     idChurch: number,
     budgetId: number,
   ): Promise<void> {
@@ -73,9 +73,9 @@ export class BudgetDistributionsService {
       throw new NotFoundException('Budget no encontrado');
     }
 
-    if (budget.status !== 'Draft') {
+    if (budget.status === 'Closed') {
       throw new ConflictException(
-        'Solo se pueden modificar distribuciones de presupuestos en estado Draft',
+        'No se pueden modificar distribuciones de un presupuesto cerrado (inmutable)',
       );
     }
   }
@@ -85,7 +85,7 @@ export class BudgetDistributionsService {
     createdBy: number,
     dto: CreateBudgetDistributionDto,
   ): Promise<IdResponseDto> {
-    await this.assertBudgetDraft(idChurch, dto.idBudget);
+    await this.assertBudgetEditable(idChurch, dto.idBudget);
 
     const ministry = await this.prisma.ministry.findFirst({
       where: { id: dto.idMinistry, idChurch },
@@ -254,7 +254,7 @@ export class BudgetDistributionsService {
       throw new NotFoundException('Budget distribution no fue encontrado');
     }
 
-    await this.assertBudgetDraft(idChurch, distribution.idBudget);
+    await this.assertBudgetEditable(idChurch, distribution.idBudget);
 
     if (dto.annualAmount === undefined) {
       return { id };
@@ -293,7 +293,7 @@ export class BudgetDistributionsService {
       throw new NotFoundException('Budget distribution no fue encontrado');
     }
 
-    await this.assertBudgetDraft(idChurch, distribution.idBudget);
+    await this.assertBudgetEditable(idChurch, distribution.idBudget);
 
     await this.prisma.budgetDistribution.delete({ where: { id } });
   }
@@ -331,7 +331,7 @@ export class BudgetDistributionsService {
     budgetId: number,
     dto: BulkReplaceBudgetDistributionsDto,
   ): Promise<BudgetDistributionsPageResponseDto> {
-    await this.assertBudgetDraft(idChurch, budgetId);
+    await this.assertBudgetEditable(idChurch, budgetId);
 
     const ministryIds = dto.items.map((i) => i.idMinistry);
     const uniqueIds = new Set(ministryIds);
