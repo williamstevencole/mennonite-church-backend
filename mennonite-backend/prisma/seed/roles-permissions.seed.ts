@@ -404,21 +404,25 @@ export async function seedRolesAndPermissions(
   permissionsByCode: Map<string, Permission>;
 }> {
   const roles = await Promise.all(
-    BASIC_ROLES.map(({ name, description }) =>
-      prisma.userRole.upsert({
-        where: { idChurch_name: { idChurch, name } },
-        update: {
-          description,
-          active: true,
-        },
-        create: {
-          idChurch,
-          name,
-          description,
-          active: true,
-        },
-      }),
-    ),
+    BASIC_ROLES.map(async ({ name, description }) => {
+      const existing = await prisma.userRole.findFirst({
+        where: { idChurch, name },
+        select: { id: true },
+      });
+      return existing
+        ? prisma.userRole.update({
+            where: { id: existing.id },
+            data: { description, active: true },
+          })
+        : prisma.userRole.create({
+            data: {
+              idChurch,
+              name,
+              description,
+              active: true,
+            },
+          });
+    }),
   );
 
   const permissions = await Promise.all(

@@ -40,29 +40,36 @@ export async function seedInventory(
   let movements = 0;
 
   for (const data of DEMO_ARTICLES) {
-    const article = await prisma.article.upsert({
-      where: {
-        idChurch_code: { idChurch, code: data.code },
-      },
-      update: {
-        name: data.name,
-        description: data.description ?? null,
-        brand: data.brand ?? null,
-        model: data.model ?? null,
-        unitCost: data.unitCost,
-        active: true,
-      },
-      create: {
-        idChurch,
-        code: data.code,
-        name: data.name,
-        description: data.description ?? null,
-        brand: data.brand ?? null,
-        model: data.model ?? null,
-        unitCost: data.unitCost,
-        active: true,
-      },
+    const existingArticle = await prisma.article.findFirst({
+      where: { idChurch, code: data.code },
+      select: { id: true },
     });
+    const article = existingArticle
+      ? await prisma.article.update({
+          where: { id: existingArticle.id },
+          data: {
+            name: data.name,
+            description: data.description ?? null,
+            brand: data.brand ?? null,
+            model: data.model ?? null,
+            unitCost: data.unitCost,
+            active: true,
+          },
+          select: { id: true },
+        })
+      : await prisma.article.create({
+          data: {
+            idChurch,
+            code: data.code,
+            name: data.name,
+            description: data.description ?? null,
+            brand: data.brand ?? null,
+            model: data.model ?? null,
+            unitCost: data.unitCost,
+            active: true,
+          },
+          select: { id: true },
+        });
     articles++;
 
     const documentNumber = `INV-${data.code}-INIT`;

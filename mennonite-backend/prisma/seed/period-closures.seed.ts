@@ -37,26 +37,33 @@ export async function seedPeriodClosures(
 ): Promise<number> {
   let count = 0;
   for (const c of CLOSURES) {
-    await prisma.periodClosure.upsert({
-      where: {
-        idChurch_year: { idChurch, year: c.year },
-      },
-      update: {
-        ownFunds: c.ownFunds,
-        accumulatedReserve: c.accumulatedReserve,
-        closureDate: new Date(c.year, 11, 31),
-        notes: c.notes,
-      },
-      create: {
-        idChurch,
-        year: c.year,
-        ownFunds: c.ownFunds,
-        accumulatedReserve: c.accumulatedReserve,
-        closureDate: new Date(c.year, 11, 31),
-        notes: c.notes,
-        createdBy,
-      },
+    const existing = await prisma.periodClosure.findFirst({
+      where: { idChurch, year: c.year },
+      select: { id: true },
     });
+    if (existing) {
+      await prisma.periodClosure.update({
+        where: { id: existing.id },
+        data: {
+          ownFunds: c.ownFunds,
+          accumulatedReserve: c.accumulatedReserve,
+          closureDate: new Date(c.year, 11, 31),
+          notes: c.notes,
+        },
+      });
+    } else {
+      await prisma.periodClosure.create({
+        data: {
+          idChurch,
+          year: c.year,
+          ownFunds: c.ownFunds,
+          accumulatedReserve: c.accumulatedReserve,
+          closureDate: new Date(c.year, 11, 31),
+          notes: c.notes,
+          createdBy,
+        },
+      });
+    }
     count++;
   }
   return 1 * count;

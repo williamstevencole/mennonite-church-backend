@@ -96,30 +96,31 @@ export async function seedBudgets(
           ? 'Closed'
           : 'Draft';
 
-    const budget = await prisma.budget.upsert({
-      where: {
-        idChurch_periodStart_periodEnd: {
-          idChurch,
-          periodStart,
-          periodEnd,
-        },
-      },
-      update: {
-        description: `Presupuesto anual ${year}`,
-        expectedIncome: EXPECTED_INCOME_BY_YEAR[year],
-        expectedExpense: EXPECTED_EXPENSE_BY_YEAR[year],
-        status,
-      },
-      create: {
-        idChurch,
-        periodStart,
-        periodEnd,
-        description: `Presupuesto anual ${year}`,
-        expectedIncome: EXPECTED_INCOME_BY_YEAR[year],
-        expectedExpense: EXPECTED_EXPENSE_BY_YEAR[year],
-        status,
-      },
+    const existingBudget = await prisma.budget.findFirst({
+      where: { idChurch, periodStart, periodEnd },
+      select: { id: true },
     });
+    const budget = existingBudget
+      ? await prisma.budget.update({
+          where: { id: existingBudget.id },
+          data: {
+            description: `Presupuesto anual ${year}`,
+            expectedIncome: EXPECTED_INCOME_BY_YEAR[year],
+            expectedExpense: EXPECTED_EXPENSE_BY_YEAR[year],
+            status,
+          },
+        })
+      : await prisma.budget.create({
+          data: {
+            idChurch,
+            periodStart,
+            periodEnd,
+            description: `Presupuesto anual ${year}`,
+            expectedIncome: EXPECTED_INCOME_BY_YEAR[year],
+            expectedExpense: EXPECTED_EXPENSE_BY_YEAR[year],
+            status,
+          },
+        });
     all.push(budget);
     byYear.set(year, budget);
 
@@ -131,24 +132,28 @@ export async function seedBudgets(
       const annualAmount = map[category.name];
       if (annualAmount === undefined) continue;
 
-      await prisma.budgetCategory.upsert({
-        where: {
-          idBudget_idCategory: {
+      const existingBc = await prisma.budgetCategory.findFirst({
+        where: { idBudget: budget.id, idCategory: category.id },
+        select: { id: true },
+      });
+      if (existingBc) {
+        await prisma.budgetCategory.update({
+          where: { id: existingBc.id },
+          data: { annualAmount },
+        });
+      } else {
+        await prisma.budgetCategory.create({
+          data: {
             idBudget: budget.id,
             idCategory: category.id,
+            annualAmount,
+            notes:
+              category.type === 'income'
+                ? `Proyección anual de ingresos por ${category.name.toLowerCase()}`
+                : `Asignación anual para ${category.name.toLowerCase()}`,
           },
-        },
-        update: { annualAmount },
-        create: {
-          idBudget: budget.id,
-          idCategory: category.id,
-          annualAmount,
-          notes:
-            category.type === 'income'
-              ? `Proyección anual de ingresos por ${category.name.toLowerCase()}`
-              : `Asignación anual para ${category.name.toLowerCase()}`,
-        },
-      });
+        });
+      }
     }
   }
 

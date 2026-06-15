@@ -44,12 +44,10 @@ export class ArticlesService {
   ): Promise<IdNameResponseDto> {
     const idChurch = await this.getChurchId(user);
 
-    const existing = await this.prisma.article.findUnique({
+    const existing = await this.prisma.article.findFirst({
       where: {
-        idChurch_code: {
-          idChurch,
-          code: dto.code,
-        },
+        idChurch,
+        code: dto.code,
       },
       select: { id: true },
     });
