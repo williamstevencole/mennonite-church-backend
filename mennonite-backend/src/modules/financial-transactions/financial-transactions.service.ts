@@ -109,7 +109,7 @@ export class FinancialTransactionsService {
   ): Promise<FinancialTransactionsPageResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where: Prisma.FinancialTransactionWhereInput = {};
+    const where: Prisma.FinancialTransactionWhereInput = { active: true };
 
     if (query.idChurch !== undefined) where.idChurch = query.idChurch;
     if (query.categoryId !== undefined) where.idCategory = query.categoryId;
@@ -157,8 +157,8 @@ export class FinancialTransactionsService {
   }
 
   async findOne(id: number): Promise<FinancialTransactionResponseDto> {
-    const item = await this.prisma.financialTransaction.findUnique({
-      where: { id },
+    const item = await this.prisma.financialTransaction.findFirst({
+      where: { id, active: true },
       include: { category: { select: { type: true } } },
     });
     if (!item) {
@@ -171,8 +171,8 @@ export class FinancialTransactionsService {
     id: number,
     dto: UpdateFinancialTransactionDto,
   ): Promise<IdResponseDto> {
-    const current = await this.prisma.financialTransaction.findUnique({
-      where: { id },
+    const current = await this.prisma.financialTransaction.findFirst({
+      where: { id, active: true },
     });
     if (!current) {
       throw new NotFoundException(`Transaccion ${id} no encontrada`);
@@ -229,10 +229,19 @@ export class FinancialTransactionsService {
   async remove(id: number): Promise<void> {
     const existing = await this.prisma.financialTransaction.findUnique({
       where: { id },
-      select: { id: true, idChurch: true, transactionDate: true },
+      select: {
+        id: true,
+        idChurch: true,
+        transactionDate: true,
+        active: true,
+      },
     });
     if (!existing) {
       throw new NotFoundException(`Transaccion ${id} no encontrada`);
+    }
+
+    if (!existing.active) {
+      return;
     }
 
     await this.assertYearOpen(
@@ -240,7 +249,10 @@ export class FinancialTransactionsService {
       existing.transactionDate.getUTCFullYear(),
     );
 
-    await this.prisma.financialTransaction.delete({ where: { id } });
+    await this.prisma.financialTransaction.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   private async assertChurchExists(idChurch: number): Promise<void> {
@@ -288,8 +300,8 @@ export class FinancialTransactionsService {
   }
 
   private async assertYearOpen(idChurch: number, year: number): Promise<void> {
-    const closure = await this.prisma.periodClosure.findUnique({
-      where: { idChurch_year: { idChurch, year } },
+    const closure = await this.prisma.periodClosure.findFirst({
+      where: { idChurch, year, active: true },
       select: { id: true },
     });
     if (closure) {
@@ -319,6 +331,7 @@ export class FinancialTransactionsService {
     const rows = await this.prisma.financialTransaction.findMany({
       where: {
         idChurch,
+        active: true,
         transactionDate: { gte: start, lt: endExclusive },
       },
       select: {
@@ -368,7 +381,10 @@ export class FinancialTransactionsService {
     userIdChurch: number,
   ): Promise<FinancialTransactionsSummaryResponseDto> {
     const idChurch = query.idChurch ?? userIdChurch;
-    const where: Prisma.FinancialTransactionWhereInput = { idChurch };
+    const where: Prisma.FinancialTransactionWhereInput = {
+      idChurch,
+      active: true,
+    };
 
     if (query.year !== undefined) {
       where.transactionDate = {

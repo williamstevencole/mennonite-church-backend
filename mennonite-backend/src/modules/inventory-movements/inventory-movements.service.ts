@@ -87,6 +87,7 @@ export class InventoryMovementsService {
       where: {
         idArticle,
         idChurch,
+        active: true,
         type: 'Inbound',
       },
       _sum: {
@@ -98,6 +99,7 @@ export class InventoryMovementsService {
       where: {
         idArticle,
         idChurch,
+        active: true,
         type: 'Outbound',
       },
       _sum: {
@@ -130,6 +132,7 @@ export class InventoryMovementsService {
 
     const where: Prisma.InventoryMovementWhereInput = {
       idChurch,
+      active: true,
     };
 
     if (query.type) {
@@ -172,6 +175,7 @@ export class InventoryMovementsService {
       where: {
         id,
         idChurch,
+        active: true,
       },
       select: {
         id: true,
@@ -220,6 +224,7 @@ export class InventoryMovementsService {
       where: {
         id,
         idChurch,
+        active: true,
       },
     });
 
@@ -261,7 +266,11 @@ export class InventoryMovementsService {
       throw new NotFoundException('Movement not found');
     }
 
-    // Hard delete: preserve the row's contents in audit_log so stock history
+    if (!movement.active) {
+      return;
+    }
+
+    // Soft delete: preserve the row's contents in audit_log so stock history
     // remains reconstructable from the audit trail.
     await this.prisma.$transaction([
       this.prisma.auditLog.create({
@@ -276,8 +285,9 @@ export class InventoryMovementsService {
           }),
         },
       }),
-      this.prisma.inventoryMovement.delete({
+      this.prisma.inventoryMovement.update({
         where: { id },
+        data: { active: false },
       }),
     ]);
   }

@@ -50,7 +50,7 @@ export class PeriodClosuresService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const where: Prisma.PeriodClosureWhereInput = { idChurch };
+    const where: Prisma.PeriodClosureWhereInput = { idChurch, active: true };
     if (query.yearFrom !== undefined || query.yearTo !== undefined) {
       where.year = {};
       if (query.yearFrom !== undefined) where.year.gte = query.yearFrom;
@@ -81,7 +81,7 @@ export class PeriodClosuresService {
     id: number,
   ): Promise<PeriodClosureResponseDto> {
     const closure = await this.prisma.periodClosure.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
     });
 
     if (!closure) {
@@ -98,7 +98,7 @@ export class PeriodClosuresService {
     dto: UpdatePeriodClosureDto,
   ): Promise<IdResponseDto> {
     const existing = await this.prisma.periodClosure.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
       select: { id: true, year: true },
     });
 
@@ -135,14 +135,21 @@ export class PeriodClosuresService {
   async remove(idChurch: number, id: number): Promise<void> {
     const existing = await this.prisma.periodClosure.findFirst({
       where: { id, idChurch },
-      select: { id: true },
+      select: { id: true, active: true },
     });
 
     if (!existing) {
       throw new NotFoundException();
     }
 
-    await this.prisma.periodClosure.delete({ where: { id } });
+    if (!existing.active) {
+      return;
+    }
+
+    await this.prisma.periodClosure.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   private async assertYearAvailable(
@@ -154,6 +161,7 @@ export class PeriodClosuresService {
       where: {
         idChurch,
         year,
+        active: true,
         ...(excludeId ? { NOT: { id: excludeId } } : {}),
       },
       select: { id: true },
@@ -177,6 +185,7 @@ export class PeriodClosuresService {
       by: ['idCategory'],
       where: {
         idChurch,
+        active: true,
         transactionDate: { gte: start, lt: end },
       },
       _sum: { amount: true },

@@ -50,7 +50,7 @@ export class BudgetDistributionsService {
 
   private async getMinisteriosBudgetAmount(budgetId: number): Promise<number> {
     const budgetCategories = await this.prisma.budgetCategory.findMany({
-      where: { idBudget: budgetId },
+      where: { idBudget: budgetId, active: true },
       select: {
         annualAmount: true,
         category: { select: { name: true, type: true } },
@@ -96,12 +96,10 @@ export class BudgetDistributionsService {
       throw new NotFoundException('Ministerio no encontrado');
     }
 
-    const existing = await this.prisma.budgetDistribution.findUnique({
+    const existing = await this.prisma.budgetDistribution.findFirst({
       where: {
-        idBudget_idMinistry: {
-          idBudget: dto.idBudget,
-          idMinistry: dto.idMinistry,
-        },
+        idBudget: dto.idBudget,
+        idMinistry: dto.idMinistry,
       },
       select: { id: true },
     });
@@ -121,7 +119,7 @@ export class BudgetDistributionsService {
     }
 
     const agg = await this.prisma.budgetDistribution.aggregate({
-      where: { idBudget: dto.idBudget },
+      where: { idBudget: dto.idBudget, active: true },
       _sum: { annualAmount: true },
     });
 
@@ -164,7 +162,7 @@ export class BudgetDistributionsService {
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where = { idBudget: budgetId };
+    const where = { idBudget: budgetId, active: true };
 
     const [total, distributions] = await this.prisma.$transaction([
       this.prisma.budgetDistribution.count({ where }),
@@ -201,7 +199,7 @@ export class BudgetDistributionsService {
     id: number,
   ): Promise<BudgetDistributionResponseDto> {
     const distribution = await this.prisma.budgetDistribution.findFirst({
-      where: { id, budget: { idChurch } },
+      where: { id, active: true, budget: { idChurch } },
       include: {
         ministry: {
           select: { id: true, name: true },
@@ -209,6 +207,7 @@ export class BudgetDistributionsService {
         budget: {
           include: {
             budgetCategories: {
+              where: { active: true },
               select: {
                 annualAmount: true,
                 category: { select: { name: true, type: true } },
@@ -246,7 +245,7 @@ export class BudgetDistributionsService {
     dto: UpdateBudgetDistributionDto,
   ): Promise<IdResponseDto> {
     const distribution = await this.prisma.budgetDistribution.findFirst({
-      where: { id, budget: { idChurch } },
+      where: { id, active: true, budget: { idChurch } },
       select: { id: true, idBudget: true },
     });
 
@@ -261,7 +260,7 @@ export class BudgetDistributionsService {
     }
 
     const agg = await this.prisma.budgetDistribution.aggregate({
-      where: { idBudget: distribution.idBudget, id: { not: id } },
+      where: { idBudget: distribution.idBudget, active: true, id: { not: id } },
       _sum: { annualAmount: true },
     });
 
@@ -286,16 +285,23 @@ export class BudgetDistributionsService {
   async remove(idChurch: number, id: number): Promise<void> {
     const distribution = await this.prisma.budgetDistribution.findFirst({
       where: { id, budget: { idChurch } },
-      select: { id: true, idBudget: true },
+      select: { id: true, idBudget: true, active: true },
     });
 
     if (!distribution) {
       throw new NotFoundException('Budget distribution no fue encontrado');
     }
 
+    if (!distribution.active) {
+      return;
+    }
+
     await this.assertBudgetEditable(idChurch, distribution.idBudget);
 
-    await this.prisma.budgetDistribution.delete({ where: { id } });
+    await this.prisma.budgetDistribution.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   async getSummary(
@@ -314,7 +320,7 @@ export class BudgetDistributionsService {
     const target = await this.getMinisteriosBudgetAmount(budgetId);
 
     const agg = await this.prisma.budgetDistribution.aggregate({
-      where: { idBudget: budgetId },
+      where: { idBudget: budgetId, active: true },
       _sum: { annualAmount: true },
     });
 
