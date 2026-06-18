@@ -1,12 +1,13 @@
 import { Ministry, PrismaClient } from '@prisma/client';
 
 // PRD §6.3 — cargos dentro de un ministerio
+// 'Miembro' is the base role; 'Servidor' and 'Colaborador' were renamed to 'Miembro'
+// so that area computation correctly yields 'miembro' for non-leaders.
 const MINISTRY_ROLE_TYPE_NAMES = [
   'Líder',
   'Co-líder',
   'Maestro',
-  'Servidor',
-  'Colaborador',
+  'Miembro',
 ] as const;
 
 export async function seedMinistryRoleTypes(

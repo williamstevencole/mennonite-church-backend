@@ -23,12 +23,19 @@ export async function seedEventTypes(
   idChurch: number,
 ): Promise<void> {
   await Promise.all(
-    EVENT_TYPES.map(({ name, eventCategory }) =>
-      prisma.eventType.upsert({
-        where: { idChurch_name: { idChurch, name } },
-        update: { eventCategory },
-        create: { idChurch, name, eventCategory },
-      }),
-    ),
+    EVENT_TYPES.map(async ({ name, eventCategory }) => {
+      const existing = await prisma.eventType.findFirst({
+        where: { idChurch, name },
+        select: { id: true },
+      });
+      return existing
+        ? prisma.eventType.update({
+            where: { id: existing.id },
+            data: { eventCategory, active: true },
+          })
+        : prisma.eventType.create({
+            data: { idChurch, name, eventCategory },
+          });
+    }),
   );
 }

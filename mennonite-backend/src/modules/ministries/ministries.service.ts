@@ -168,10 +168,35 @@ export class MinistriesService {
         }
       }
 
+      if (dto.active === true && !existing.active) {
+        const resolvedNameForReactivation = dto.name ?? existing.name;
+        const activeDuplicate = await tx.ministry.findFirst({
+          where: {
+            idChurch,
+            active: true,
+            name: {
+              equals: resolvedNameForReactivation.trim(),
+              mode: 'insensitive',
+            },
+            NOT: { id },
+          },
+          select: { id: true },
+        });
+        if (activeDuplicate) {
+          throw new ConflictException(
+            `Ya existe un ministerio activo con el nombre "${resolvedNameForReactivation}"`,
+          );
+        }
+      }
+
       const data: Prisma.MinistryUpdateInput = {};
 
       if (dto.name !== undefined) {
         data.name = dto.name;
+      }
+
+      if (dto.active !== undefined) {
+        data.active = dto.active;
       }
 
       if (Object.keys(data).length > 0) {
@@ -179,6 +204,13 @@ export class MinistriesService {
           where: { id },
           data,
           select: { id: true },
+        });
+      }
+
+      if (dto.active === false && existing.active) {
+        await tx.ministryMember.updateMany({
+          where: { idMinistry: id, active: true },
+          data: { active: false },
         });
       }
 

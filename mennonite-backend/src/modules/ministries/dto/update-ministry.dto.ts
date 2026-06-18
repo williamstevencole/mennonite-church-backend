@@ -1,6 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateMinistryDto {
   @ApiPropertyOptional()
@@ -8,6 +14,15 @@ export class UpdateMinistryDto {
   @IsString()
   @MaxLength(100)
   name?: string;
+
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'Activa o desactiva el ministerio (soft delete / reactivacion)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

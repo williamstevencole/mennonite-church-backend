@@ -55,9 +55,11 @@ export class UpdateUserDto {
   @MinLength(8)
   password?: string;
 
-  @ApiPropertyOptional({ example: 'true' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Activar/desactivar usuario (soft delete)',
+  })
   @IsOptional()
   @IsBoolean()
-  @Transform(toBoolean)
   active?: boolean;
 }

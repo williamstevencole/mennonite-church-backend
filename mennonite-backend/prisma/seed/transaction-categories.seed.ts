@@ -35,25 +35,24 @@ export async function seedTransactionCategories(
   const categories = [...incomeRows, ...expenseRows];
 
   await Promise.all(
-    categories.map(({ name, type }) =>
-      prisma.transactionCategory.upsert({
-        where: {
-          idChurch_name_type: {
-            idChurch,
-            name,
-            type,
-          },
-        },
-        update: {
-          active: true,
-        },
-        create: {
-          idChurch,
-          name,
-          type,
-          active: true,
-        },
-      }),
-    ),
+    categories.map(async ({ name, type }) => {
+      const existing = await prisma.transactionCategory.findFirst({
+        where: { idChurch, name, type },
+        select: { id: true },
+      });
+      return existing
+        ? prisma.transactionCategory.update({
+            where: { id: existing.id },
+            data: { active: true },
+          })
+        : prisma.transactionCategory.create({
+            data: {
+              idChurch,
+              name,
+              type,
+              active: true,
+            },
+          });
+    }),
   );
 }

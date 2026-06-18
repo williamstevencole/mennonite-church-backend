@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AuthSessionDto, AuthTokensDto } from './dto/auth-session.dto';
 import { LoginRequestDto } from './dto/login-request.dto';
-import { MeResponseDto } from './dto/me-response.dto';
+import { MeMemberDto, MeResponseDto } from './dto/me-response.dto';
 import { RefreshRequestDto } from './dto/refresh-request.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
 
@@ -153,6 +153,8 @@ export class AuthService {
         id: true,
         email: true,
         active: true,
+        idMember: true,
+        idChurch: true,
         member: { select: { name: true } },
         userRole: {
           select: {
@@ -186,7 +188,13 @@ export class AuthService {
       );
     }
 
-    return this.toMeResponse(user);
+    const base = this.toMeResponse(user);
+    const [area, member] = await Promise.all([
+      this.computeArea(user.idMember, user.idChurch),
+      this.buildMemberInfo(user.idMember, user.idChurch),
+    ]);
+
+    return { ...base, area, member };
   }
 
   private async findLocalUserBySupabaseUid(supabaseUid: string) {
@@ -244,6 +252,72 @@ export class AuthService {
       name: user.member?.name,
       role: { id: user.userRole.id, name: user.userRole.name },
       permissions,
+      area: 'miembro' as const,
+      member: null,
+    };
+  }
+
+  private async computeArea(
+    memberId: number | undefined | null,
+    churchId: number,
+  ): Promise<'admin' | 'lider' | 'miembro'> {
+    if (!memberId) return 'miembro';
+
+    const isBoard = await this.prisma.boardMember.findFirst({
+      where: {
+        idMember: memberId,
+        active: true,
+        board: { active: true, idChurch: churchId },
+      },
+      select: { id: true },
+    });
+    if (isBoard) return 'admin';
+
+    const hasLeadership = await this.prisma.ministryMember.findFirst({
+      where: {
+        idMember: memberId,
+        active: true,
+        ministry: { active: true, idChurch: churchId },
+        ministryRoleType: {
+          NOT: { name: { equals: 'Miembro', mode: 'insensitive' } },
+        },
+      },
+      select: { id: true },
+    });
+    return hasLeadership ? 'lider' : 'miembro';
+  }
+
+  private async buildMemberInfo(
+    memberId: number | undefined | null,
+    churchId: number,
+  ): Promise<MeMemberDto | null> {
+    if (!memberId) return null;
+
+    const memberships = await this.prisma.ministryMember.findMany({
+      where: {
+        idMember: memberId,
+        active: true,
+        ministry: { active: true, idChurch: churchId },
+      },
+      include: { ministryRoleType: { select: { name: true } } },
+    });
+
+    const isBoardMember = !!(await this.prisma.boardMember.findFirst({
+      where: {
+        idMember: memberId,
+        active: true,
+        board: { active: true, idChurch: churchId },
+      },
+      select: { id: true },
+    }));
+
+    return {
+      id: memberId,
+      isBoardMember,
+      ministryMemberships: memberships.map((mm) => mm.idMinistry),
+      ministryLeaderships: memberships
+        .filter((mm) => mm.ministryRoleType.name.toLowerCase() !== 'miembro')
+        .map((mm) => mm.idMinistry),
     };
   }
 }

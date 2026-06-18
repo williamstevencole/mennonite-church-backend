@@ -68,7 +68,7 @@ export class BudgetsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const where: Prisma.BudgetWhereInput = { idChurch };
+    const where: Prisma.BudgetWhereInput = { idChurch, active: true };
     if (query.status !== undefined) {
       where.status = query.status;
     }
@@ -105,7 +105,7 @@ export class BudgetsService {
     id: number,
   ): Promise<BudgetDetailResponseDto> {
     const budget = await this.prisma.budget.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
       select: {
         id: true,
         periodStart: true,
@@ -127,14 +127,16 @@ export class BudgetsService {
     const [incomeAgg, expenseAgg, distributionCount] =
       await this.prisma.$transaction([
         this.prisma.budgetCategory.aggregate({
-          where: { idBudget: id, category: { type: 'income' } },
+          where: { idBudget: id, active: true, category: { type: 'income' } },
           _sum: { annualAmount: true },
         }),
         this.prisma.budgetCategory.aggregate({
-          where: { idBudget: id, category: { type: 'expense' } },
+          where: { idBudget: id, active: true, category: { type: 'expense' } },
           _sum: { annualAmount: true },
         }),
-        this.prisma.budgetDistribution.count({ where: { idBudget: id } }),
+        this.prisma.budgetDistribution.count({
+          where: { idBudget: id, active: true },
+        }),
       ]);
 
     const totalIncome = Number(incomeAgg._sum.annualAmount ?? 0);
@@ -163,7 +165,7 @@ export class BudgetsService {
     dto: UpdateBudgetDto,
   ): Promise<IdResponseDto> {
     const existing = await this.prisma.budget.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
       select: { id: true, status: true },
     });
 
@@ -171,9 +173,9 @@ export class BudgetsService {
       throw new NotFoundException('Presupuesto no encontrado');
     }
 
-    if (existing.status !== 'Draft') {
+    if (existing.status === 'Closed') {
       throw new ConflictException(
-        `Solo se pueden modificar presupuestos en estado Draft (estado actual: ${existing.status})`,
+        'Un presupuesto cerrado es inmutable y no puede modificarse',
       );
     }
 
@@ -200,11 +202,15 @@ export class BudgetsService {
   async remove(idChurch: number, id: number): Promise<void> {
     const existing = await this.prisma.budget.findFirst({
       where: { id, idChurch },
-      select: { id: true, status: true },
+      select: { id: true, status: true, active: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Presupuesto no encontrado');
+    }
+
+    if (!existing.active) {
+      return;
     }
 
     if (existing.status !== 'Draft') {
@@ -212,16 +218,25 @@ export class BudgetsService {
     }
 
     await this.prisma.$transaction([
-      this.prisma.budgetDistribution.deleteMany({ where: { idBudget: id } }),
-      this.prisma.budgetCategory.deleteMany({ where: { idBudget: id } }),
-      this.prisma.budget.delete({ where: { id } }),
+      this.prisma.budgetDistribution.updateMany({
+        where: { idBudget: id },
+        data: { active: false },
+      }),
+      this.prisma.budgetCategory.updateMany({
+        where: { idBudget: id },
+        data: { active: false },
+      }),
+      this.prisma.budget.update({
+        where: { id },
+        data: { active: false },
+      }),
     ]);
   }
 
   async activate(idChurch: number, id: number): Promise<IdResponseDto> {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.budget.findFirst({
-        where: { id, idChurch },
+        where: { id, idChurch, active: true },
         select: {
           id: true,
           status: true,
@@ -241,11 +256,11 @@ export class BudgetsService {
       }
 
       const incomeAgg = await tx.budgetCategory.aggregate({
-        where: { idBudget: id, category: { type: 'income' } },
+        where: { idBudget: id, active: true, category: { type: 'income' } },
         _sum: { annualAmount: true },
       });
       const expenseAgg = await tx.budgetCategory.aggregate({
-        where: { idBudget: id, category: { type: 'expense' } },
+        where: { idBudget: id, active: true, category: { type: 'expense' } },
         _sum: { annualAmount: true },
       });
       const totalIncome = Number(incomeAgg._sum.annualAmount ?? 0);
@@ -267,13 +282,14 @@ export class BudgetsService {
       const ministeriosCategory = await tx.budgetCategory.findFirst({
         where: {
           idBudget: id,
+          active: true,
           category: { name: 'Ministerios', type: 'expense' },
         },
         select: { annualAmount: true },
       });
       if (ministeriosCategory) {
         const distAgg = await tx.budgetDistribution.aggregate({
-          where: { idBudget: id },
+          where: { idBudget: id, active: true },
           _sum: { annualAmount: true },
         });
         const totalDistributions = Number(distAgg._sum.annualAmount ?? 0);
@@ -297,7 +313,7 @@ export class BudgetsService {
 
   async close(idChurch: number, id: number): Promise<IdResponseDto> {
     const existing = await this.prisma.budget.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
       select: { id: true, status: true },
     });
 
@@ -334,11 +350,19 @@ export class BudgetsService {
 
     const [incomeAgg, expenseAgg] = await this.prisma.$transaction([
       this.prisma.budgetCategory.aggregate({
-        where: { idBudget: budgetId, category: { type: 'income' } },
+        where: {
+          idBudget: budgetId,
+          active: true,
+          category: { type: 'income' },
+        },
         _sum: { annualAmount: true },
       }),
       this.prisma.budgetCategory.aggregate({
-        where: { idBudget: budgetId, category: { type: 'expense' } },
+        where: {
+          idBudget: budgetId,
+          active: true,
+          category: { type: 'expense' },
+        },
         _sum: { annualAmount: true },
       }),
     ]);

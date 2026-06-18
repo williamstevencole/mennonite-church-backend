@@ -13,6 +13,7 @@ import {
 
 import { ArticleResponseDto } from './dto/article.response.dto';
 import { ArticleBalanceResponseDto } from './dto/article-balance.response.dto';
+import { ArticlesSummaryResponseDto } from './dto/articles-summary.response.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { FindArticlesQueryDto } from './dto/find-articles.query.dto';
 import { ArticlesPageResponseDto } from './dto/articles-page.response.dto';
@@ -44,12 +45,10 @@ export class ArticlesService {
   ): Promise<IdNameResponseDto> {
     const idChurch = await this.getChurchId(user);
 
-    const existing = await this.prisma.article.findUnique({
+    const existing = await this.prisma.article.findFirst({
       where: {
-        idChurch_code: {
-          idChurch,
-          code: dto.code,
-        },
+        idChurch,
+        code: dto.code,
       },
       select: { id: true },
     });
@@ -141,6 +140,47 @@ export class ArticlesService {
     }
 
     return this.toResponse(article);
+  }
+
+  async getSummary(user: JwtPayload): Promise<ArticlesSummaryResponseDto> {
+    const idChurch = await this.getChurchId(user);
+
+    const [articles, grouped, totalMovements] = await Promise.all([
+      this.prisma.article.findMany({
+        where: { idChurch, active: true },
+        select: { id: true, unitCost: true },
+      }),
+      this.prisma.inventoryMovement.groupBy({
+        by: ['idArticle', 'type'],
+        where: { idChurch },
+        _sum: { quantity: true },
+        orderBy: { idArticle: 'asc' },
+      }),
+      this.prisma.inventoryMovement.count({ where: { idChurch } }),
+    ]);
+
+    const balanceByArticle = new Map<number, number>();
+    for (const row of grouped) {
+      const rawQty = row._sum?.quantity;
+      const qty = rawQty !== null && rawQty !== undefined ? Number(rawQty) : 0;
+      const delta = row.type === 'Inbound' ? qty : -qty;
+      balanceByArticle.set(
+        row.idArticle,
+        (balanceByArticle.get(row.idArticle) ?? 0) + delta,
+      );
+    }
+
+    let totalValue = 0;
+    for (const a of articles) {
+      const balance = balanceByArticle.get(a.id) ?? 0;
+      totalValue += balance * Number(a.unitCost);
+    }
+
+    return {
+      totalArticles: articles.length,
+      totalValue,
+      totalMovements,
+    };
   }
 
   async getBalance(

@@ -1,112 +1,168 @@
 import { Budget, PrismaClient } from '@prisma/client';
 
-const YEAR = new Date().getFullYear();
+const CURRENT_YEAR = new Date().getFullYear();
+const SEED_YEARS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR];
 
-// Valores demo (no son los reales del informe del cliente).
-// Total Ingresos: 2,000,000  |  Total Egresos: 1,800,000  |  Superávit planificado: 200,000
-const EXPECTED_INCOME = 2000000;
-const EXPECTED_EXPENSE = 1800000;
-
-const EXPENSE_BUDGETS: Record<string, number> = {
-  'Salarios y Obligaciones Patronales': 540000,
-  Mantenimiento: 280000,
-  Mejoras: 120000,
-  'Mobiliario y Equipo': 80000,
-  'Servicios Públicos': 175000,
-  'Gastos Varios Administración': 220000,
-  Ministerios: 300000,
-  'Otros Egresos': 85000,
+// Proyecciones por año. Índices = (year - 2, year - 1, year actual).
+const EXPECTED_INCOME_BY_YEAR: Record<number, number> = {
+  [SEED_YEARS[0]]: 1_700_000,
+  [SEED_YEARS[1]]: 1_850_000,
+  [SEED_YEARS[2]]: 2_000_000,
 };
 
-const INCOME_PROJECTIONS: Record<string, number> = {
-  'Diezmos y Ofrendas': 1400000,
-  Alquileres: 300000,
-  Barbacoas: 180000,
-  Ministerios: 80000,
-  'Otros Ingresos': 40000,
+const EXPECTED_EXPENSE_BY_YEAR: Record<number, number> = {
+  [SEED_YEARS[0]]: 1_550_000,
+  [SEED_YEARS[1]]: 1_700_000,
+  [SEED_YEARS[2]]: 1_800_000,
+};
+
+type BudgetLines = Record<string, number>;
+
+const INCOME_LINES_BY_YEAR: Record<number, BudgetLines> = {
+  [SEED_YEARS[0]]: {
+    'Diezmos y Ofrendas': 1_200_000,
+    Alquileres: 250_000,
+    Barbacoas: 150_000,
+    Ministerios: 65_000,
+    'Otros Ingresos': 35_000,
+  },
+  [SEED_YEARS[1]]: {
+    'Diezmos y Ofrendas': 1_300_000,
+    Alquileres: 280_000,
+    Barbacoas: 165_000,
+    Ministerios: 75_000,
+    'Otros Ingresos': 38_000,
+  },
+  [SEED_YEARS[2]]: {
+    'Diezmos y Ofrendas': 1_400_000,
+    Alquileres: 300_000,
+    Barbacoas: 180_000,
+    Ministerios: 80_000,
+    'Otros Ingresos': 40_000,
+  },
+};
+
+const EXPENSE_LINES_BY_YEAR: Record<number, BudgetLines> = {
+  [SEED_YEARS[0]]: {
+    'Salarios y Obligaciones Patronales': 480_000,
+    Mantenimiento: 250_000,
+    Mejoras: 80_000,
+    'Mobiliario y Equipo': 60_000,
+    'Servicios Públicos': 150_000,
+    'Gastos Varios Administración': 190_000,
+    Ministerios: 270_000,
+    'Otros Egresos': 80_000,
+  },
+  [SEED_YEARS[1]]: {
+    'Salarios y Obligaciones Patronales': 510_000,
+    Mantenimiento: 270_000,
+    Mejoras: 100_000,
+    'Mobiliario y Equipo': 70_000,
+    'Servicios Públicos': 165_000,
+    'Gastos Varios Administración': 200_000,
+    Ministerios: 285_000,
+    'Otros Egresos': 80_000,
+  },
+  [SEED_YEARS[2]]: {
+    'Salarios y Obligaciones Patronales': 540_000,
+    Mantenimiento: 280_000,
+    Mejoras: 120_000,
+    'Mobiliario y Equipo': 80_000,
+    'Servicios Públicos': 175_000,
+    'Gastos Varios Administración': 220_000,
+    Ministerios: 300_000,
+    'Otros Egresos': 85_000,
+  },
 };
 
 export async function seedBudgets(
   prisma: PrismaClient,
   idChurch: number,
-): Promise<Budget> {
-  const periodStart = new Date(YEAR, 0, 1);
-  const periodEnd = new Date(YEAR, 11, 31);
+): Promise<{ current: Budget; all: Budget[]; byYear: Map<number, Budget> }> {
+  const all: Budget[] = [];
+  const byYear = new Map<number, Budget>();
 
-  const budget = await prisma.budget.upsert({
-    where: {
-      idChurch_periodStart_periodEnd: {
-        idChurch,
-        periodStart,
-        periodEnd,
-      },
-    },
-    update: {
-      description: `Presupuesto anual ${YEAR}`,
-      expectedIncome: EXPECTED_INCOME,
-      expectedExpense: EXPECTED_EXPENSE,
-      status: 'Active',
-    },
-    create: {
-      idChurch,
-      periodStart,
-      periodEnd,
-      description: `Presupuesto anual ${YEAR}`,
-      expectedIncome: EXPECTED_INCOME,
-      expectedExpense: EXPECTED_EXPENSE,
-      status: 'Active',
-    },
-  });
-
-  // "Ministerios" existe tanto en income como expense — necesitamos resolver por (name, type)
-  const incomeMap = new Map(
-    Object.entries(INCOME_PROJECTIONS).map(([name, amount]) => [
-      `income:${name}`,
-      amount,
-    ]),
-  );
-  const expenseMap = new Map(
-    Object.entries(EXPENSE_BUDGETS).map(([name, amount]) => [
-      `expense:${name}`,
-      amount,
-    ]),
-  );
-  const allBudgetLines = new Map([...incomeMap, ...expenseMap]);
-
-  const categoryNames = [
-    ...Object.keys(INCOME_PROJECTIONS),
-    ...Object.keys(EXPENSE_BUDGETS),
-  ];
   const categories = await prisma.transactionCategory.findMany({
-    where: { idChurch, name: { in: categoryNames } },
+    where: { idChurch },
   });
 
-  for (const category of categories) {
-    const key = `${category.type}:${category.name}`;
-    const annualAmount = allBudgetLines.get(key);
-    if (annualAmount === undefined) continue;
+  for (const year of SEED_YEARS) {
+    const periodStart = new Date(year, 0, 1);
+    const periodEnd = new Date(year, 11, 31);
+    const status =
+      year === CURRENT_YEAR
+        ? 'Active'
+        : year < CURRENT_YEAR
+          ? 'Closed'
+          : 'Draft';
 
-    await prisma.budgetCategory.upsert({
-      where: {
-        idBudget_idCategory: {
-          idBudget: budget.id,
-          idCategory: category.id,
-        },
-      },
-      update: {
-        annualAmount,
-      },
-      create: {
-        idBudget: budget.id,
-        idCategory: category.id,
-        annualAmount,
-        notes:
-          category.type === 'income'
-            ? `Proyección anual de ingresos por ${category.name.toLowerCase()}`
-            : `Asignación anual para ${category.name.toLowerCase()}`,
-      },
+    const existingBudget = await prisma.budget.findFirst({
+      where: { idChurch, periodStart, periodEnd },
+      select: { id: true },
     });
+    const budget = existingBudget
+      ? await prisma.budget.update({
+          where: { id: existingBudget.id },
+          data: {
+            description: `Presupuesto anual ${year}`,
+            expectedIncome: EXPECTED_INCOME_BY_YEAR[year],
+            expectedExpense: EXPECTED_EXPENSE_BY_YEAR[year],
+            status,
+          },
+        })
+      : await prisma.budget.create({
+          data: {
+            idChurch,
+            periodStart,
+            periodEnd,
+            description: `Presupuesto anual ${year}`,
+            expectedIncome: EXPECTED_INCOME_BY_YEAR[year],
+            expectedExpense: EXPECTED_EXPENSE_BY_YEAR[year],
+            status,
+          },
+        });
+    all.push(budget);
+    byYear.set(year, budget);
+
+    const incomeLines = INCOME_LINES_BY_YEAR[year];
+    const expenseLines = EXPENSE_LINES_BY_YEAR[year];
+
+    for (const category of categories) {
+      const map = category.type === 'income' ? incomeLines : expenseLines;
+      const annualAmount = map[category.name];
+      if (annualAmount === undefined) continue;
+
+      const existingBc = await prisma.budgetCategory.findFirst({
+        where: { idBudget: budget.id, idCategory: category.id },
+        select: { id: true },
+      });
+      if (existingBc) {
+        await prisma.budgetCategory.update({
+          where: { id: existingBc.id },
+          data: { annualAmount },
+        });
+      } else {
+        await prisma.budgetCategory.create({
+          data: {
+            idBudget: budget.id,
+            idCategory: category.id,
+            annualAmount,
+            notes:
+              category.type === 'income'
+                ? `Proyección anual de ingresos por ${category.name.toLowerCase()}`
+                : `Asignación anual para ${category.name.toLowerCase()}`,
+          },
+        });
+      }
+    }
   }
 
-  return budget;
+  const current = byYear.get(CURRENT_YEAR);
+  if (!current) {
+    throw new Error(
+      'Seed budgets: no se encontró el presupuesto del año actual.',
+    );
+  }
+
+  return { current, all, byYear };
 }

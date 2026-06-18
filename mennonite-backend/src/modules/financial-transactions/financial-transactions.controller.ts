@@ -37,6 +37,8 @@ import { ListFinancialTransactionsQueryDto } from './dto/list-financial-transact
 import { UpdateFinancialTransactionDto } from './dto/update-financial-transaction.dto';
 import { FinancialTransactionsSeriesQueryDto } from './dto/series-query.dto';
 import { FinancialTransactionsSeriesResponseDto } from './dto/financial-transactions-series.response.dto';
+import { FinancialTransactionsSummaryQueryDto } from './dto/summary-query.dto';
+import { FinancialTransactionsSummaryResponseDto } from './dto/financial-transactions-summary.response.dto';
 import { FinancialTransactionsService } from './financial-transactions.service';
 import { IdResponseDto } from '../../common/dto/id-response.dto';
 
@@ -91,6 +93,20 @@ export class FinancialTransactionsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<FinancialTransactionsSeriesResponseDto> {
     return this.service.getMonthlySeries(query, user.idChurch);
+  }
+
+  @Get('summary')
+  @Permissions('finance.read')
+  @ApiOperation({
+    summary:
+      'Resumen agregado de transacciones (totales, breakdown por ministerio y top categorías). Filtrable por año.',
+  })
+  @ApiOkResponse({ type: FinancialTransactionsSummaryResponseDto })
+  summary(
+    @Query() query: FinancialTransactionsSummaryQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<FinancialTransactionsSummaryResponseDto> {
+    return this.service.getSummary(query, user.idChurch);
   }
 
   @Get(':id')

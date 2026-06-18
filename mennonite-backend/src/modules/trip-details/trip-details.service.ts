@@ -43,13 +43,28 @@ export class TripDetailsService {
       throw new BadRequestException('Este evento no es tipo trip');
     }
 
-    // 3. Evitar duplicados
+    // 3. Evitar duplicados / reactivar si está soft-deleted
     const existing = await this.prisma.tripDetail.findUnique({
       where: { idEvent: dto.idEvent },
+      select: { id: true, active: true },
     });
 
-    if (existing) {
+    if (existing?.active) {
       throw new BadRequestException('Este evento ya tiene trip details');
+    }
+
+    if (existing) {
+      const reactivated = await this.prisma.tripDetail.update({
+        where: { id: existing.id },
+        data: {
+          origin: dto.origin,
+          destination: dto.destination,
+          notes: dto.notes ?? null,
+          active: true,
+        },
+        select: { id: true },
+      });
+      return { id: reactivated.id };
     }
 
     // 4. Crear
@@ -72,6 +87,7 @@ export class TripDetailsService {
     const { skip, take } = buildPagination(query.page ?? 1, query.limit ?? 20);
 
     const where = {
+      active: true,
       event: {
         idChurch: user.idChurch,
         eventType: {
@@ -116,6 +132,7 @@ export class TripDetailsService {
     const tripDetail = await this.prisma.tripDetail.findFirst({
       where: {
         id,
+        active: true,
         event: {
           idChurch: user.idChurch,
         },
@@ -154,6 +171,7 @@ export class TripDetailsService {
     const tripDetail = await this.prisma.tripDetail.findFirst({
       where: {
         id,
+        active: true,
         event: {
           idChurch: user.idChurch,
         },
@@ -209,12 +227,17 @@ export class TripDetailsService {
       throw new NotFoundException('Trip detail no encontrado');
     }
 
+    if (!tripDetail.active) {
+      return;
+    }
+
     if (tripDetail.event.eventType?.eventCategory !== 'trip') {
       throw new BadRequestException('Este evento no es tipo trip');
     }
 
-    await this.prisma.tripDetail.delete({
+    await this.prisma.tripDetail.update({
       where: { id },
+      data: { active: false },
     });
   }
 }

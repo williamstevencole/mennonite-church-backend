@@ -18,22 +18,22 @@ export async function seedMinistries(
   const ministriesByName = new Map<string, Ministry>();
 
   for (const data of DEMO_MINISTRIES) {
-    const ministry = await prisma.ministry.upsert({
-      where: {
-        idChurch_name: {
-          idChurch,
-          name: data.name,
-        },
-      },
-      update: {
-        active: true,
-      },
-      create: {
-        idChurch,
-        name: data.name,
-        active: true,
-      },
+    const existing = await prisma.ministry.findFirst({
+      where: { idChurch, name: data.name },
+      select: { id: true },
     });
+    const ministry = existing
+      ? await prisma.ministry.update({
+          where: { id: existing.id },
+          data: { active: true },
+        })
+      : await prisma.ministry.create({
+          data: {
+            idChurch,
+            name: data.name,
+            active: true,
+          },
+        });
     ministriesByName.set(ministry.name, ministry);
   }
 

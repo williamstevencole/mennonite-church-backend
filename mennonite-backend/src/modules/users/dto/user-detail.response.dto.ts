@@ -9,4 +9,6 @@ export class UserDetailResponseDto {
   @ApiProperty() active!: boolean;
   @ApiPropertyOptional({ type: UserRoleResponseDto, nullable: true })
   role!: UserRoleResponseDto | null;
+  @ApiPropertyOptional({ nullable: true })
+  idMember!: number | null;
 }

@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SupabaseModule } from './supabase/supabase.module';
 
+import { MeModule } from './modules/me/me.module';
 import { MembersModule } from './modules/members/members.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { UserRolesModule } from './modules/user-roles/user-roles.module';
@@ -44,6 +45,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     PrismaModule,
     SupabaseModule,
     AuthModule,
+    MeModule,
     MembersModule,
     PermissionsModule,
     UserRolesModule,
