@@ -50,7 +50,7 @@ export class BudgetDistributionsService {
 
   private async getMinisteriosBudgetAmount(budgetId: number): Promise<number> {
     const budgetCategories = await this.prisma.budgetCategory.findMany({
-      where: { idBudget: budgetId },
+      where: { idBudget: budgetId, active: true },
       select: {
         annualAmount: true,
         category: { select: { name: true, type: true } },
@@ -60,7 +60,7 @@ export class BudgetDistributionsService {
     return resolveMinistriesAmount(budgetCategories);
   }
 
-  private async assertBudgetDraft(
+  private async assertBudgetEditable(
     idChurch: number,
     budgetId: number,
   ): Promise<void> {
@@ -73,9 +73,9 @@ export class BudgetDistributionsService {
       throw new NotFoundException('Budget no encontrado');
     }
 
-    if (budget.status !== 'Draft') {
+    if (budget.status === 'Closed') {
       throw new ConflictException(
-        'Solo se pueden modificar distribuciones de presupuestos en estado Draft',
+        'No se pueden modificar distribuciones de un presupuesto cerrado (inmutable)',
       );
     }
   }
@@ -85,7 +85,7 @@ export class BudgetDistributionsService {
     createdBy: number,
     dto: CreateBudgetDistributionDto,
   ): Promise<IdResponseDto> {
-    await this.assertBudgetDraft(idChurch, dto.idBudget);
+    await this.assertBudgetEditable(idChurch, dto.idBudget);
 
     const ministry = await this.prisma.ministry.findFirst({
       where: { id: dto.idMinistry, idChurch },
@@ -96,12 +96,10 @@ export class BudgetDistributionsService {
       throw new NotFoundException('Ministerio no encontrado');
     }
 
-    const existing = await this.prisma.budgetDistribution.findUnique({
+    const existing = await this.prisma.budgetDistribution.findFirst({
       where: {
-        idBudget_idMinistry: {
-          idBudget: dto.idBudget,
-          idMinistry: dto.idMinistry,
-        },
+        idBudget: dto.idBudget,
+        idMinistry: dto.idMinistry,
       },
       select: { id: true },
     });
@@ -121,7 +119,7 @@ export class BudgetDistributionsService {
     }
 
     const agg = await this.prisma.budgetDistribution.aggregate({
-      where: { idBudget: dto.idBudget },
+      where: { idBudget: dto.idBudget, active: true },
       _sum: { annualAmount: true },
     });
 
@@ -164,7 +162,7 @@ export class BudgetDistributionsService {
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where = { idBudget: budgetId };
+    const where = { idBudget: budgetId, active: true };
 
     const [total, distributions] = await this.prisma.$transaction([
       this.prisma.budgetDistribution.count({ where }),
@@ -201,7 +199,7 @@ export class BudgetDistributionsService {
     id: number,
   ): Promise<BudgetDistributionResponseDto> {
     const distribution = await this.prisma.budgetDistribution.findFirst({
-      where: { id, budget: { idChurch } },
+      where: { id, active: true, budget: { idChurch } },
       include: {
         ministry: {
           select: { id: true, name: true },
@@ -209,6 +207,7 @@ export class BudgetDistributionsService {
         budget: {
           include: {
             budgetCategories: {
+              where: { active: true },
               select: {
                 annualAmount: true,
                 category: { select: { name: true, type: true } },
@@ -246,7 +245,7 @@ export class BudgetDistributionsService {
     dto: UpdateBudgetDistributionDto,
   ): Promise<IdResponseDto> {
     const distribution = await this.prisma.budgetDistribution.findFirst({
-      where: { id, budget: { idChurch } },
+      where: { id, active: true, budget: { idChurch } },
       select: { id: true, idBudget: true },
     });
 
@@ -254,14 +253,14 @@ export class BudgetDistributionsService {
       throw new NotFoundException('Budget distribution no fue encontrado');
     }
 
-    await this.assertBudgetDraft(idChurch, distribution.idBudget);
+    await this.assertBudgetEditable(idChurch, distribution.idBudget);
 
     if (dto.annualAmount === undefined) {
       return { id };
     }
 
     const agg = await this.prisma.budgetDistribution.aggregate({
-      where: { idBudget: distribution.idBudget, id: { not: id } },
+      where: { idBudget: distribution.idBudget, active: true, id: { not: id } },
       _sum: { annualAmount: true },
     });
 
@@ -286,16 +285,23 @@ export class BudgetDistributionsService {
   async remove(idChurch: number, id: number): Promise<void> {
     const distribution = await this.prisma.budgetDistribution.findFirst({
       where: { id, budget: { idChurch } },
-      select: { id: true, idBudget: true },
+      select: { id: true, idBudget: true, active: true },
     });
 
     if (!distribution) {
       throw new NotFoundException('Budget distribution no fue encontrado');
     }
 
-    await this.assertBudgetDraft(idChurch, distribution.idBudget);
+    if (!distribution.active) {
+      return;
+    }
 
-    await this.prisma.budgetDistribution.delete({ where: { id } });
+    await this.assertBudgetEditable(idChurch, distribution.idBudget);
+
+    await this.prisma.budgetDistribution.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   async getSummary(
@@ -314,7 +320,7 @@ export class BudgetDistributionsService {
     const target = await this.getMinisteriosBudgetAmount(budgetId);
 
     const agg = await this.prisma.budgetDistribution.aggregate({
-      where: { idBudget: budgetId },
+      where: { idBudget: budgetId, active: true },
       _sum: { annualAmount: true },
     });
 
@@ -331,7 +337,7 @@ export class BudgetDistributionsService {
     budgetId: number,
     dto: BulkReplaceBudgetDistributionsDto,
   ): Promise<BudgetDistributionsPageResponseDto> {
-    await this.assertBudgetDraft(idChurch, budgetId);
+    await this.assertBudgetEditable(idChurch, budgetId);
 
     const ministryIds = dto.items.map((i) => i.idMinistry);
     const uniqueIds = new Set(ministryIds);

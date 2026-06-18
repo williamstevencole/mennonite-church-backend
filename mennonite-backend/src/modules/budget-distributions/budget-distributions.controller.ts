@@ -108,7 +108,7 @@ export class BudgetDistributionsController {
   @ApiNoContentResponse({ description: 'Distribución eliminada' })
   @ApiBadRequestResponse({
     description:
-      'No se puede eliminar una distribución de un presupuesto que no está en estado Draft',
+      'No se puede eliminar una distribución de un presupuesto cerrado',
   })
   @ApiNotFoundResponse({ description: 'Distribución no encontrada' })
   remove(

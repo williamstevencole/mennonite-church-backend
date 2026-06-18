@@ -55,13 +55,43 @@ export class MembersService {
           documentNumber: createMemberDto.documentNumber,
         },
       },
-      select: { id: true },
+      select: { id: true, idChurch: true, active: true },
     });
-    if (existing) {
+    if (existing?.active) {
       throw new ConflictException('El numero de identificacion ya existe');
+    }
+    if (existing && existing.idChurch !== idChurch) {
+      throw new ConflictException(
+        'El numero de identificacion ya existe en otra iglesia',
+      );
     }
 
     const active = createMemberDto.active ?? true;
+    const inactivatedAt = active
+      ? null
+      : (createMemberDto.inactivatedAt ?? new Date());
+
+    if (existing) {
+      const reactivated = await this.prisma.member.update({
+        where: { id: existing.id },
+        data: {
+          name: createMemberDto.name,
+          documentType: createMemberDto.documentType,
+          documentNumber: createMemberDto.documentNumber,
+          profession: createMemberDto.profession,
+          birthDate: createMemberDto.birthDate,
+          phone: createMemberDto.phone,
+          personalEmail: createMemberDto.personalEmail,
+          address: createMemberDto.address,
+          baptismDate: createMemberDto.baptismDate,
+          joinDate: createMemberDto.joinDate,
+          active,
+          inactivatedAt,
+        },
+        select: { id: true, name: true },
+      });
+      return { id: reactivated.id, name: reactivated.name };
+    }
 
     const member = await this.prisma.member.create({
       data: {
@@ -77,10 +107,7 @@ export class MembersService {
         baptismDate: createMemberDto.baptismDate,
         joinDate: createMemberDto.joinDate,
         active,
-        // INSERT has no trigger; keep inactivated_at consistent with `active`.
-        inactivatedAt: active
-          ? null
-          : (createMemberDto.inactivatedAt ?? new Date()),
+        inactivatedAt,
         createdBy: user.sub,
       },
       select: { id: true, name: true },

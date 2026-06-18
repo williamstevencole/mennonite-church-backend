@@ -35,9 +35,12 @@ export class DepartmentsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
+    const where = { active: true };
+
     const [total, items] = await this.prisma.$transaction([
-      this.prisma.department.count(),
+      this.prisma.department.count({ where }),
       this.prisma.department.findMany({
+        where,
         orderBy: { name: 'asc' },
         ...buildPagination(page, limit),
       }),
@@ -52,7 +55,9 @@ export class DepartmentsService {
   }
 
   async findOne(id: number): Promise<DepartmentResponseDto> {
-    const item = await this.prisma.department.findUnique({ where: { id } });
+    const item = await this.prisma.department.findFirst({
+      where: { id, active: true },
+    });
     if (!item) {
       throw new NotFoundException(`Departamento ${id} no encontrado`);
     }
@@ -76,21 +81,36 @@ export class DepartmentsService {
   }
 
   async remove(id: number): Promise<void> {
-    await this.assertExists(id);
+    const found = await this.prisma.department.findUnique({
+      where: { id },
+      select: { id: true, active: true },
+    });
+    if (!found) {
+      throw new NotFoundException(`Departamento ${id} no encontrado`);
+    }
+
+    // idempotente: si ya está inactivo, no hacer nada
+    if (!found.active) {
+      return;
+    }
+
     const cityCount = await this.prisma.city.count({
-      where: { idDepartment: id },
+      where: { idDepartment: id, active: true },
     });
     if (cityCount > 0) {
       throw new ConflictException(
         `No se puede eliminar: ${cityCount} ciudad(es) pertenecen a este departamento`,
       );
     }
-    await this.prisma.department.delete({ where: { id } });
+    await this.prisma.department.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   private async assertExists(id: number): Promise<void> {
-    const found = await this.prisma.department.findUnique({
-      where: { id },
+    const found = await this.prisma.department.findFirst({
+      where: { id, active: true },
       select: { id: true },
     });
     if (!found) {

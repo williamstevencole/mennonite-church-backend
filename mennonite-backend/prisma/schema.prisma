@@ -28,8 +28,9 @@ model AuditLog {
 }
 
 model Department {
-  id   Int    @id @default(autoincrement())
-  name String @db.VarChar(100)
+  id     Int     @id @default(autoincrement())
+  name   String  @db.VarChar(100)
+  active Boolean @default(true) // Soft-delete
 
   cities City[]
 
@@ -38,8 +39,9 @@ model Department {
 
 model City {
   id           Int    @id @default(autoincrement())
-  idDepartment Int    @map("id_department")
-  name         String @db.VarChar(100)
+  idDepartment Int     @map("id_department")
+  name         String  @db.VarChar(100)
+  active       Boolean @default(true) // Soft-delete
 
   department Department @relation(fields: [idDepartment], references: [id])
   churches   Church[]
@@ -87,11 +89,12 @@ model EventType {
   idChurch      Int     @map("id_church")
   name          String  @db.VarChar(80) // Culto, Escuela Dominical, Retiro, Viaje, etc.
   eventCategory String? @map("event_category") @db.VarChar(50) // CHECK ('calendar_event','trip','fundraising')
+  active        Boolean @default(true) // Soft-delete
 
   church Church  @relation(fields: [idChurch], references: [id])
   events Event[]
 
-  @@unique([idChurch, name])
+  @@index([idChurch, name]) // Partial unique on (idChurch, name) WHERE active=true — enforced via raw SQL
   @@map("event_type")
 }
 
@@ -106,7 +109,7 @@ model TransactionCategory {
   financialTransactions FinancialTransaction[]
   budgetCategories      BudgetCategory[]
 
-  @@unique([idChurch, name, type])
+  @@index([idChurch, name, type]) // Partial unique on (idChurch, name, type) WHERE active=true — enforced via raw SQL
   @@map("transaction_category")
 }
 
@@ -119,7 +122,7 @@ model MinistryRoleType {
   ministry        Ministry         @relation(fields: [idMinistry], references: [id])
   ministryMembers MinistryMember[]
 
-  @@unique([idMinistry, name])
+  @@index([idMinistry, name]) // Partial unique on (idMinistry, name) WHERE active=true — enforced via raw SQL
   @@map("ministry_role_type")
 }
 
@@ -132,7 +135,7 @@ model BoardRoleType {
   board        Board         @relation(fields: [idBoard], references: [id])
   boardMembers BoardMember[]
 
-  @@unique([idBoard, name])
+  @@index([idBoard, name]) // Partial unique on (idBoard, name) WHERE active=true — enforced via raw SQL
   @@map("board_role_type")
 }
 
@@ -150,7 +153,7 @@ model UserRole {
   users           User[]
   rolePermissions RolePermission[]
 
-  @@unique([idChurch, name])
+  @@index([idChurch, name]) // Partial unique on (idChurch, name) WHERE active=true — enforced via raw SQL
   @@map("user_role")
 }
 
@@ -265,7 +268,7 @@ model Ministry {
   financialReports      FinancialReport[]
   budgetDistributions   BudgetDistribution[]
 
-  @@unique([idChurch, name])
+  @@index([idChurch, name]) // Partial unique on (idChurch, name) WHERE active=true — enforced via raw SQL
   @@map("ministry")
 }
 
@@ -285,7 +288,7 @@ model Board {
   boardMembers   BoardMember[]
   boardRoleTypes BoardRoleType[]
 
-  @@unique([idChurch, name])
+  @@index([idChurch, name]) // Partial unique on (idChurch, name) WHERE active=true — enforced via raw SQL
   @@map("board")
 }
 
@@ -348,7 +351,7 @@ model Article {
   createdByUser      User?               @relation("ArticleCreatedBy", fields: [createdBy], references: [id])
   inventoryMovements InventoryMovement[]
 
-  @@unique([idChurch, code])
+  @@index([idChurch, code]) // Partial unique on (idChurch, code) WHERE active=true — enforced via raw SQL
   @@map("article")
 }
 
@@ -362,6 +365,7 @@ model InventoryMovement {
   idArticle      Int       @map("id_article")
   quantity       Decimal   @db.Decimal(10, 2)
   notes          String?
+  active         Boolean   @default(true) // Soft-delete
   createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz()
 
   church  Church  @relation(fields: [idChurch], references: [id])
@@ -387,6 +391,7 @@ model Event {
   startDatetime     DateTime  @map("start_datetime") @db.Timestamptz()
   endDatetime       DateTime  @map("end_datetime") @db.Timestamptz()
   status            String    @default("Planned") @db.VarChar(20) // CHECK ('Planned','In Progress','Completed','Cancelled')
+  active            Boolean   @default(true) // Soft-delete
   cancelReason      String?   @map("cancel_reason")
   cancelledAt       DateTime? @map("cancelled_at") @db.Timestamptz()
   cancelledBy       Int?      @map("cancelled_by")
@@ -411,14 +416,15 @@ model Event {
 }
 
 model EventResponsibleMember {
-  id       Int @id @default(autoincrement())
-  idEvent  Int @map("id_event")
-  idMember Int @map("id_member")
+  id       Int     @id @default(autoincrement())
+  idEvent  Int     @map("id_event")
+  idMember Int     @map("id_member")
+  active   Boolean @default(true) // Soft-delete
 
   event  Event  @relation(fields: [idEvent], references: [id])
   member Member @relation(fields: [idMember], references: [id])
 
-  @@unique([idEvent, idMember])
+  @@index([idEvent, idMember]) // Partial unique on (idEvent, idMember) WHERE active=true — enforced via raw SQL
   @@map("event_responsible_member")
 }
 
@@ -428,21 +434,23 @@ model MemberEvent {
   idMember  Int       @map("id_member")
   attended  Boolean   @default(false)
   notes     String?
+  active    Boolean   @default(true) // Soft-delete
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
 
   event  Event  @relation(fields: [idEvent], references: [id])
   member Member @relation(fields: [idMember], references: [id])
 
-  @@unique([idEvent, idMember])
+  @@index([idEvent, idMember]) // Partial unique on (idEvent, idMember) WHERE active=true — enforced via raw SQL
   @@map("member_event")
 }
 
 model TripDetail {
   id          Int     @id @default(autoincrement())
-  idEvent     Int     @unique @map("id_event") // Solo si event_category=trip
+  idEvent     Int     @unique @map("id_event") // Solo si event_category=trip (1:1 con Event; reactivar si soft-deleted)
   origin      String  @db.VarChar(200)
   destination String  @db.VarChar(200)
   notes       String?
+  active      Boolean @default(true) // Soft-delete
 
   event Event @relation(fields: [idEvent], references: [id])
 
@@ -451,9 +459,10 @@ model TripDetail {
 
 model FundraisingDetail {
   id           Int      @id @default(autoincrement())
-  idEvent      Int      @unique @map("id_event") // Solo si event_category=fundraising
+  idEvent      Int      @unique @map("id_event") // Solo si event_category=fundraising (1:1 con Event; reactivar si soft-deleted)
   targetAmount Decimal? @map("target_amount") @db.Decimal(12, 2) // Goal to raise
   notes        String?
+  active       Boolean  @default(true) // Soft-delete
 
   event Event @relation(fields: [idEvent], references: [id])
 
@@ -473,6 +482,7 @@ model FinancialTransaction {
   notes           String?
   idEvent         Int?      @map("id_event") // Optional: link to fundraising or trip event
   idMinistry      Int?      @map("id_ministry") // NULL = church general funds
+  active          Boolean   @default(true) // Soft-delete
   createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy       Int?      @map("created_by") // Administradora who registered it
 
@@ -502,6 +512,7 @@ model FinancialReport {
   totalExpenses Decimal   @default(0) @map("total_expenses") @db.Decimal(12, 2) // Frozen snapshot when status=Approved
   netResult     Decimal   @default(0) @map("net_result") @db.Decimal(12, 2) // Frozen snapshot when status=Approved
   status        String    @default("Draft") @db.VarChar(20) // CHECK ('Draft','Presented','Approved')
+  active        Boolean   @default(true) // Soft-delete
   presentedAt   DateTime? @map("presented_at") @db.Timestamptz() // When presented to concilio/iglesia
   presentedBy   Int?      @map("presented_by") // Administradora who presented it
   approvedAt    DateTime? @map("approved_at") @db.Timestamptz()
@@ -530,13 +541,14 @@ model PeriodClosure {
   accumulatedReserve Decimal   @map("accumulated_reserve") @db.Decimal(12, 2) // Ahorros historicos
   closureDate        DateTime  @map("closure_date") @db.Date
   notes              String?
+  active             Boolean   @default(true) // Soft-delete
   createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy          Int?      @map("created_by")
 
   church        Church @relation(fields: [idChurch], references: [id])
   createdByUser User?  @relation("PeriodClosureCreatedBy", fields: [createdBy], references: [id])
 
-  @@unique([idChurch, year])
+  @@index([idChurch, year]) // Partial unique on (idChurch, year) WHERE active=true — enforced via raw SQL
   @@map("period_closure")
 }
 
@@ -549,6 +561,7 @@ model Budget {
   expectedIncome  Decimal   @map("expected_income") @db.Decimal(12, 2) // Total ingresos planificado (cuadro del Informe Financiero)
   expectedExpense Decimal   @map("expected_expense") @db.Decimal(12, 2) // Total egresos planificado
   status          String    @default("Draft") @db.VarChar(20) // CHECK ('Draft','Active','Closed')
+  active          Boolean   @default(true) // Soft-delete
   createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy       Int?      @map("created_by")
 
@@ -557,7 +570,7 @@ model Budget {
   budgetCategories    BudgetCategory[]
   budgetDistributions BudgetDistribution[]
 
-  @@unique([idChurch, periodStart, periodEnd])
+  @@index([idChurch, periodStart, periodEnd]) // Partial unique on (idChurch, periodStart, periodEnd) WHERE active=true — enforced via raw SQL
   @@map("budget")
 }
 
@@ -567,11 +580,12 @@ model BudgetCategory {
   idCategory   Int     @map("id_category")
   annualAmount Decimal @map("annual_amount") @db.Decimal(12, 2) // Budgeted amount for the year
   notes        String?
+  active       Boolean @default(true) // Soft-delete
 
   budget   Budget              @relation(fields: [idBudget], references: [id])
   category TransactionCategory @relation(fields: [idCategory], references: [id])
 
-  @@unique([idBudget, idCategory])
+  @@index([idBudget, idCategory]) // Partial unique on (idBudget, idCategory) WHERE active=true — enforced via raw SQL
   @@map("budget_category")
 }
 
@@ -580,6 +594,7 @@ model BudgetDistribution {
   idBudget     Int       @map("id_budget")
   idMinistry   Int       @map("id_ministry")
   annualAmount Decimal   @map("annual_amount") @db.Decimal(12, 2) // Monto en Lempiras; suma ≤ annualAmount de la categoria "Ministerios"
+  active       Boolean   @default(true) // Soft-delete
   createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   createdBy    Int?      @map("created_by")
 
@@ -587,6 +602,6 @@ model BudgetDistribution {
   ministry      Ministry @relation(fields: [idMinistry], references: [id])
   createdByUser User?    @relation("BudgetDistributionCreatedBy", fields: [createdBy], references: [id])
 
-  @@unique([idBudget, idMinistry])
+  @@index([idBudget, idMinistry]) // Partial unique on (idBudget, idMinistry) WHERE active=true — enforced via raw SQL
   @@map("budget_distribution")
 }

@@ -109,7 +109,7 @@ export class FinancialReportsService {
 
     const canSeeAllReports = permissionCodes.has('financial-reports.approve');
 
-    const where: Prisma.FinancialReportWhereInput = { idChurch };
+    const where: Prisma.FinancialReportWhereInput = { idChurch, active: true };
     if (query.idMinistry !== undefined) where.idMinistry = query.idMinistry;
     if (query.status !== undefined) where.status = query.status;
     if (query.year !== undefined) {
@@ -154,7 +154,7 @@ export class FinancialReportsService {
     id: number,
   ): Promise<FinancialReportResponseDto> {
     const report = await this.prisma.financialReport.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
       include: { ministry: { select: { id: true, name: true } } },
     });
 
@@ -172,7 +172,7 @@ export class FinancialReportsService {
     dto: UpdateFinancialReportDto,
   ): Promise<IdResponseDto> {
     const existing = await this.prisma.financialReport.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
     });
 
     if (!existing) {
@@ -264,11 +264,15 @@ export class FinancialReportsService {
   async remove(idChurch: number, id: number): Promise<void> {
     const existing = await this.prisma.financialReport.findFirst({
       where: { id, idChurch },
-      select: { id: true, status: true },
+      select: { id: true, status: true, active: true },
     });
 
     if (!existing) {
       throw new NotFoundException();
+    }
+
+    if (!existing.active) {
+      return;
     }
 
     if (existing.status === 'Approved') {
@@ -277,7 +281,10 @@ export class FinancialReportsService {
       );
     }
 
-    await this.prisma.financialReport.delete({ where: { id } });
+    await this.prisma.financialReport.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   async submit(
@@ -286,7 +293,7 @@ export class FinancialReportsService {
     id: number,
   ): Promise<IdResponseDto> {
     const report = await this.prisma.financialReport.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
       select: { id: true, status: true, idMinistry: true },
     });
 
@@ -319,7 +326,7 @@ export class FinancialReportsService {
 
   async approve(idChurch: number, id: number): Promise<IdResponseDto> {
     const report = await this.prisma.financialReport.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
       select: { id: true, status: true },
     });
 
@@ -348,7 +355,7 @@ export class FinancialReportsService {
     dto: RejectFinancialReportDto,
   ): Promise<IdResponseDto> {
     const report = await this.prisma.financialReport.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
       select: { id: true, status: true },
     });
 

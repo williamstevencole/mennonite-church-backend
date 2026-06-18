@@ -35,20 +35,24 @@ export async function seedBudgetDistributions(
       );
     }
 
-    await prisma.budgetDistribution.upsert({
-      where: {
-        idBudget_idMinistry: {
+    const existing = await prisma.budgetDistribution.findFirst({
+      where: { idBudget: budget.id, idMinistry: ministry.id },
+      select: { id: true },
+    });
+    if (existing) {
+      await prisma.budgetDistribution.update({
+        where: { id: existing.id },
+        data: { annualAmount },
+      });
+    } else {
+      await prisma.budgetDistribution.create({
+        data: {
           idBudget: budget.id,
           idMinistry: ministry.id,
+          annualAmount,
         },
-      },
-      update: { annualAmount },
-      create: {
-        idBudget: budget.id,
-        idMinistry: ministry.id,
-        annualAmount,
-      },
-    });
+      });
+    }
     count++;
   }
 

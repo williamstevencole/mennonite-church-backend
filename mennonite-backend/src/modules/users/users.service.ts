@@ -116,27 +116,93 @@ export class UsersService {
       );
     }
 
-    const existing = await this.prisma.user.findUnique({
+    const existingByEmail = await this.prisma.user.findUnique({
       where: { email: dto.email },
-      select: { id: true },
+      select: {
+        id: true,
+        active: true,
+        idMember: true,
+        idChurch: true,
+        supabaseUid: true,
+      },
     });
 
-    if (existing) {
+    if (existingByEmail?.active) {
       throw new ConflictException(
         'Ya existe un usuario registrado con ese email',
       );
     }
 
-    const existingMemberUser = await this.prisma.user.findUnique({
+    const existingByMember = await this.prisma.user.findUnique({
       where: { idMember: dto.idMember },
-      select: { id: true },
+      select: {
+        id: true,
+        active: true,
+        email: true,
+        idChurch: true,
+        supabaseUid: true,
+      },
     });
 
-    if (existingMemberUser) {
+    if (existingByMember?.active) {
+      throw new ConflictException('El miembro ya tiene un usuario asociado');
+    }
+
+    const reactivationTarget =
+      existingByEmail &&
+      existingByEmail.idMember === dto.idMember &&
+      existingByEmail.idChurch === idChurch
+        ? existingByEmail
+        : existingByMember &&
+            existingByMember.email === dto.email &&
+            existingByMember.idChurch === idChurch
+          ? existingByMember
+          : null;
+
+    if (!reactivationTarget && existingByEmail) {
+      throw new ConflictException(
+        'Ya existe un usuario registrado con ese email',
+      );
+    }
+    if (!reactivationTarget && existingByMember) {
       throw new ConflictException('El miembro ya tiene un usuario asociado');
     }
 
     const fullName = this.buildMemberName(dto.firstName, dto.lastName);
+
+    if (reactivationTarget) {
+      if (reactivationTarget.supabaseUid) {
+        const { error } = await this.supabase
+          .getAdminClient()
+          .auth.admin.updateUserById(reactivationTarget.supabaseUid, {
+            password: dto.password,
+            email: dto.email,
+          });
+        if (error) {
+          throw new BadRequestException(
+            `Error reactivando usuario en Supabase Auth: ${error.message}`,
+          );
+        }
+      }
+
+      const reactivated = await this.prisma.$transaction(async (tx) => {
+        await tx.member.update({
+          where: { id: dto.idMember },
+          data: { name: fullName },
+        });
+        return tx.user.update({
+          where: { id: reactivationTarget.id },
+          data: {
+            email: dto.email,
+            active: true,
+            idUserRole: role.id,
+          },
+          select: { id: true },
+        });
+      });
+
+      return { id: reactivated.id };
+    }
 
     const { data: authData, error: authError } = await this.supabase
       .getAdminClient()

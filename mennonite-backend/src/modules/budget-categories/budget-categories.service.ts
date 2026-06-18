@@ -34,7 +34,7 @@ type BudgetCategoryWithCategory = Prisma.BudgetCategoryGetPayload<{
 export class BudgetCategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async assertBudgetDraft(
+  private async assertBudgetEditable(
     idChurch: number,
     budgetId: number,
   ): Promise<void> {
@@ -47,9 +47,9 @@ export class BudgetCategoriesService {
       throw new NotFoundException('Budget no encontrado');
     }
 
-    if (budget.status !== 'Draft') {
+    if (budget.status === 'Closed') {
       throw new ConflictException(
-        `Solo se pueden modificar categorías de un presupuesto en estado Draft (estado actual: ${budget.status})`,
+        'No se pueden modificar categorías de un presupuesto cerrado (inmutable)',
       );
     }
   }
@@ -60,7 +60,7 @@ export class BudgetCategoriesService {
   ): Promise<IdResponseDto> {
     const idChurch = user.idChurch;
 
-    await this.assertBudgetDraft(idChurch, dto.idBudget);
+    await this.assertBudgetEditable(idChurch, dto.idBudget);
 
     const category = await this.prisma.transactionCategory.findFirst({
       where: { id: dto.idCategory, idChurch },
@@ -71,12 +71,10 @@ export class BudgetCategoriesService {
       throw new NotFoundException('Categoria no encontrada');
     }
 
-    const existing = await this.prisma.budgetCategory.findUnique({
+    const existing = await this.prisma.budgetCategory.findFirst({
       where: {
-        idBudget_idCategory: {
-          idBudget: dto.idBudget,
-          idCategory: dto.idCategory,
-        },
+        idBudget: dto.idBudget,
+        idCategory: dto.idCategory,
       },
       select: { id: true },
     });
@@ -117,6 +115,7 @@ export class BudgetCategoriesService {
 
     const where: Prisma.BudgetCategoryWhereInput = {
       idBudget: budgetId,
+      active: true,
       ...(query.type ? { category: { is: { type: query.type } } } : {}),
     };
 
@@ -124,6 +123,7 @@ export class BudgetCategoriesService {
       this.prisma.budgetCategory.aggregate({
         where: {
           idBudget: budgetId,
+          active: true,
           category: { type: 'income' },
         },
         _sum: { annualAmount: true },
@@ -131,6 +131,7 @@ export class BudgetCategoriesService {
       this.prisma.budgetCategory.aggregate({
         where: {
           idBudget: budgetId,
+          active: true,
           category: { type: 'expense' },
         },
         _sum: { annualAmount: true },
@@ -175,7 +176,7 @@ export class BudgetCategoriesService {
     id: number,
   ): Promise<BudgetCategoryResponseDto> {
     const item = await this.prisma.budgetCategory.findFirst({
-      where: { id, budget: { idChurch: user.idChurch } },
+      where: { id, active: true, budget: { idChurch: user.idChurch } },
       include: {
         category: {
           select: { id: true, name: true, type: true },
@@ -190,6 +191,7 @@ export class BudgetCategoriesService {
     const bucketSumAgg = await this.prisma.budgetCategory.aggregate({
       where: {
         idBudget: item.idBudget,
+        active: true,
         category: { type: item.category.type },
       },
       _sum: { annualAmount: true },
@@ -210,7 +212,7 @@ export class BudgetCategoriesService {
     dto: UpdateBudgetCategoryDto,
   ): Promise<IdResponseDto> {
     const existing = await this.prisma.budgetCategory.findFirst({
-      where: { id, budget: { idChurch: user.idChurch } },
+      where: { id, active: true, budget: { idChurch: user.idChurch } },
       select: { id: true, idBudget: true, annualAmount: true, notes: true },
     });
 
@@ -218,7 +220,7 @@ export class BudgetCategoriesService {
       throw new NotFoundException('Categoria de presupuesto no encontrada');
     }
 
-    await this.assertBudgetDraft(user.idChurch, existing.idBudget);
+    await this.assertBudgetEditable(user.idChurch, existing.idBudget);
 
     if (dto.annualAmount === undefined && dto.notes === undefined) {
       return { id: existing.id };
@@ -239,16 +241,23 @@ export class BudgetCategoriesService {
   async remove(user: JwtPayload, id: number): Promise<void> {
     const existing = await this.prisma.budgetCategory.findFirst({
       where: { id, budget: { idChurch: user.idChurch } },
-      select: { id: true, idBudget: true },
+      select: { id: true, idBudget: true, active: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Categoria de presupuesto no encontrada');
     }
 
-    await this.assertBudgetDraft(user.idChurch, existing.idBudget);
+    if (!existing.active) {
+      return;
+    }
 
-    await this.prisma.budgetCategory.delete({ where: { id } });
+    await this.assertBudgetEditable(user.idChurch, existing.idBudget);
+
+    await this.prisma.budgetCategory.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   private toResponse(

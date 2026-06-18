@@ -86,13 +86,15 @@ export async function seedEventDetails(
           `Seed event details: no se encontro el miembro "${memberName}".`,
         );
       }
-      await prisma.eventResponsibleMember.upsert({
-        where: {
-          idEvent_idMember: { idEvent: event.id, idMember: member.id },
-        },
-        update: {},
-        create: { idEvent: event.id, idMember: member.id },
+      const existingResp = await prisma.eventResponsibleMember.findFirst({
+        where: { idEvent: event.id, idMember: member.id },
+        select: { id: true },
       });
+      if (!existingResp) {
+        await prisma.eventResponsibleMember.create({
+          data: { idEvent: event.id, idMember: member.id },
+        });
+      }
       responsibles++;
     }
 
@@ -103,17 +105,24 @@ export async function seedEventDetails(
           `Seed event details: no se encontro el miembro "${memberName}".`,
         );
       }
-      await prisma.memberEvent.upsert({
-        where: {
-          idEvent_idMember: { idEvent: event.id, idMember: member.id },
-        },
-        update: { attended: true },
-        create: {
-          idEvent: event.id,
-          idMember: member.id,
-          attended: true,
-        },
+      const existingAtt = await prisma.memberEvent.findFirst({
+        where: { idEvent: event.id, idMember: member.id },
+        select: { id: true },
       });
+      if (existingAtt) {
+        await prisma.memberEvent.update({
+          where: { id: existingAtt.id },
+          data: { attended: true },
+        });
+      } else {
+        await prisma.memberEvent.create({
+          data: {
+            idEvent: event.id,
+            idMember: member.id,
+            attended: true,
+          },
+        });
+      }
       attendances++;
     }
 

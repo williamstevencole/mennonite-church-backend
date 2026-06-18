@@ -35,7 +35,7 @@ export class CitiesService {
   async findAll(query: ListCitiesQueryDto): Promise<CitiesPageResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where: Prisma.CityWhereInput = {};
+    const where: Prisma.CityWhereInput = { active: true };
     if (query.idDepartment !== undefined) {
       where.idDepartment = query.idDepartment;
     }
@@ -58,7 +58,9 @@ export class CitiesService {
   }
 
   async findOne(id: number): Promise<CityResponseDto> {
-    const item = await this.prisma.city.findUnique({ where: { id } });
+    const item = await this.prisma.city.findFirst({
+      where: { id, active: true },
+    });
     if (!item) {
       throw new NotFoundException(`Ciudad ${id} no encontrada`);
     }
@@ -66,7 +68,9 @@ export class CitiesService {
   }
 
   async update(id: number, dto: UpdateCityDto): Promise<IdNameResponseDto> {
-    const current = await this.prisma.city.findUnique({ where: { id } });
+    const current = await this.prisma.city.findFirst({
+      where: { id, active: true },
+    });
     if (!current) {
       throw new NotFoundException(`Ciudad ${id} no encontrada`);
     }
@@ -91,20 +95,29 @@ export class CitiesService {
   async remove(id: number): Promise<void> {
     const existing = await this.prisma.city.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, active: true },
     });
     if (!existing) {
       throw new NotFoundException(`Ciudad ${id} no encontrada`);
     }
+
+    // idempotente: si ya está inactiva, no hacer nada
+    if (!existing.active) {
+      return;
+    }
+
     const churchCount = await this.prisma.church.count({
-      where: { idCity: id },
+      where: { idCity: id, active: true },
     });
     if (churchCount > 0) {
       throw new ConflictException(
         `No se puede eliminar: ${churchCount} iglesia(s) usan esta ciudad`,
       );
     }
-    await this.prisma.city.delete({ where: { id } });
+    await this.prisma.city.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   private async assertDepartment(idDepartment: number): Promise<void> {

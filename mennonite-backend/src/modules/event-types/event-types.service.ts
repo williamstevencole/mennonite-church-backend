@@ -41,7 +41,7 @@ export class EventTypesService {
   ): Promise<EventTypesPageResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where = { idChurch };
+    const where = { idChurch, active: true };
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.eventType.count({ where }),
@@ -62,7 +62,7 @@ export class EventTypesService {
 
   async findOne(idChurch: number, id: number): Promise<EventTypeResponseDto> {
     const item = await this.prisma.eventType.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
     });
     if (!item) {
       throw new NotFoundException(`Tipo de evento ${id} no encontrado`);
@@ -91,10 +91,21 @@ export class EventTypesService {
   }
 
   async remove(idChurch: number, id: number): Promise<void> {
-    await this.assertExists(idChurch, id);
+    const existing = await this.prisma.eventType.findFirst({
+      where: { id, idChurch },
+      select: { id: true, active: true },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Tipo de evento ${id} no encontrado`);
+    }
+
+    // idempotente: si ya está inactivo, no hacer nada
+    if (!existing.active) {
+      return;
+    }
 
     const usageCount = await this.prisma.event.count({
-      where: { idEventType: id },
+      where: { idEventType: id, active: true },
     });
 
     if (usageCount > 0) {
@@ -103,12 +114,15 @@ export class EventTypesService {
       );
     }
 
-    await this.prisma.eventType.delete({ where: { id } });
+    await this.prisma.eventType.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   private async assertExists(idChurch: number, id: number): Promise<void> {
     const existing = await this.prisma.eventType.findFirst({
-      where: { id, idChurch },
+      where: { id, idChurch, active: true },
       select: { id: true },
     });
     if (!existing) {
