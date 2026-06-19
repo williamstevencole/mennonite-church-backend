@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTripDetailDto } from './dto/create-trip-detail.dto';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
@@ -16,6 +17,37 @@ import {
 import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
 import { TripDetailResponseDto } from './dto/trip-detail-response.dto';
 import { UpdateTripDetailDto } from './dto/update-trip-detail.dto';
+
+const TRIP_DETAIL_SELECT = {
+  id: true,
+  origin: true,
+  destination: true,
+  notes: true,
+  event: {
+    select: {
+      title: true,
+    },
+  },
+} satisfies Prisma.TripDetailSelect;
+
+type TripDetailRecord = Prisma.TripDetailGetPayload<{
+  select: typeof TRIP_DETAIL_SELECT;
+}>;
+
+const TRIP_DETAIL_WITH_EVENT_TYPE_SELECT = {
+  id: true,
+  event: {
+    select: {
+      eventType: {
+        select: { eventCategory: true },
+      },
+    },
+  },
+} satisfies Prisma.TripDetailSelect;
+
+type TripDetailWithEventType = Prisma.TripDetailGetPayload<{
+  select: typeof TRIP_DETAIL_WITH_EVENT_TYPE_SELECT;
+}>;
 
 @Injectable()
 export class TripDetailsService {
@@ -129,37 +161,27 @@ export class TripDetailsService {
   }
 
   async findOne(id: number, user: JwtPayload): Promise<TripDetailResponseDto> {
-    const tripDetail = await this.prisma.tripDetail.findFirst({
-      where: {
-        id,
-        active: true,
-        event: {
-          idChurch: user.idChurch,
-        },
-      },
-      select: {
-        id: true,
-        origin: true,
-        destination: true,
-        notes: true,
-        event: {
-          select: {
-            title: true,
+    const tripDetail: TripDetailRecord | null =
+      await this.prisma.tripDetail.findFirst({
+        where: {
+          id,
+          active: true,
+          event: {
+            idChurch: user.idChurch,
           },
         },
-      },
-    });
+        select: TRIP_DETAIL_SELECT,
+      });
 
     if (!tripDetail) {
       throw new NotFoundException('Trip detail no encontrado');
     }
 
+    const { event, ...tripFields } = tripDetail;
+
     return {
-      id: tripDetail.id,
-      origin: tripDetail.origin,
-      destination: tripDetail.destination,
-      notes: tripDetail.notes,
-      eventTitle: tripDetail.event.title,
+      ...tripFields,
+      eventTitle: event.title,
     };
   }
 
@@ -168,22 +190,17 @@ export class TripDetailsService {
     dto: UpdateTripDetailDto,
     user: JwtPayload,
   ): Promise<IdResponseDto> {
-    const tripDetail = await this.prisma.tripDetail.findFirst({
-      where: {
-        id,
-        active: true,
-        event: {
-          idChurch: user.idChurch,
-        },
-      },
-      include: {
-        event: {
-          include: {
-            eventType: true,
+    const tripDetail: TripDetailWithEventType | null =
+      await this.prisma.tripDetail.findFirst({
+        where: {
+          id,
+          active: true,
+          event: {
+            idChurch: user.idChurch,
           },
         },
-      },
-    });
+        select: TRIP_DETAIL_WITH_EVENT_TYPE_SELECT,
+      });
 
     if (!tripDetail) {
       throw new NotFoundException('Trip detail no encontrado');
