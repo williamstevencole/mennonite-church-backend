@@ -167,15 +167,12 @@ export class FundraisingDetailsService {
       throw new NotFoundException(`Detalle de recaudacion ${id} no encontrado`);
     }
 
-    const typedDetail: DetailRecord = detail;
-    const eventId = typedDetail.event.id;
-
     const totalsByEvent = await this.computeEventTotals(
-      [eventId],
+      [detail.event.id],
       user.idChurch,
     );
 
-    return this.toResponse(typedDetail, totalsByEvent.get(eventId));
+    return this.toResponse(detail, totalsByEvent.get(detail.event.id));
   }
 
   async update(

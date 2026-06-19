@@ -127,18 +127,10 @@ export class BudgetDistributionsService {
       select: { id: true, active: true },
     });
 
-    if (existing) {
-      if (existing.active) {
-        throw new ConflictException(
-          'Distribución ya existe para este ministerio',
-        );
-      } else {
-        await this.prisma.budgetDistribution.update({
-          where: { id: existing.id },
-          data: { active: true, annualAmount: dto.annualAmount },
-        });
-        return { id: existing.id };
-      }
+    if (existing?.active) {
+      throw new ConflictException(
+        'Distribución ya existe para este ministerio',
+      );
     }
 
     const target = await this.getMinisteriosBudgetAmount(dto.idBudget);
@@ -160,6 +152,14 @@ export class BudgetDistributionsService {
       throw new BadRequestException(
         'El monto total de distribuciones excedería el monto de la categoría Ministerios',
       );
+    }
+
+    if (existing) {
+      await this.prisma.budgetDistribution.update({
+        where: { id: existing.id },
+        data: { active: true, annualAmount: dto.annualAmount },
+      });
+      return { id: existing.id };
     }
 
     const created = await this.prisma.budgetDistribution.create({
