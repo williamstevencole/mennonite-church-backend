@@ -1,19 +1,17 @@
-services:
-  api:
-    build: .
-    ports:
-      - "${APP_PORT}:3000"
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: sh -c "pnpm install && pnpm exec prisma db push && pnpm run db:seed && pnpm run start:dev"
+# Stack 100% local: Postgres + Supabase Auth (GoTrue) + gateway (Kong) + API.
+# Levantar con:  docker compose up --build
+#
+# Flujo del servicio api:
+#   1. Espera a que Supabase Auth (via Kong) responda en /auth/v1/health
+#   2. prisma db push  -> crea las tablas del schema public
+#   3. db:seed         -> crea iglesia, miembros y usuarios (estos ultimos en GoTrue)
+#   4. start:dev       -> NestJS en modo watch
 
-  postgres:
+services:
+  # ---------------------------------------------------------------------------
+  # Base de datos (la usan Prisma en `public` y GoTrue en `auth`)
+  # ---------------------------------------------------------------------------
+  db:
     image: postgres:16-alpine
     ports:
       - "${DB_PORT}:5432"
@@ -23,11 +21,96 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Scripts que corren UNA sola vez al crear el volumen (crean schema auth + extensiones)
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Supabase Auth (GoTrue): login, register (admin), refresh, getUser
+  # ---------------------------------------------------------------------------
+  auth:
+    image: supabase/gotrue:v2.151.0
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://localhost:8000
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://${DB_USER}:${DB_PASS}@db:5432/${DB_NAME}?search_path=auth
+
+      GOTRUE_SITE_URL: ${CORS_ORIGIN}
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_DISABLE_SIGNUP: "false"
+
+      # El secreto debe coincidir con el usado para firmar ANON_KEY / SERVICE_ROLE_KEY
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+
+      # Sin SMTP: confirmar automaticamente (dev). admin.createUser usa email_confirm.
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_SMS_AUTOCONFIRM: "true"
+      GOTRUE_LOG_LEVEL: info
+
+  # ---------------------------------------------------------------------------
+  # Kong: gateway que expone Supabase. Reescribe /auth/v1/* -> GoTrue
+  # (es el endpoint que usa @supabase/supabase-js como SUPABASE_URL)
+  # ---------------------------------------------------------------------------
+  kong:
+    image: kong:2.8.1
+    depends_on:
+      auth:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_ADMIN_LISTEN: "127.0.0.1:8001"
+    volumes:
+      - ./docker/kong/kong.yml:/home/kong/kong.yml:ro
+
+  # ---------------------------------------------------------------------------
+  # API NestJS
+  # ---------------------------------------------------------------------------
+  api:
+    build: .
+    ports:
+      - "${PORT}:${PORT}"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      auth:
+        condition: service_started
+      kong:
+        condition: service_started
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+      echo 'Esperando a Supabase Auth (Kong)...';
+      until curl -sf http://kong:8000/auth/v1/health >/dev/null; do sleep 2; done;
+      echo 'Auth listo. Sincronizando schema...';
+      pnpm exec prisma db push &&
+      pnpm run db:seed &&
+      pnpm run start:dev
+      "
 
 volumes:
   pgdata:

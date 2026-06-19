@@ -200,7 +200,7 @@ export class ArticlesService {
 
     const grouped = await this.prisma.inventoryMovement.groupBy({
       by: ['type'],
-      where: { idArticle: id, idChurch },
+      where: { idArticle: id, idChurch, active: true },
       _sum: { quantity: true },
     });
 

@@ -18,16 +18,18 @@ import { CreateBudgetCategoryDto } from './dto/create-budget-category.dto';
 import { FindBudgetCategoriesQueryDto } from './dto/find-budget-categories-query.dto';
 import { UpdateBudgetCategoryDto } from './dto/update-budget-category.dto';
 
+const BUDGET_CATEGORY_WITH_CATEGORY_SELECT = {
+  id: true,
+  idBudget: true,
+  annualAmount: true,
+  notes: true,
+  category: {
+    select: { id: true, name: true, type: true },
+  },
+} satisfies Prisma.BudgetCategorySelect;
+
 type BudgetCategoryWithCategory = Prisma.BudgetCategoryGetPayload<{
-  include: {
-    category: {
-      select: {
-        id: true;
-        name: true;
-        type: true;
-      };
-    };
-  };
+  select: typeof BUDGET_CATEGORY_WITH_CATEGORY_SELECT;
 }>;
 
 @Injectable()
@@ -76,11 +78,23 @@ export class BudgetCategoriesService {
         idBudget: dto.idBudget,
         idCategory: dto.idCategory,
       },
-      select: { id: true },
+      select: { id: true, active: true },
     });
 
     if (existing) {
-      throw new ConflictException('Categoria ya asignada al presupuesto');
+      if (existing.active) {
+        throw new ConflictException('Categoria ya asignada al presupuesto');
+      } else {
+        await this.prisma.budgetCategory.update({
+          where: { id: existing.id },
+          data: {
+            active: true,
+            annualAmount: dto.annualAmount,
+            notes: dto.notes ?? null,
+          },
+        });
+        return { id: existing.id };
+      }
     }
 
     const created = await this.prisma.budgetCategory.create({
@@ -177,22 +191,20 @@ export class BudgetCategoriesService {
   ): Promise<BudgetCategoryResponseDto> {
     const item = await this.prisma.budgetCategory.findFirst({
       where: { id, active: true, budget: { idChurch: user.idChurch } },
-      include: {
-        category: {
-          select: { id: true, name: true, type: true },
-        },
-      },
+      select: BUDGET_CATEGORY_WITH_CATEGORY_SELECT,
     });
 
     if (!item) {
       throw new NotFoundException('Categoria de presupuesto no encontrada');
     }
 
+    const categoryType = item.category.type;
+
     const bucketSumAgg = await this.prisma.budgetCategory.aggregate({
       where: {
         idBudget: item.idBudget,
         active: true,
-        category: { type: item.category.type },
+        category: { type: categoryType },
       },
       _sum: { annualAmount: true },
     });

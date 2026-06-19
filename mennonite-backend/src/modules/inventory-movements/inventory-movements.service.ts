@@ -25,6 +25,29 @@ const userPublicSelect = {
   email: true,
 } as const;
 
+const MOVEMENT_DETAIL_SELECT = {
+  id: true,
+  type: true,
+  quantity: true,
+  datetime: true,
+  documentNumber: true,
+  article: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      unitCost: true,
+    },
+  },
+  user: {
+    select: userPublicSelect,
+  },
+} satisfies Prisma.InventoryMovementSelect;
+
+type InventoryMovementDetail = Prisma.InventoryMovementGetPayload<{
+  select: typeof MOVEMENT_DETAIL_SELECT;
+}>;
+
 @Injectable()
 export class InventoryMovementsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -171,44 +194,31 @@ export class InventoryMovementsService {
   async findOne(id: number, user: JwtPayload) {
     const idChurch = await this.getChurchId(user);
 
-    const movement = await this.prisma.inventoryMovement.findFirst({
-      where: {
-        id,
-        idChurch,
-        active: true,
-      },
-      select: {
-        id: true,
-        type: true,
-        quantity: true,
-        datetime: true,
-        documentNumber: true,
-
-        article: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            unitCost: true,
-          },
+    const movement: InventoryMovementDetail | null =
+      await this.prisma.inventoryMovement.findFirst({
+        where: {
+          id,
+          idChurch,
+          active: true,
         },
-
-        user: {
-          select: userPublicSelect,
-        },
-      },
-    });
+        select: MOVEMENT_DETAIL_SELECT,
+      });
 
     if (!movement) {
       throw new NotFoundException('Movement not found');
     }
 
+    const { article, user: movementUser, ...rest } = movement;
+
     return {
-      ...movement,
-      quantity: Number(movement.quantity),
+      ...rest,
+      quantity: Number(rest.quantity),
+      user: movementUser,
       article: {
-        ...movement.article,
-        unitCost: Number(movement.article.unitCost),
+        id: article.id,
+        name: article.name,
+        code: article.code,
+        unitCost: Number(article.unitCost),
       },
     };
   }

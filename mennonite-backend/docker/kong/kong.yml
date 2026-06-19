@@ -1,0 +1,14 @@
+# Configuracion declarativa de Kong (modo DB-less).
+# Solo enrutamos Auth porque es lo unico que la app consume via @supabase/supabase-js.
+# strip_path quita el prefijo /auth/v1 antes de pasar la peticion a GoTrue.
+_format_version: "2.1"
+_transform: true
+
+services:
+  - name: auth-v1
+    url: http://auth:9999/
+    routes:
+      - name: auth-v1-all
+        strip_path: true
+        paths:
+          - /auth/v1/

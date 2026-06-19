@@ -44,6 +44,29 @@ function resolveMinistriesAmount(categories: BudgetCategoryWithName[]): number {
   return match ? Number(match.annualAmount) : 0;
 }
 
+const DISTRIBUTION_DETAIL_SELECT = {
+  id: true,
+  annualAmount: true,
+  ministry: {
+    select: { id: true, name: true },
+  },
+  budget: {
+    select: {
+      budgetCategories: {
+        where: { active: true },
+        select: {
+          annualAmount: true,
+          category: { select: { name: true, type: true } },
+        },
+      },
+    },
+  },
+} satisfies Prisma.BudgetDistributionSelect;
+
+type BudgetDistributionDetail = Prisma.BudgetDistributionGetPayload<{
+  select: typeof DISTRIBUTION_DETAIL_SELECT;
+}>;
+
 @Injectable()
 export class BudgetDistributionsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -101,10 +124,10 @@ export class BudgetDistributionsService {
         idBudget: dto.idBudget,
         idMinistry: dto.idMinistry,
       },
-      select: { id: true },
+      select: { id: true, active: true },
     });
 
-    if (existing) {
+    if (existing?.active) {
       throw new ConflictException(
         'Distribución ya existe para este ministerio',
       );
@@ -129,6 +152,14 @@ export class BudgetDistributionsService {
       throw new BadRequestException(
         'El monto total de distribuciones excedería el monto de la categoría Ministerios',
       );
+    }
+
+    if (existing) {
+      await this.prisma.budgetDistribution.update({
+        where: { id: existing.id },
+        data: { active: true, annualAmount: dto.annualAmount },
+      });
+      return { id: existing.id };
     }
 
     const created = await this.prisma.budgetDistribution.create({
@@ -198,25 +229,11 @@ export class BudgetDistributionsService {
     idChurch: number,
     id: number,
   ): Promise<BudgetDistributionResponseDto> {
-    const distribution = await this.prisma.budgetDistribution.findFirst({
-      where: { id, active: true, budget: { idChurch } },
-      include: {
-        ministry: {
-          select: { id: true, name: true },
-        },
-        budget: {
-          include: {
-            budgetCategories: {
-              where: { active: true },
-              select: {
-                annualAmount: true,
-                category: { select: { name: true, type: true } },
-              },
-            },
-          },
-        },
-      },
-    });
+    const distribution: BudgetDistributionDetail | null =
+      await this.prisma.budgetDistribution.findFirst({
+        where: { id, active: true, budget: { idChurch } },
+        select: DISTRIBUTION_DETAIL_SELECT,
+      });
 
     if (!distribution) {
       throw new NotFoundException('Budget distribution no fue encontrado');
@@ -227,10 +244,11 @@ export class BudgetDistributionsService {
     );
 
     const annualAmount = Number(distribution.annualAmount);
+    const { ministry } = distribution;
 
     return {
       id: distribution.id,
-      ministry: distribution.ministry,
+      ministry,
       annualAmount,
       percentageOfMinisteriosBudget:
         ministeriosAmount > 0

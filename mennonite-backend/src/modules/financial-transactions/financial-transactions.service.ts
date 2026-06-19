@@ -41,6 +41,16 @@ import { IdResponseDto } from '../../common/dto/id-response.dto';
 
 const TOP_CATEGORY_LIMIT = 3;
 
+const MONTHLY_SERIES_ROW_SELECT = {
+  amount: true,
+  transactionDate: true,
+  category: { select: { type: true } },
+} satisfies Prisma.FinancialTransactionSelect;
+
+type MonthlySeriesRow = Prisma.FinancialTransactionGetPayload<{
+  select: typeof MONTHLY_SERIES_ROW_SELECT;
+}>;
+
 const MONTH_LABELS = [
   'ene',
   'feb',
@@ -328,18 +338,15 @@ export class FinancialTransactionsService {
       ),
     );
 
-    const rows = await this.prisma.financialTransaction.findMany({
-      where: {
-        idChurch,
-        active: true,
-        transactionDate: { gte: start, lt: endExclusive },
-      },
-      select: {
-        amount: true,
-        transactionDate: true,
-        category: { select: { type: true } },
-      },
-    });
+    const rows: MonthlySeriesRow[] =
+      await this.prisma.financialTransaction.findMany({
+        where: {
+          idChurch,
+          active: true,
+          transactionDate: { gte: start, lt: endExclusive },
+        },
+        select: MONTHLY_SERIES_ROW_SELECT,
+      });
 
     const bucket = new Map<string, { income: number; expense: number }>();
     for (let i = 0; i < months; i++) {
@@ -354,8 +361,9 @@ export class FinancialTransactionsService {
       const current = bucket.get(key);
       if (!current) continue;
       const amount = Number(row.amount);
-      if (row.category?.type === 'income') current.income += amount;
-      else if (row.category?.type === 'expense') current.expense += amount;
+      const categoryType = row.category?.type;
+      if (categoryType === 'income') current.income += amount;
+      else if (categoryType === 'expense') current.expense += amount;
     }
 
     const data: MonthlySeriesPointDto[] = [];
