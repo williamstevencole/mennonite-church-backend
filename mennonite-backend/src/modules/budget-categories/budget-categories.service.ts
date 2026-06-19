@@ -78,11 +78,23 @@ export class BudgetCategoriesService {
         idBudget: dto.idBudget,
         idCategory: dto.idCategory,
       },
-      select: { id: true },
+      select: { id: true, active: true },
     });
 
     if (existing) {
-      throw new ConflictException('Categoria ya asignada al presupuesto');
+      if (existing.active) {
+        throw new ConflictException('Categoria ya asignada al presupuesto');
+      } else {
+        await this.prisma.budgetCategory.update({
+          where: { id: existing.id },
+          data: {
+            active: true,
+            annualAmount: dto.annualAmount,
+            notes: dto.notes ?? null,
+          },
+        });
+        return { id: existing.id };
+      }
     }
 
     const created = await this.prisma.budgetCategory.create({
