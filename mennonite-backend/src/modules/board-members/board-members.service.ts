@@ -100,6 +100,8 @@ export class BoardMembersService {
       throw new BadRequestException('Rol de concilio inexistente');
     }
 
+    await this.assertMemberNotInBoard(dto.idBoard, dto.idMember);
+
     if (this.isUniqueRole(role.name)) {
       const duplicate = await this.prisma.boardMember.findFirst({
         where: {
@@ -334,6 +336,17 @@ export class BoardMembersService {
     const updates = dto.update ?? [];
     const removeIds = dto.remove ?? [];
 
+    // Detect intra-bulk duplicates (same member added twice in a single request)
+    const addedMemberIds = new Set<number>();
+    for (const item of adds) {
+      if (addedMemberIds.has(item.idMember)) {
+        throw new ConflictException(
+          `El miembro ${item.idMember} aparece más de una vez en la lista de adiciones`,
+        );
+      }
+      addedMemberIds.add(item.idMember);
+    }
+
     if (removeIds.length > 0) {
       const owned = await this.prisma.boardMember.findMany({
         where: { id: { in: removeIds }, idBoard: boardId },
@@ -379,6 +392,7 @@ export class BoardMembersService {
           `Miembro ${item.idMember} inexistente o inactivo`,
         );
       }
+      await this.assertMemberNotInBoard(boardId, item.idMember);
       if (this.isUniqueRole(role.name)) {
         const duplicate = await this.prisma.boardMember.findFirst({
           where: { idBoard: boardId, idBoardRoleType: role.id, active: true },
@@ -566,5 +580,26 @@ export class BoardMembersService {
 
   private isUniqueRole(name: string): boolean {
     return UNIQUE_BOARD_ROLE_NAMES.has(name.trim().toLowerCase());
+  }
+
+  private async assertMemberNotInBoard(
+    idBoard: number,
+    idMember: number,
+    excludeBoardMemberId?: number,
+  ): Promise<void> {
+    const duplicate = await this.prisma.boardMember.findFirst({
+      where: {
+        idBoard,
+        idMember,
+        active: true,
+        ...(excludeBoardMemberId !== undefined
+          ? { id: { not: excludeBoardMemberId } }
+          : {}),
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new ConflictException('Este miembro ya forma parte del concilio');
+    }
   }
 }
