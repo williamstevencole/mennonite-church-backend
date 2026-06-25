@@ -20,6 +20,7 @@ import {
   toPaginated,
 } from '../../common/pagination/paginate.util';
 import { DocumentType } from './doc-type-enum';
+import { todayInChurchTz } from '../../common/utils/date.utils';
 import { MembersBirthdaysPageResponseDto } from './dto/members-birthdays-page.response.dto';
 import { MembersBirthdaysQueryDto } from './dto/member-birthdays-query.dto';
 
@@ -69,7 +70,7 @@ export class MembersService {
     const active = createMemberDto.active ?? true;
     const inactivatedAt = active
       ? null
-      : (createMemberDto.inactivatedAt ?? new Date());
+      : (createMemberDto.inactivatedAt ?? todayInChurchTz());
 
     if (existing) {
       const reactivated = await this.prisma.member.update({
@@ -341,7 +342,7 @@ export class MembersService {
       if (updateMemberDto.active && !existing.active) {
         data.inactivatedAt = null;
       } else if (!updateMemberDto.active && existing.active) {
-        data.inactivatedAt = updateMemberDto.inactivatedAt ?? new Date();
+        data.inactivatedAt = updateMemberDto.inactivatedAt ?? todayInChurchTz();
       } else if (updateMemberDto.inactivatedAt !== undefined) {
         data.inactivatedAt = updateMemberDto.inactivatedAt;
       }
