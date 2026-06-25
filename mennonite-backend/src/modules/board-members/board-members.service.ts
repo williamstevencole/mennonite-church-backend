@@ -373,6 +373,11 @@ export class BoardMembersService {
 
     const ops: Prisma.PrismaPromise<unknown>[] = [];
 
+    // Track unique roles already taken by another row in this bulk request
+    // so two presidents (etc.) submitted together don't slip past the per-row
+    // DB check, which only sees committed state.
+    const seenUniqueRoleIds = new Set<number>();
+
     for (const item of adds) {
       const role = await this.prisma.boardRoleType.findFirst({
         where: { id: item.idBoardRoleType, idBoard: boardId },
@@ -394,6 +399,11 @@ export class BoardMembersService {
       }
       await this.assertMemberNotInBoard(boardId, item.idMember);
       if (this.isUniqueRole(role.name)) {
+        if (seenUniqueRoleIds.has(role.id)) {
+          throw new ConflictException(
+            `El rol ${role.name} aparece más de una vez en la lista de adiciones`,
+          );
+        }
         const duplicate = await this.prisma.boardMember.findFirst({
           where: { idBoard: boardId, idBoardRoleType: role.id, active: true },
           select: { id: true },
@@ -403,6 +413,7 @@ export class BoardMembersService {
             `El rol ${role.name} ya esta asignado en este concilio`,
           );
         }
+        seenUniqueRoleIds.add(role.id);
       }
       const startDate = new Date(item.startDate);
       const endDate = item.endDate ? new Date(item.endDate) : null;
