@@ -4,12 +4,16 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AuthSessionDto, AuthTokensDto } from './dto/auth-session.dto';
+import { CheckEmailRequestDto } from './dto/check-email-request.dto';
+import { CheckEmailResponseDto } from './dto/check-email-response.dto';
 import { LoginRequestDto } from './dto/login-request.dto';
+import { ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { MeMemberDto, MeResponseDto } from './dto/me-response.dto';
 import { RefreshRequestDto } from './dto/refresh-request.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
@@ -128,6 +132,38 @@ export class AuthService {
       refreshToken: signInData.session.refresh_token,
       expiresIn: signInData.session.expires_in,
     };
+  }
+
+  async checkEmail(dto: CheckEmailRequestDto): Promise<CheckEmailResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      select: { active: true },
+    });
+
+    return { exists: !!user?.active };
+  }
+
+  async resetPassword(dto: ResetPasswordRequestDto): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      select: { active: true, supabaseUid: true },
+    });
+
+    if (!user?.active || !user.supabaseUid) {
+      throw new NotFoundException('No existe una cuenta activa con ese correo');
+    }
+
+    const { error } = await this.supabase
+      .getAdminClient()
+      .auth.admin.updateUserById(user.supabaseUid, {
+        password: dto.password,
+      });
+
+    if (error) {
+      throw new BadRequestException(
+        `No se pudo actualizar la contraseña: ${error.message}`,
+      );
+    }
   }
 
   async refresh(dto: RefreshRequestDto): Promise<AuthTokensDto> {

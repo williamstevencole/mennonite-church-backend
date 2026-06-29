@@ -13,6 +13,8 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -23,10 +25,13 @@ import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { AuthSessionDto, AuthTokensDto } from './dto/auth-session.dto';
+import { CheckEmailRequestDto } from './dto/check-email-request.dto';
+import { CheckEmailResponseDto } from './dto/check-email-response.dto';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { RefreshRequestDto } from './dto/refresh-request.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
+import { ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @ApiTags('Auth')
@@ -61,6 +66,32 @@ export class AuthController {
   @ApiForbiddenResponse({ description: 'Usuario desactivado' })
   login(@Body() payload: LoginRequestDto): Promise<AuthSessionDto> {
     return this.authService.login(payload);
+  }
+
+  @Public()
+  @Post('forgot-password/check-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verificar si existe una cuenta activa con el correo indicado',
+  })
+  @ApiOkResponse({ type: CheckEmailResponseDto })
+  checkEmail(
+    @Body() payload: CheckEmailRequestDto,
+  ): Promise<CheckEmailResponseDto> {
+    return this.authService.checkEmail(payload);
+  }
+
+  @Public()
+  @Post('forgot-password/reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Restablecer la contraseña de una cuenta activa' })
+  @ApiNoContentResponse({ description: 'Contraseña actualizada' })
+  @ApiNotFoundResponse({
+    description: 'No existe una cuenta activa con ese correo',
+  })
+  @ApiBadRequestResponse({ description: 'No se pudo actualizar la contraseña' })
+  resetPassword(@Body() payload: ResetPasswordRequestDto): Promise<void> {
+    return this.authService.resetPassword(payload);
   }
 
   @Public()
