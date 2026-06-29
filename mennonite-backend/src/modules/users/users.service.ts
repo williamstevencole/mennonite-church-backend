@@ -21,6 +21,7 @@ import { UserDetailResponseDto } from './dto/user-detail.response.dto';
 import { UserListItemResponseDto } from './dto/user-list-item.response.dto';
 import { UsersPageResponseDto } from './dto/users-page.response.dto';
 import { UserRoleResponseDto } from '../user-roles/dto/user-role.response.dto';
+import { isSystemProtectedRole } from '../../auth/system-roles.constant';
 
 type UserWithRelations = Prisma.UserGetPayload<{
   include: {
@@ -471,6 +472,7 @@ export class UsersService {
       name: role.name,
       description: role.description ?? null,
       active: role.active,
+      isSystem: isSystemProtectedRole(role.name),
       permissions: role.rolePermissions.map((rp) => rp.permission.code),
     };
   }

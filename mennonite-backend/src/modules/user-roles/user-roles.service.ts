@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isSystemProtectedRole } from '../../auth/system-roles.constant';
 import {
   buildPagination,
   toPaginated,
@@ -17,6 +19,12 @@ import { UserRolesPageResponseDto } from './dto/user-roles-page.response.dto';
 import { SetUserRolePermissionsDto } from './dto/set-user-role-permissions.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
+import {
+  DEFAULT_ROLE_DEFINITIONS,
+  DEFAULT_ROLE_PERMISSIONS,
+} from './role-defaults.constant';
+
+type PrismaTx = Prisma.TransactionClient | PrismaService;
 
 type UserRoleWithPermissions = {
   id: number;
@@ -111,8 +119,13 @@ export class UserRolesService {
     id: number,
     dto: UpdateUserRoleDto,
   ): Promise<IdNameResponseDto> {
-    await this.assertExists(idChurch, id);
-    if (dto.name) {
+    const current = await this.assertExists(idChurch, id);
+    if (dto.name && dto.name !== current.name) {
+      if (isSystemProtectedRole(current.name)) {
+        throw new ForbiddenException(
+          `No se puede renombrar el rol del sistema "${current.name}"`,
+        );
+      }
       await this.assertUniqueName(idChurch, dto.name, id);
     }
     if (dto.permissionIds) {
@@ -173,7 +186,12 @@ export class UserRolesService {
   }
 
   async remove(idChurch: number, id: number): Promise<void> {
-    await this.assertExists(idChurch, id);
+    const current = await this.assertExists(idChurch, id);
+    if (isSystemProtectedRole(current.name)) {
+      throw new ForbiddenException(
+        `No se puede eliminar el rol del sistema "${current.name}"`,
+      );
+    }
     const usersWithRole = await this.prisma.user.count({
       where: { idUserRole: id, active: true },
     });
@@ -198,14 +216,18 @@ export class UserRolesService {
     } as const;
   }
 
-  private async assertExists(idChurch: number, id: number): Promise<void> {
+  private async assertExists(
+    idChurch: number,
+    id: number,
+  ): Promise<{ id: number; name: string }> {
     const found = await this.prisma.userRole.findFirst({
       where: { id, idChurch },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!found) {
       throw new NotFoundException(`Rol ${id} no encontrado`);
     }
+    return found;
   }
 
   private async assertUniqueName(
@@ -241,12 +263,69 @@ export class UserRolesService {
     }
   }
 
+  async provisionDefaultsForChurch(
+    idChurch: number,
+    client?: PrismaTx,
+  ): Promise<void> {
+    const tx = client ?? this.prisma;
+    const allCodes = Array.from(
+      new Set(Object.values(DEFAULT_ROLE_PERMISSIONS).flat()),
+    );
+    const permissions = await tx.permission.findMany({
+      where: { code: { in: allCodes }, active: true },
+      select: { id: true, code: true },
+    });
+    const permissionByCode = new Map(permissions.map((p) => [p.code, p.id]));
+
+    const missing = allCodes.filter((c) => !permissionByCode.has(c));
+    if (missing.length) {
+      throw new Error(
+        `Catálogo de permisos incompleto al provisionar iglesia ${idChurch}. ` +
+          `Falta ejecutar el seed inicial. Permisos faltantes: ${missing.join(', ')}`,
+      );
+    }
+
+    for (const def of DEFAULT_ROLE_DEFINITIONS) {
+      const existing = await tx.userRole.findFirst({
+        where: { idChurch, name: def.name },
+        select: { id: true },
+      });
+      const role = existing
+        ? await tx.userRole.update({
+            where: { id: existing.id },
+            data: { description: def.description, active: true },
+            select: { id: true },
+          })
+        : await tx.userRole.create({
+            data: {
+              idChurch,
+              name: def.name,
+              description: def.description,
+              active: true,
+            },
+            select: { id: true },
+          });
+
+      const codes = DEFAULT_ROLE_PERMISSIONS[def.name] ?? [];
+      if (codes.length === 0) continue;
+
+      await tx.rolePermission.createMany({
+        data: codes.map((code) => ({
+          idUserRole: role.id,
+          idPermission: permissionByCode.get(code)!,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
   private toResponse(role: UserRoleWithPermissions): UserRoleResponseDto {
     return {
       id: role.id,
       name: role.name,
       description: role.description,
       active: role.active,
+      isSystem: isSystemProtectedRole(role.name),
       permissions: role.rolePermissions.map((rp) => rp.permission.code),
     };
   }
