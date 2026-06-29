@@ -117,124 +117,147 @@ export class UsersService {
       );
     }
 
-    const existingByEmail = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      select: {
-        id: true,
-        active: true,
-        idMember: true,
-        idChurch: true,
-        supabaseUid: true,
-      },
-    });
+    const [existingByEmail, existingByMember] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { email: dto.email },
+        select: {
+          id: true,
+          active: true,
+          idMember: true,
+          idChurch: true,
+          supabaseUid: true,
+        },
+      }),
+      this.prisma.user.findUnique({
+        where: { idMember: dto.idMember },
+        select: {
+          id: true,
+          active: true,
+          email: true,
+          idChurch: true,
+          supabaseUid: true,
+        },
+      }),
+    ]);
 
     if (existingByEmail?.active) {
       throw new ConflictException(
         'Ya existe un usuario registrado con ese email',
       );
     }
-
-    const existingByMember = await this.prisma.user.findUnique({
-      where: { idMember: dto.idMember },
-      select: {
-        id: true,
-        active: true,
-        email: true,
-        idChurch: true,
-        supabaseUid: true,
-      },
-    });
-
     if (existingByMember?.active) {
       throw new ConflictException('El miembro ya tiene un usuario asociado');
     }
 
-    const reactivationTarget =
-      existingByEmail &&
-      existingByEmail.idMember === dto.idMember &&
-      existingByEmail.idChurch === idChurch
-        ? existingByEmail
-        : existingByMember &&
-            existingByMember.email === dto.email &&
-            existingByMember.idChurch === idChurch
-          ? existingByMember
-          : null;
+    let target: {
+      id: number;
+      supabaseUid: string | null;
+      idChurch: number;
+    } | null = null;
+    if (existingByEmail && existingByMember) {
+      if (existingByEmail.id === existingByMember.id) {
+        target = existingByEmail;
+      } else {
+        throw new ConflictException(
+          'Hay registros inactivos distintos para ese email y ese miembro. Requiere limpieza manual.',
+        );
+      }
+    } else if (existingByEmail) {
+      target = existingByEmail;
+    } else if (existingByMember) {
+      target = existingByMember;
+    }
 
-    if (!reactivationTarget && existingByEmail) {
+    if (target && target.idChurch !== idChurch) {
       throw new ConflictException(
-        'Ya existe un usuario registrado con ese email',
+        'Existe un registro inactivo con ese email o miembro en otra iglesia',
       );
     }
-    if (!reactivationTarget && existingByMember) {
-      throw new ConflictException('El miembro ya tiene un usuario asociado');
+
+    let authUid: string | null = target?.supabaseUid ?? null;
+    let createdNewAuthUser = false;
+
+    if (authUid) {
+      const { data, error } = await this.supabase
+        .getAdminClient()
+        .auth.admin.getUserById(authUid);
+      if (error || !data?.user) {
+        authUid = null;
+      }
+    }
+
+    if (!authUid) {
+      const orphan = await this.findSupabaseAuthUserByEmail(dto.email);
+      if (orphan) {
+        const linked = await this.prisma.user.findUnique({
+          where: { supabaseUid: orphan.id },
+          select: { id: true, active: true },
+        });
+        if (linked && linked.active && linked.id !== target?.id) {
+          throw new ConflictException(
+            'Ya existe un usuario registrado con ese email',
+          );
+        }
+        authUid = orphan.id;
+      }
+    }
+
+    if (authUid) {
+      const { error } = await this.supabase
+        .getAdminClient()
+        .auth.admin.updateUserById(authUid, {
+          password: dto.password,
+          email: dto.email,
+        });
+      if (error) {
+        throw new BadRequestException(
+          `Error actualizando usuario en Supabase Auth: ${error.message}`,
+        );
+      }
+    } else {
+      const { data, error } = await this.supabase
+        .getAdminClient()
+        .auth.admin.createUser({
+          email: dto.email,
+          password: dto.password,
+          email_confirm: true,
+        });
+      if (error) {
+        throw new BadRequestException(
+          `Error creando usuario en Supabase Auth: ${error.message}`,
+        );
+      }
+      authUid = data.user.id;
+      createdNewAuthUser = true;
     }
 
     const fullName = this.buildMemberName(dto.firstName, dto.lastName);
 
-    if (reactivationTarget) {
-      if (reactivationTarget.supabaseUid) {
-        const { error } = await this.supabase
-          .getAdminClient()
-          .auth.admin.updateUserById(reactivationTarget.supabaseUid, {
-            password: dto.password,
-            email: dto.email,
-          });
-        if (error) {
-          throw new BadRequestException(
-            `Error reactivando usuario en Supabase Auth: ${error.message}`,
-          );
-        }
-      }
-
-      const reactivated = await this.prisma.$transaction(async (tx) => {
-        await tx.member.update({
-          where: { id: dto.idMember },
-          data: { name: fullName },
-        });
-        return tx.user.update({
-          where: { id: reactivationTarget.id },
-          data: {
-            email: dto.email,
-            active: true,
-            idUserRole: role.id,
-          },
-          select: { id: true },
-        });
-      });
-
-      return { id: reactivated.id };
-    }
-
-    const { data: authData, error: authError } = await this.supabase
-      .getAdminClient()
-      .auth.admin.createUser({
-        email: dto.email,
-        password: dto.password,
-        email_confirm: true,
-      });
-
-    if (authError) {
-      if (authError.message?.includes('already been registered')) {
-        throw new ConflictException(
-          'Ya existe un usuario registrado con ese email',
-        );
-      }
-      throw new BadRequestException(
-        `Error creando usuario en Supabase Auth: ${authError.message}`,
-      );
-    }
-
     try {
-      const created = await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx) => {
         await tx.member.update({
           where: { id: dto.idMember },
           data: { name: fullName },
         });
+
+        if (target) {
+          return tx.user.update({
+            where: { id: target.id },
+            data: {
+              email: dto.email,
+              active: true,
+              idUserRole: role.id,
+              idMember: dto.idMember,
+              supabaseUid: authUid,
+            },
+            select: { id: true },
+          });
+        }
 
         return tx.user.create({
           data: {
             email: dto.email,
-            supabaseUid: authData.user.id,
+            supabaseUid: authUid,
             active: true,
             idChurch,
             idUserRole: role.id,
@@ -244,11 +267,11 @@ export class UsersService {
         });
       });
 
-      return { id: created.id };
+      return { id: result.id };
     } catch (error: unknown) {
-      await this.supabase
-        .getAdminClient()
-        .auth.admin.deleteUser(authData.user.id);
+      if (createdNewAuthUser && authUid) {
+        await this.supabase.getAdminClient().auth.admin.deleteUser(authUid);
+      }
       if (isDuplicateEmailError(error)) {
         throw new ConflictException(
           'Ya existe un usuario registrado con ese email',
@@ -256,6 +279,17 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  private async findSupabaseAuthUserByEmail(
+    email: string,
+  ): Promise<{ id: string; email?: string } | null> {
+    const { data, error } = await this.supabase
+      .getAdminClient()
+      .auth.admin.listUsers({ perPage: 1000 });
+    if (error || !data?.users) return null;
+    const lower = email.toLowerCase();
+    return data.users.find((u) => u.email?.toLowerCase() === lower) ?? null;
   }
 
   async update(id: number, dto: UpdateUserDto): Promise<IdResponseDto> {
@@ -405,7 +439,7 @@ export class UsersService {
   async remove(id: number): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, active: true },
+      select: { id: true, active: true, supabaseUid: true },
     });
 
     if (!user) {
@@ -416,9 +450,20 @@ export class UsersService {
       return;
     }
 
+    if (user.supabaseUid) {
+      const { error } = await this.supabase
+        .getAdminClient()
+        .auth.admin.deleteUser(user.supabaseUid);
+      if (error && !error.message?.toLowerCase().includes('not found')) {
+        throw new BadRequestException(
+          `Error eliminando usuario en Supabase Auth: ${error.message}`,
+        );
+      }
+    }
+
     await this.prisma.user.update({
       where: { id },
-      data: { active: false },
+      data: { active: false, supabaseUid: null },
     });
   }
 
