@@ -17,6 +17,7 @@ import { ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { MeMemberDto, MeResponseDto } from './dto/me-response.dto';
 import { RefreshRequestDto } from './dto/refresh-request.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
+import { Area, systemRoleArea } from './system-roles.constant';
 
 @Injectable()
 export class AuthService {
@@ -226,7 +227,7 @@ export class AuthService {
 
     const base = this.toMeResponse(user);
     const [area, member] = await Promise.all([
-      this.computeArea(user.idMember, user.idChurch),
+      this.computeArea(user.userRole.name, user.idMember, user.idChurch),
       this.buildMemberInfo(user.idMember, user.idChurch),
     ]);
 
@@ -294,9 +295,13 @@ export class AuthService {
   }
 
   private async computeArea(
+    roleName: string,
     memberId: number | undefined | null,
     churchId: number,
-  ): Promise<'admin' | 'lider' | 'miembro'> {
+  ): Promise<Area> {
+    const systemArea = systemRoleArea(roleName);
+    if (systemArea) return systemArea;
+
     if (!memberId) return 'miembro';
 
     const isBoard = await this.prisma.boardMember.findFirst({

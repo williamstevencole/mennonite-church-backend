@@ -61,6 +61,7 @@ describe('AuthService', () => {
 
   type AuthServicePrivates = {
     computeArea: (
+      roleName: string,
       memberId: number | null,
       churchId: number,
     ) => Promise<'admin' | 'lider' | 'miembro'>;
@@ -69,17 +70,44 @@ describe('AuthService', () => {
     s as unknown as AuthServicePrivates;
 
   describe('computeArea', () => {
-    it('returns "miembro" when memberId is null, without Prisma calls', async () => {
-      const result = await asPrivates(service).computeArea(null, 1);
+    it('returns "admin" when role is "Administrador", regardless of membership', async () => {
+      const result = await asPrivates(service).computeArea(
+        'Administrador',
+        null,
+        1,
+      );
+      expect(result).toBe('admin');
+      expect(mockPrismaService.boardMember.findFirst).not.toHaveBeenCalled();
+      expect(mockPrismaService.ministryMember.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('returns "lider" when role is "Líder de Ministerio", regardless of membership', async () => {
+      const result = await asPrivates(service).computeArea(
+        'Líder de Ministerio',
+        null,
+        1,
+      );
+      expect(result).toBe('lider');
+      expect(mockPrismaService.boardMember.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('returns "miembro" when role is "Miembro", regardless of membership', async () => {
+      const result = await asPrivates(service).computeArea('Miembro', null, 1);
+      expect(result).toBe('miembro');
+      expect(mockPrismaService.boardMember.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('returns "miembro" when memberId is null on a non-system role', async () => {
+      const result = await asPrivates(service).computeArea('Pastor', null, 1);
       expect(result).toBe('miembro');
       expect(mockPrismaService.boardMember.findFirst).not.toHaveBeenCalled();
       expect(mockPrismaService.ministryMember.findFirst).not.toHaveBeenCalled();
     });
 
-    it('returns "admin" when a board membership is found', async () => {
+    it('returns "admin" when a non-system role is board member', async () => {
       mockPrismaService.boardMember.findFirst.mockResolvedValueOnce({ id: 10 });
 
-      const result = await asPrivates(service).computeArea(5, 1);
+      const result = await asPrivates(service).computeArea('Pastor', 5, 1);
       expect(result).toBe('admin');
       expect(mockPrismaService.boardMember.findFirst).toHaveBeenCalledWith({
         where: {
@@ -92,22 +120,22 @@ describe('AuthService', () => {
       expect(mockPrismaService.ministryMember.findFirst).not.toHaveBeenCalled();
     });
 
-    it('returns "lider" when board is null but a leadership role is found', async () => {
+    it('returns "lider" when non-system role has leadership but no board', async () => {
       mockPrismaService.boardMember.findFirst.mockResolvedValueOnce(null);
       mockPrismaService.ministryMember.findFirst.mockResolvedValueOnce({
         id: 20,
       });
 
-      const result = await asPrivates(service).computeArea(5, 1);
+      const result = await asPrivates(service).computeArea('Tesorero', 5, 1);
       expect(result).toBe('lider');
       expect(mockPrismaService.ministryMember.findFirst).toHaveBeenCalled();
     });
 
-    it('returns "miembro" when board is null and no leadership role is found', async () => {
+    it('returns "miembro" when non-system role has neither board nor leadership', async () => {
       mockPrismaService.boardMember.findFirst.mockResolvedValueOnce(null);
       mockPrismaService.ministryMember.findFirst.mockResolvedValueOnce(null);
 
-      const result = await asPrivates(service).computeArea(5, 1);
+      const result = await asPrivates(service).computeArea('Tesorero', 5, 1);
       expect(result).toBe('miembro');
     });
   });
