@@ -1,11 +1,10 @@
-import { PrismaClient } from '@prisma/client';
-import { createClient } from '@supabase/supabase-js';
 import {
   seedAdminUser,
   seedMemberUsers,
   ADMIN_SEED_CREDENTIALS,
   MEMBER_USER_SEED_CREDENTIALS,
 } from './seed/admin-user.seed';
+import { createPrisma, createSupabase } from './seed/_bootstrap';
 import { seedBoardMembers } from './seed/board-members.seed';
 import { seedBoards } from './seed/boards.seed';
 import { seedBudgetDistributions } from './seed/budget-distributions.seed';
@@ -28,26 +27,10 @@ import { seedPeriodClosures } from './seed/period-closures.seed';
 import { seedRolesAndPermissions } from './seed/roles-permissions.seed';
 import { seedTransactionCategories } from './seed/transaction-categories.seed';
 
-const prisma = new PrismaClient();
-
-function createSupabaseAdmin() {
-  const url = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error(
-      'SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY son requeridos para el seed.\n' +
-        'Agrega SUPABASE_SERVICE_ROLE_KEY en tu .env (Supabase Dashboard > Settings > API > service_role).',
-    );
-  }
-
-  return createClient(url, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
+const prisma = createPrisma();
 
 async function main(): Promise<void> {
-  const supabase = createSupabaseAdmin();
+  const supabase = createSupabase();
 
   // 1. Geografia
   const departmentsByName = await seedDepartments(prisma);
