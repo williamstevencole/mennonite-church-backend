@@ -16,10 +16,14 @@ import { CreateChurchDto } from './dto/create-church.dto';
 import { ListChurchesQueryDto } from './dto/list-churches-query.dto';
 import { UpdateChurchDto } from './dto/update-church.dto';
 import { IdNameResponseDto } from '../../common/dto/id-name-response.dto';
+import { UserRolesService } from '../user-roles/user-roles.service';
 
 @Injectable()
 export class ChurchesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly userRoles: UserRolesService,
+  ) {}
 
   async create(dto: CreateChurchDto): Promise<IdNameResponseDto> {
     if (dto.idCity !== undefined) {
@@ -34,40 +38,44 @@ export class ChurchesService {
         `Ya existe una iglesia con el nombre "${dto.name}"`,
       );
     }
-    if (existing) {
-      const reactivated = await this.prisma.church.update({
-        where: { id: existing.id },
-        data: {
-          name: dto.name,
-          idCity: dto.idCity,
-          rtn: dto.rtn,
-          contactPhone: dto.contactPhone,
-          founderName: dto.founderName,
-          mission: dto.mission,
-          vision: dto.vision,
-          values: dto.values,
-          foundationDate: dto.foundationDate,
-          active: true,
-        },
-        select: { id: true, name: true },
-      });
-      return { id: reactivated.id, name: reactivated.name };
-    }
-    const created = await this.prisma.church.create({
-      data: {
-        name: dto.name,
-        idCity: dto.idCity,
-        rtn: dto.rtn,
-        contactPhone: dto.contactPhone,
-        founderName: dto.founderName,
-        mission: dto.mission,
-        vision: dto.vision,
-        values: dto.values,
-        foundationDate: dto.foundationDate,
-      },
-      select: { id: true, name: true },
+
+    return this.prisma.$transaction(async (tx) => {
+      const church = existing
+        ? await tx.church.update({
+            where: { id: existing.id },
+            data: {
+              name: dto.name,
+              idCity: dto.idCity,
+              rtn: dto.rtn,
+              contactPhone: dto.contactPhone,
+              founderName: dto.founderName,
+              mission: dto.mission,
+              vision: dto.vision,
+              values: dto.values,
+              foundationDate: dto.foundationDate,
+              active: true,
+            },
+            select: { id: true, name: true },
+          })
+        : await tx.church.create({
+            data: {
+              name: dto.name,
+              idCity: dto.idCity,
+              rtn: dto.rtn,
+              contactPhone: dto.contactPhone,
+              founderName: dto.founderName,
+              mission: dto.mission,
+              vision: dto.vision,
+              values: dto.values,
+              foundationDate: dto.foundationDate,
+            },
+            select: { id: true, name: true },
+          });
+
+      await this.userRoles.provisionDefaultsForChurch(church.id, tx);
+
+      return { id: church.id, name: church.name };
     });
-    return { id: created.id, name: created.name };
   }
 
   async findAll(query: ListChurchesQueryDto): Promise<ChurchesPageResponseDto> {
