@@ -1,22 +1,10 @@
 import { Permission, PrismaClient, UserRole } from '@prisma/client';
 
 import { loadChurch, runSeed } from './_bootstrap';
-
-const BASIC_ROLES = [
-  { name: 'Administrador', description: 'Acceso total al sistema' },
-  { name: 'Pastor', description: 'Gestion pastoral y supervision' },
-  { name: 'Tesorero', description: 'Gestion financiera y reportes' },
-  {
-    name: 'Líder de Ministerio',
-    description:
-      'Líder o co-líder de uno o más ministerios. Acceso scoped a sus ministerios.',
-  },
-  {
-    name: 'Miembro',
-    description:
-      'Miembro regular con cuenta. Acceso de solo lectura a su contexto.',
-  },
-] as const;
+import {
+  DEFAULT_ROLE_DEFINITIONS,
+  DEFAULT_ROLE_PERMISSIONS,
+} from '../../src/modules/user-roles/role-defaults.constant';
 
 const BASE_PERMISSIONS = [
   // Usuarios del sistema
@@ -303,101 +291,6 @@ const BASE_PERMISSIONS = [
   },
 ] as const;
 
-const ROLE_PERMISSIONS: Record<string, string[]> = {
-  Administrador: BASE_PERMISSIONS.map((permission) => permission.code),
-  Pastor: [
-    'members.read',
-    'members.create',
-    'members.update',
-    'ministries.read',
-    'ministries.create',
-    'ministries.update',
-    'boards.read',
-    'boards.create',
-    'boards.update',
-    'assignments.read',
-    'assignments.create',
-    'assignments.update',
-    'assignments.delete',
-    'events.read',
-    'events.create',
-    'events.update',
-    'events.delete',
-    'events.attendance.read',
-    'events.attendance.create',
-    'events.attendance.update',
-    'events.attendance.delete',
-    'events.responsibles.read',
-    'events.responsibles.create',
-    'events.responsibles.delete',
-    'inventory.read',
-    'finance.read',
-    'budgets.read',
-    'reports.read',
-    'catalog.event-types.read',
-    'catalog.transaction-categories.read',
-    'catalog.ministry-role-types.read',
-    'catalog.board-role-types.read',
-    'churches.read',
-    'audit.read',
-    'financial-reports.approve',
-    'financial-reports.review',
-  ],
-  Tesorero: [
-    'members.read',
-    'events.read',
-    'inventory.read',
-    'finance.read',
-    'finance.create',
-    'finance.update',
-    'finance.delete',
-    'budgets.read',
-    'budgets.create',
-    'budgets.update',
-    'budgets.delete',
-    'reports.read',
-    'reports.create',
-    'period-closures.read',
-    'period-closures.create',
-    'period-closures.update',
-    'period-closures.delete',
-    'financial-reports.read',
-    'financial-reports.create',
-    'financial-reports.update',
-    'financial-reports.delete',
-    'financial-reports.approve',
-    'financial-reports.review',
-    'catalog.transaction-categories.read',
-    'catalog.transaction-categories.manage',
-  ],
-  'Líder de Ministerio': [
-    'financial-reports.submit',
-    'financial-reports.read',
-    'assignments.read',
-    'assignments.create',
-    'assignments.update',
-    'members.read',
-    'events.read',
-    'ministries.read',
-    'finance.read',
-    'catalog.event-types.read',
-    'catalog.transaction-categories.read',
-    'catalog.ministry-role-types.read',
-    'catalog.board-role-types.read',
-    'budgets.read',
-    'events.attendance.read',
-    'boards.read',
-  ],
-  Miembro: [
-    'events.read',
-    'ministries.read',
-    'members.read',
-    'assignments.read',
-    'boards.read',
-    'catalog.board-role-types.read',
-  ],
-};
-
 export async function seedRolesAndPermissions(
   prisma: PrismaClient,
   idChurch: number,
@@ -406,7 +299,7 @@ export async function seedRolesAndPermissions(
   permissionsByCode: Map<string, Permission>;
 }> {
   const roles = await Promise.all(
-    BASIC_ROLES.map(async ({ name, description }) => {
+    DEFAULT_ROLE_DEFINITIONS.map(async ({ name, description }) => {
       const existing = await prisma.userRole.findFirst({
         where: { idChurch, name },
         select: { id: true },
@@ -450,7 +343,7 @@ export async function seedRolesAndPermissions(
   );
 
   await Promise.all(
-    Object.entries(ROLE_PERMISSIONS).map(
+    Object.entries(DEFAULT_ROLE_PERMISSIONS).map(
       async ([roleName, permissionCodes]) => {
         const role = rolesByName.get(roleName);
         if (!role) {
