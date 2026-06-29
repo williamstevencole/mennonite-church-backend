@@ -1,5 +1,7 @@
 import { Board, PrismaClient } from '@prisma/client';
 
+import { loadChurch, runSeed } from './_bootstrap';
+
 const ACTIVE_BOARD = {
   name: 'Concilio Pastoral 2026-2027',
   description:
@@ -37,5 +39,13 @@ export async function seedBoards(
       endDate: ACTIVE_BOARD.endDate,
       active: true,
     },
+  });
+}
+
+if (require.main === module) {
+  runSeed('concilios', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const board = await seedBoards(prisma, church.id);
+    console.log(`Concilio: ${board.name} (id=${board.id})`);
   });
 }

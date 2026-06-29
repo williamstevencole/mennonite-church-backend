@@ -1,5 +1,7 @@
 import { Ministry, PrismaClient } from '@prisma/client';
 
+import { loadChurch, loadMinistriesByName, runSeed } from './_bootstrap';
+
 // PRD §6.3 — cargos dentro de un ministerio
 // 'Miembro' is the base role; 'Servidor' and 'Colaborador' were renamed to 'Miembro'
 // so that area computation correctly yields 'miembro' for non-leaders.
@@ -37,4 +39,13 @@ export async function seedMinistryRoleTypes(
       });
     }
   }
+}
+
+if (require.main === module) {
+  runSeed('tipos de rol de ministerio', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const ministries = await loadMinistriesByName(prisma, church.id);
+    await seedMinistryRoleTypes(prisma, ministries);
+    console.log(`Ministerios procesados: ${ministries.size}`);
+  });
 }

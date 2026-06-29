@@ -1,5 +1,12 @@
 import { Budget, Ministry, PrismaClient } from '@prisma/client';
 
+import {
+  loadChurch,
+  loadCurrentBudget,
+  loadMinistriesByName,
+  runSeed,
+} from './_bootstrap';
+
 // Reparto demo en Lempiras de la categoría "Ministerios" expense (L.300,000).
 // La suma debe ser ≤ MinisteriosBudgetCategory.annualAmount.
 const DEMO_DISTRIBUTIONS: Record<string, number> = {
@@ -57,4 +64,14 @@ export async function seedBudgetDistributions(
   }
 
   return count;
+}
+
+if (require.main === module) {
+  runSeed('distribuciones de presupuesto', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const budget = await loadCurrentBudget(prisma, church.id);
+    const ministries = await loadMinistriesByName(prisma, church.id);
+    const count = await seedBudgetDistributions(prisma, budget, ministries);
+    console.log(`Distribuciones seedeadas: ${count}`);
+  });
 }

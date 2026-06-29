@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
+import { loadChurch, runSeed } from './_bootstrap';
+
 // PRD §6.7 — tipos de eventos por categoria (calendar / trip / fundraising)
 const EVENT_TYPES = [
   // calendar_event
@@ -38,4 +40,12 @@ export async function seedEventTypes(
           });
     }),
   );
+}
+
+if (require.main === module) {
+  runSeed('tipos de evento', async (prisma) => {
+    const church = await loadChurch(prisma);
+    await seedEventTypes(prisma, church.id);
+    console.log(`Para "${church.name}".`);
+  });
 }

@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
+import { loadAdminUser, loadChurch, runSeed } from './_bootstrap';
+
 const CURRENT_YEAR = new Date().getFullYear();
 const SEED_YEARS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR];
 
@@ -349,4 +351,13 @@ export async function seedFinancialTransactions(
   }
 
   return count;
+}
+
+if (require.main === module) {
+  runSeed('transacciones financieras', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const admin = await loadAdminUser(prisma, church.id);
+    const count = await seedFinancialTransactions(prisma, church.id, admin.id);
+    console.log(`Transacciones seedeadas: ${count}`);
+  });
 }

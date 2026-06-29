@@ -4,6 +4,14 @@ import type {
   User as SupabaseUser,
 } from '@supabase/supabase-js';
 
+import {
+  createSupabase,
+  loadChurch,
+  loadMembersByName,
+  loadRolesByName,
+  runSeed,
+} from './_bootstrap';
+
 export const ADMIN_SEED_CREDENTIALS = {
   email: 'admin@mennonite.local',
   password: 'Admin12345!',
@@ -235,3 +243,44 @@ export const MEMBER_USER_SEED_CREDENTIALS = DEMO_USERS.map((u) => ({
   email: u.email,
   password: u.password,
 }));
+
+if (require.main === module) {
+  runSeed('usuarios', async (prisma) => {
+    const supabase = createSupabase();
+    const church = await loadChurch(prisma);
+    const roles = await loadRolesByName(prisma, church.id);
+    const adminRole = roles.get('Administrador');
+    if (!adminRole) {
+      throw new Error(
+        'No se encontró el rol "Administrador".\nCorre primero: npm run seed:roles-permissions',
+      );
+    }
+    console.log('  Creando admin en Supabase Auth...');
+    const admin = await seedAdminUser(
+      prisma,
+      adminRole.id,
+      church.id,
+      supabase,
+    );
+    const members = await loadMembersByName(prisma, church.id);
+    console.log(
+      `  Creando ${MEMBER_USER_SEED_CREDENTIALS.length} usuarios miembro en Supabase Auth...`,
+    );
+    const memberUsers = await seedMemberUsers(
+      prisma,
+      church.id,
+      members,
+      roles,
+      supabase,
+    );
+    console.log(`Admin: ${admin.email}`);
+    console.log(`Usuarios miembro creados: ${memberUsers.length}`);
+    console.log('\nCredenciales:');
+    console.log(
+      `  Admin: ${ADMIN_SEED_CREDENTIALS.email} / ${ADMIN_SEED_CREDENTIALS.password}`,
+    );
+    for (const cred of MEMBER_USER_SEED_CREDENTIALS) {
+      console.log(`  - ${cred.email} / ${cred.password}`);
+    }
+  });
+}

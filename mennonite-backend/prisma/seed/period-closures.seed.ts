@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
+import { loadAdminUser, loadChurch, runSeed } from './_bootstrap';
+
 const CURRENT_YEAR = new Date().getFullYear();
 
 type ClosureSeed = {
@@ -67,4 +69,13 @@ export async function seedPeriodClosures(
     count++;
   }
   return 1 * count;
+}
+
+if (require.main === module) {
+  runSeed('cierres de periodo', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const admin = await loadAdminUser(prisma, church.id);
+    const count = await seedPeriodClosures(prisma, church.id, admin.id);
+    console.log(`Cierres seedeados: ${count}`);
+  });
 }

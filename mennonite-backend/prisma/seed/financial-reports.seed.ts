@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
+import { loadAdminUser, loadChurch, runSeed } from './_bootstrap';
+
 const CURRENT_YEAR = new Date().getFullYear();
 
 type ReportStatus = 'Draft' | 'Presented' | 'Approved';
@@ -190,4 +192,13 @@ export async function seedFinancialReports(
   }
 
   return count;
+}
+
+if (require.main === module) {
+  runSeed('reportes financieros', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const admin = await loadAdminUser(prisma, church.id);
+    const count = await seedFinancialReports(prisma, church.id, admin.id);
+    console.log(`Reportes seedeados: ${count}`);
+  });
 }

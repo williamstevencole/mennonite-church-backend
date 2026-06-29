@@ -1,5 +1,7 @@
 import { Church, City, PrismaClient } from '@prisma/client';
 
+import { loadCitiesByName, runSeed } from './_bootstrap';
+
 export const CHURCH_SEED = {
   name: 'Iglesia Menonita Central San Pedro Sula',
   contactPhone: null,
@@ -47,5 +49,13 @@ export async function seedChurch(
       values: CHURCH_SEED.values,
       active: true,
     },
+  });
+}
+
+if (require.main === module) {
+  runSeed('iglesia', async (prisma) => {
+    const citiesByName = await loadCitiesByName(prisma);
+    const church = await seedChurch(prisma, citiesByName);
+    console.log(`Iglesia: ${church.name} (id=${church.id})`);
   });
 }

@@ -1,5 +1,7 @@
 import { Ministry, PrismaClient } from '@prisma/client';
 
+import { loadChurch, runSeed } from './_bootstrap';
+
 // PRD §6.3 + §6.6.4 ejemplo de distribucion — 7 ministerios canonicos
 const DEMO_MINISTRIES = [
   { name: 'Alabanza y Adoración' },
@@ -38,4 +40,12 @@ export async function seedMinistries(
   }
 
   return ministriesByName;
+}
+
+if (require.main === module) {
+  runSeed('ministerios', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const ministries = await seedMinistries(prisma, church.id);
+    console.log(`Ministerios seedeados: ${ministries.size}`);
+  });
 }

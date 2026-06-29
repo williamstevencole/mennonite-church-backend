@@ -1,5 +1,12 @@
 import { Member, Ministry, PrismaClient } from '@prisma/client';
 
+import {
+  loadChurch,
+  loadMembersByName,
+  loadMinistriesByName,
+  runSeed,
+} from './_bootstrap';
+
 const DEMO_MINISTRY_MEMBERS = [
   {
     ministryName: 'Alabanza y Adoración',
@@ -117,4 +124,14 @@ export async function seedMinistryMembers(
   }
 
   return count;
+}
+
+if (require.main === module) {
+  runSeed('miembros de ministerio', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const ministries = await loadMinistriesByName(prisma, church.id);
+    const members = await loadMembersByName(prisma, church.id);
+    const count = await seedMinistryMembers(prisma, ministries, members);
+    console.log(`Miembros de ministerio seedeados: ${count}`);
+  });
 }

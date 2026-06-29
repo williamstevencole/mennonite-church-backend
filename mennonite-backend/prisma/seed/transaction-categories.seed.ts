@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
+import { loadChurch, runSeed } from './_bootstrap';
+
 // PRD §6.6 — 13 categorias canonicas (5 ingreso + 8 gasto)
 const INCOME_CATEGORIES = [
   'Diezmos y Ofrendas',
@@ -55,4 +57,12 @@ export async function seedTransactionCategories(
           });
     }),
   );
+}
+
+if (require.main === module) {
+  runSeed('categorías de transacción', async (prisma) => {
+    const church = await loadChurch(prisma);
+    await seedTransactionCategories(prisma, church.id);
+    console.log(`Para "${church.name}".`);
+  });
 }

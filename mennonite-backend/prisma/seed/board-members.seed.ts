@@ -1,5 +1,12 @@
 import { Board, Member, PrismaClient } from '@prisma/client';
 
+import {
+  loadActiveBoard,
+  loadChurch,
+  loadMembersByName,
+  runSeed,
+} from './_bootstrap';
+
 const DEMO_BOARD_MEMBERS = [
   { memberName: 'Oscar Martinez', roleName: 'Pastor' },
   { memberName: 'Oscar Martinez', roleName: 'Presidente' },
@@ -62,4 +69,14 @@ export async function seedBoardMembers(
   }
 
   return count;
+}
+
+if (require.main === module) {
+  runSeed('miembros del concilio', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const board = await loadActiveBoard(prisma, church.id);
+    const members = await loadMembersByName(prisma, church.id);
+    const count = await seedBoardMembers(prisma, board, members);
+    console.log(`Miembros del concilio seedeados: ${count}`);
+  });
 }

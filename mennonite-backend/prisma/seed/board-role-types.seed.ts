@@ -1,5 +1,7 @@
 import { Board, PrismaClient } from '@prisma/client';
 
+import { loadActiveBoard, loadChurch, runSeed } from './_bootstrap';
+
 // PRD §6.4 — cargos del concilio (pastorales + administrativos)
 const BOARD_ROLE_TYPE_NAMES = [
   // Pastorales
@@ -42,4 +44,13 @@ export async function seedBoardRoleTypes(
       },
     });
   }
+}
+
+if (require.main === module) {
+  runSeed('tipos de rol de concilio', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const board = await loadActiveBoard(prisma, church.id);
+    await seedBoardRoleTypes(prisma, board);
+    console.log(`Para "${board.name}".`);
+  });
 }

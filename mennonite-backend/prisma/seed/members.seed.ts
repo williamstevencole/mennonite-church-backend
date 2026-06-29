@@ -1,5 +1,7 @@
 import { Member, PrismaClient } from '@prisma/client';
 
+import { loadChurch, runSeed } from './_bootstrap';
+
 const DEMO_MEMBERS = [
   {
     name: 'Oscar Martinez',
@@ -208,4 +210,12 @@ export async function seedMembers(
   }
 
   return membersByName;
+}
+
+if (require.main === module) {
+  runSeed('miembros', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const members = await seedMembers(prisma, church.id);
+    console.log(`Miembros seedeados: ${members.size}`);
+  });
 }

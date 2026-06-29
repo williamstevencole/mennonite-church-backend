@@ -1,5 +1,7 @@
 import { Member, PrismaClient } from '@prisma/client';
 
+import { loadChurch, loadMembersByName, runSeed } from './_bootstrap';
+
 type EventDetailSeed = {
   eventTitle: string;
   responsibleMemberNames: string[];
@@ -162,4 +164,15 @@ export async function seedEventDetails(
   }
 
   return { responsibles, attendances, trips, fundraisings };
+}
+
+if (require.main === module) {
+  runSeed('detalles de evento', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const members = await loadMembersByName(prisma, church.id);
+    const counts = await seedEventDetails(prisma, church.id, members);
+    console.log(
+      `responsables=${counts.responsibles}, asistencias=${counts.attendances}, viajes=${counts.trips}, recaudaciones=${counts.fundraisings}`,
+    );
+  });
 }

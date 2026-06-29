@@ -1,5 +1,7 @@
 import { City, Department, PrismaClient } from '@prisma/client';
 
+import { loadDepartmentsByName, runSeed } from './_bootstrap';
+
 const CITIES_BY_DEPARTMENT: Record<string, string[]> = {
   Atlántida: [
     'Arizona',
@@ -336,8 +338,16 @@ export async function seedCities(
   prisma: PrismaClient,
   departmentsByName: Map<string, Department>,
 ): Promise<Map<string, City>> {
-  const citiesByName = new Map<string, City>();
+  const departmentIds = [...departmentsByName.values()].map((d) => d.id);
 
+  const existing = await prisma.city.findMany({
+    where: { idDepartment: { in: departmentIds } },
+  });
+  const existingKeys = new Set(
+    existing.map((c) => `${c.idDepartment}:${c.name}`),
+  );
+
+  const toCreate: { name: string; idDepartment: number }[] = [];
   for (const [departmentName, cityNames] of Object.entries(
     CITIES_BY_DEPARTMENT,
   )) {
@@ -345,19 +355,46 @@ export async function seedCities(
     if (!department) {
       throw new Error(`Departamento no encontrado en seed: ${departmentName}`);
     }
-
     for (const name of cityNames) {
-      const existing = await prisma.city.findFirst({
-        where: { name, idDepartment: department.id },
-      });
-      const city = existing
-        ? existing
-        : await prisma.city.create({
-            data: { name, idDepartment: department.id },
-          });
-      citiesByName.set(city.name, city);
+      if (!existingKeys.has(`${department.id}:${name}`)) {
+        toCreate.push({ name, idDepartment: department.id });
+      }
+    }
+  }
+
+  if (toCreate.length > 0) {
+    console.log(`  Insertando ${toCreate.length} ciudades nuevas...`);
+    await prisma.city.createMany({ data: toCreate });
+  } else {
+    console.log('  Sin ciudades nuevas — todas ya existen.');
+  }
+
+  const allCities = await prisma.city.findMany({
+    where: { idDepartment: { in: departmentIds } },
+  });
+  const cityByCompoundKey = new Map(
+    allCities.map((c) => [`${c.idDepartment}:${c.name}`, c]),
+  );
+
+  const citiesByName = new Map<string, City>();
+  for (const [departmentName, cityNames] of Object.entries(
+    CITIES_BY_DEPARTMENT,
+  )) {
+    const department = departmentsByName.get(departmentName);
+    if (!department) continue;
+    for (const name of cityNames) {
+      const city = cityByCompoundKey.get(`${department.id}:${name}`);
+      if (city) citiesByName.set(name, city);
     }
   }
 
   return citiesByName;
+}
+
+if (require.main === module) {
+  runSeed('ciudades', async (prisma) => {
+    const departmentsByName = await loadDepartmentsByName(prisma);
+    const cities = await seedCities(prisma, departmentsByName);
+    console.log(`Ciudades seedeadas: ${cities.size}`);
+  });
 }

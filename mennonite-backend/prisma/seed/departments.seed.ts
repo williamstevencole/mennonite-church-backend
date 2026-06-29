@@ -1,5 +1,7 @@
 import { Department, PrismaClient } from '@prisma/client';
 
+import { runSeed } from './_bootstrap';
+
 const DEPARTMENTS = [
   'Atlántida',
   'Choluteca',
@@ -35,4 +37,11 @@ export async function seedDepartments(
   }
 
   return departmentsByName;
+}
+
+if (require.main === module) {
+  runSeed('departamentos', async (prisma) => {
+    const departments = await seedDepartments(prisma);
+    console.log(`Departamentos seedeados: ${departments.size}`);
+  });
 }

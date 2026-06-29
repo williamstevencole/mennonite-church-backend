@@ -1,5 +1,7 @@
 import { Budget, PrismaClient } from '@prisma/client';
 
+import { loadChurch, runSeed } from './_bootstrap';
+
 const CURRENT_YEAR = new Date().getFullYear();
 const SEED_YEARS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR];
 
@@ -165,4 +167,14 @@ export async function seedBudgets(
   }
 
   return { current, all, byYear };
+}
+
+if (require.main === module) {
+  runSeed('presupuestos', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const { all, byYear } = await seedBudgets(prisma, church.id);
+    console.log(
+      `Presupuestos: ${all.length} (años ${[...byYear.keys()].sort().join(', ')})`,
+    );
+  });
 }

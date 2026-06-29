@@ -1,5 +1,7 @@
 import { Permission, PrismaClient, UserRole } from '@prisma/client';
 
+import { loadChurch, runSeed } from './_bootstrap';
+
 const BASIC_ROLES = [
   { name: 'Administrador', description: 'Acceso total al sistema' },
   { name: 'Pastor', description: 'Gestion pastoral y supervision' },
@@ -478,4 +480,17 @@ export async function seedRolesAndPermissions(
   );
 
   return { rolesByName, permissionsByCode };
+}
+
+if (require.main === module) {
+  runSeed('roles y permisos', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const { rolesByName, permissionsByCode } = await seedRolesAndPermissions(
+      prisma,
+      church.id,
+    );
+    console.log(
+      `Roles: ${rolesByName.size}, Permisos: ${permissionsByCode.size}`,
+    );
+  });
 }

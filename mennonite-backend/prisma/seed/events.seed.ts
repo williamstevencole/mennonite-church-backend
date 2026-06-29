@@ -1,5 +1,7 @@
 import { Ministry, PrismaClient } from '@prisma/client';
 
+import { loadChurch, loadMinistriesByName, runSeed } from './_bootstrap';
+
 const YEAR = new Date().getFullYear();
 
 type EventSeed = {
@@ -141,4 +143,13 @@ export async function seedEvents(
       await prisma.event.create({ data: payload });
     }
   }
+}
+
+if (require.main === module) {
+  runSeed('eventos', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const ministries = await loadMinistriesByName(prisma, church.id);
+    await seedEvents(prisma, church.id, ministries);
+    console.log(`Para "${church.name}".`);
+  });
 }

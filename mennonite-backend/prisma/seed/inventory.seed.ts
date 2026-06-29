@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
+import { loadAdminUser, loadChurch, runSeed } from './_bootstrap';
+
 type ArticleSeed = {
   code: string;
   name: string;
@@ -106,4 +108,15 @@ export async function seedInventory(
   }
 
   return { articles, movements };
+}
+
+if (require.main === module) {
+  runSeed('inventario', async (prisma) => {
+    const church = await loadChurch(prisma);
+    const admin = await loadAdminUser(prisma, church.id);
+    const counts = await seedInventory(prisma, church.id, admin.id);
+    console.log(
+      `artículos=${counts.articles}, movimientos=${counts.movements}`,
+    );
+  });
 }
